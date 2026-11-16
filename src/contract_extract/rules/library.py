@@ -197,6 +197,21 @@ def rule_duration(doc, sentences):
         # distance purchase), not the agreement's term.
         if re.search(r"\bcooling[- ]?off\s+period\b", lower):
             continue
+        # "Fixed term deposits shall be offered for a minimum period of 6
+        # months" and "The bank guarantee shall remain in force for a period
+        # of 12 months" describe the lifetime of a banking / financial
+        # product (deposit, bank guarantee), not the agreement's term.
+        # Genuine agreement terms ("the term of this Agreement shall be for
+        # a period of 2 years", fixture line 40) still fire.
+        if re.search(
+            r"\bfixed[- ]?term\s+deposits?\b[^.]{0,40}\b(?:period|term)\b"
+            r"|\bbank\s+guarantee\b[^.]{0,45}"
+            r"\b(?:period|term|in\s+force)\b"
+            r"|\b(?:period|term|in\s+force)\b[^.]{0,45}"
+            r"\bbank\s+guarantee\b",
+            lower,
+        ):
+            continue
         m = _DUR_PAT1.search(sentence) or _DUR_PAT4.search(sentence) or _DUR_PAT5.search(sentence)
         if not m:
             continue
@@ -720,6 +735,20 @@ def rule_penalty(doc, sentences):
             lower,
         ):
             continue
+        # "A penalty of 3 points shall be deducted from the licence for the
+        # traffic violation" is an administrative demerit-points sanction on a
+        # licence (points deducted), not a contractual default penalty for a
+        # breach.
+        if re.search(
+            r"\bpenalt\w*\b[^.]{0,40}(?:\b\d+\s+)?\bpoints?\b"
+            r"|\b(?:demerit|points?)\b[^.]{0,45}\bpenalt\w*\b",
+            lower,
+        ) and re.search(
+            r"\b(?:licen[cs]e|permit|registration|parking|traffic|driver|"
+            r"speeding|offen[cs]e|violation|conviction|endorsement\w*)\b",
+            lower,
+        ):
+            continue
         pct = _PERCENT_RE.search(sentence)
         amount = _AMOUNT_RE.search(sentence)
         risk = RiskLevel.MEDIUM
@@ -887,6 +916,40 @@ def rule_liability(doc, sentences):
                     lower,
                 ):
             continue
+        # "Contributory negligence by the Buyer shall reduce the Seller's
+        # liability" applies a tort doctrine of comparative/apportionment of
+        # fault (both word orders) — it states how a court shares damages,
+        # not an agreed cap, disclaimer or exclusion.  Genuine caps and
+        # disclaimers still fire.
+        if re.search(
+            r"\b(?:contributory\s+negligence|comparative\s+fault)\b[^.]{0,45}"
+            r"\bliability\b"
+            r"|\bliability\b[^.]{0,45}"
+            r"\b(?:contributory\s+negligence|comparative\s+fault)\b",
+            lower,
+        ):
+            continue
+        # "Liability shall be determined in accordance with the law of the
+        # place of the harmful event" is a conflicts-of-law / lex loci rule
+        # naming which legal system resolves the claim (tort), not an agreed
+        # cap, disclaimer or exclusion.  Genuine caps and disclaimers still
+        # fire.
+        if re.search(
+            r"\bliability\b[^.]{0,55}"
+            r"\b(?:determin\w*|govern\w*|assess\w*|appli(?:es|ed)|shall\s+be\s+"
+            r"(?:determined|governed|assessed))\b[^.]{0,55}"
+            r"\b(?:in\s+accordance\s+with|pursuant\s+to)\b[^.]{0,55}"
+            r"\blaw\b"
+            r"|\bliability\b[^.]{0,55}"
+            r"\bgovern\w*\s+by\b[^.]{0,55}\blex\s+loci\b",
+            lower,
+        ) and re.search(
+            r"\b(?:law\s+of\s+(?:the\s+)?(?:place|country|forum)|"
+            r"law\s+of\s+the\s+(?:place\s+of\s+)?(?:harmful\s+event|wrong|tort)|"
+            r"lex\s+loci\b)\b",
+            lower,
+        ):
+            continue
         amount = _AMOUNT_RE.search(sentence)
         pct = _PERCENT_RE.search(sentence)
 
@@ -1052,6 +1115,18 @@ def rule_ip(doc, sentences):
             r"\b(?:warrant\w*|represents?\b|undertake\w*|acknowledges?)\b"
             r"[^.]{0,60}\b(?:not\s+|no\s+)?infring\w*\b[^.]{0,40}"
             r"\b(?:third[- ]?part\w*|third\s+part\w*)\b",
+            lower,
+        ):
+            continue
+        # "The Supplier shall indemnify the Customer against third party
+        # infringement of intellectual property" is an indemnity against
+        # third-party IP claims — it allocates risk for infringement suits,
+        # not a transfer, grant or ownership clause about the parties' own
+        # IP.  Genuine assignments and licence grants still fire.
+        if re.search(
+            r"\bindemnif\w*\b[^.]{0,80}"
+            r"\b(?:infring\w*|infringement\w*)\b[^.]{0,40}"
+            r"\bintellectual\s+property\b",
             lower,
         ):
             continue
@@ -1423,6 +1498,26 @@ def rule_exclusivity(doc, sentences):
             lower,
         ):
             continue
+        # "The trust estate shall be held for the exclusive benefit of the
+        # beneficiaries" is a fiduciary/trust obligation (assets for the
+        # beneficiaries' benefit) and "The documents shall be used
+        # exclusively for the evaluation of the tender" is an adverbial
+        # restriction on use — neither grants market exclusivity.  Both word
+        # orders are covered; a genuine "exclusive right to sell" still
+        # fires.
+        if re.search(
+            r"\bexclusive(?:ly)?\b[^.]{0,40}"
+            r"\b(?:benefit\w*|use\w*|purpose\w*|evaluat\w*)\b"
+            r"|\b(?:benefit\w*|use\w*|purpose\w*|evaluat\w*)\b[^.]{0,40}"
+            r"\bexclusive(?:ly)?\b",
+            lower,
+        ) and re.search(
+            r"\b(?:beneficiar\w*|trust\b|trustee\w*|estate\b|"
+            r"tender\b|quotation\w*|documents?\b|evaluation\w*|"
+            r"materials?\b|purpose\w*)\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.MEDIUM
         flag = "exclusivity clause"
         dur = _DURATION_RE.search(sentence)
@@ -1611,6 +1706,23 @@ def rule_insurance(doc, sentences):
                 r"\b(?:medical|health|dental|life|disability|travel|vision|"
                 r"accident|group)\s+insurance\b[^.]{0,35}"
                 r"\b(?:employe\w*|staff\b|worker\w*|personnel\b)\b",
+                lower,
+            ):
+                continue
+            # "Directors and Officers liability insurance shall be procured by
+            # the Company for its officers" is a company-funded governance /
+            # benefit policy protecting the company's own management — an
+            # internal corporate matter, not an inter-party coverage
+            # obligation.  Genuine coverage obligations still fire.
+            if re.search(
+                r"\b(?:directors?\s+and\s+officers?|d\s*&\s*o)\b",
+                lower,
+            ) and re.search(
+                r"\bliability\s+insurance\b",
+                lower,
+            ) and re.search(
+                r"\b(?:procure\w*|obtain\w*|purchase\w*|maintain\w*|carry|"
+                r"tak(?:e|ing|en)\s+out)\b",
                 lower,
             ):
                 continue

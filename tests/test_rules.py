@@ -1435,3 +1435,121 @@ def test_prohibited_by_law_carveout_not_a_cap():
         ["The aggregate liability of each party shall not exceed USD 1,000,000."]
     ) if c.clause == "liability_cap"]
     assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_fixed_deposit_instrument_lifetime_not_a_duration():
+    # "Fixed term deposits ... for a minimum period of 6 months" and "bank
+    # guarantee ... in force for a period of 12 months" describe the lifetime
+    # of a banking/financial product, not the agreement's term.  A genuine
+    # agreement term still fires.
+    for sentence in [
+        "Fixed term deposits shall be offered for a minimum period of 6 months.",
+        "The bank guarantee shall remain in force for a period of 12 months.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "duration"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["This Agreement shall remain in effect for a period of 3 years from the Effective Date."]
+    ) if c.clause == "duration"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_fiduciary_and_adverbial_exclusivity_not_a_market_grant():
+    # "for the exclusive benefit of the beneficiaries" is a fiduciary/trust
+    # obligation and "used exclusively for the evaluation" is an adverbial
+    # use restriction — neither grants market exclusivity.  A genuine
+    # "exclusive right to sell" still fires.
+    for sentence in [
+        "The trust estate shall be held for the exclusive benefit of the beneficiaries.",
+        "The documents shall be used exclusively for the evaluation of the tender.",
+        "The funds shall be applied exclusively for the purposes of the project.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "exclusivity"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Seller shall have the exclusive right to sell the Products in the Territory."]
+    ) if c.clause == "exclusivity"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_officers_dando_insurance_not_a_coverage_obligation():
+    # D&O liability insurance procured for the company's own directors and
+    # officers is an internal governance/benefit policy — not an inter-party
+    # coverage obligation.  A genuine professional indemnity obligation still
+    # fires.
+    for sentence in [
+        "Directors and Officers liability insurance shall be procured by the Company for its officers.",
+        "The Corporation shall obtain D&O liability insurance for its management team.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "insurance"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Supplier shall maintain professional indemnity insurance for the term of this Agreement."]
+    ) if c.clause == "insurance"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_infringement_indemnity_not_an_ip_transfer():
+    # "indemnify ... against third party infringement of intellectual
+    # property" allocates risk for third-party IP claims — it does not
+    # transfer, grant or own the parties' IP.  Genuine IP assignments still
+    # fire.
+    for sentence in [
+        "The Supplier shall indemnify the Customer against third party infringement of intellectual property.",
+        "The Contractor shall indemnify the Client against any infringement of third-party IP caused by the Works.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "ip"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["All inventions created during employment are assigned to the employer."]
+    ) if c.clause == "ip"]
+    assert clauses and clauses[0].risk.value == "HIGH"
+
+
+def test_contributory_negligence_not_a_cap():
+    # Contributory-negligence / comparative-fault apportionment shares damages
+    # between the parties under tort doctrine — it is not an agreed cap,
+    # disclaimer or exclusion.  A genuine cap still fires.
+    for sentence in [
+        "Contributory negligence by the Buyer shall reduce the Seller's liability in proportion.",
+        "Comparative fault shall reduce the liability of the party at fault.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "liability_cap"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The aggregate liability of each party shall not exceed USD 1,000,000."]
+    ) if c.clause == "liability_cap"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_lex_loci_choice_of_law_not_a_cap():
+    # "Liability ... determined in accordance with the law of the place of
+    # the harmful event" is a conflicts-of-law rule naming the forum's law —
+    # not an agreed cap, disclaimer or exclusion.  A genuine cap still fires.
+    for sentence in [
+        "Liability shall be determined in accordance with the law of the place of the harmful event.",
+        "The liability of the parties shall be governed by lex loci delicti.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "liability_cap"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The aggregate liability of each party shall not exceed USD 1,000,000."]
+    ) if c.clause == "liability_cap"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_demerit_points_penalty_not_a_contract_penalty():
+    # "A penalty of 3 points shall be deducted from the licence" is an
+    # administrative demerit-points sanction on a licence — not a contractual
+    # default penalty for a breach.  A quantified late-payment penalty still
+    # fires.
+    for sentence in [
+        "A penalty of 3 points shall be deducted from the licence for the traffic violation.",
+        "The court imposed a penalty of 2 points on the driver's licence.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "penalty"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Contractor shall pay a penalty of USD 1,000 per day for each day of delay."]
+    ) if c.clause == "penalty"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
