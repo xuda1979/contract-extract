@@ -533,3 +533,40 @@ def test_negated_transfer_not_a_data_transfer():
         ["Any data transferred outside the EEA requires appropriate safeguards."]
     ) if c.clause == "data_protection"]
     assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_domain_or_subscription_renewal_not_a_contract_renewal():
+    # "renewal of the domain name registration / subscription / membership" is
+    # an account or registration renewal, not a renewal provision for the
+    # agreement itself.
+    for sentence in [
+        "Renewal of the domain name registration shall be the responsibility of the customer.",
+        "Charges will be applied to any renewal of the subscription.",
+        "The membership renews each year unless the member cancels.",
+        "The parties shall pay the renewal fee for the permit before its expiry.",
+        "Hosting services renew automatically each month unless cancelled.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "renewal"]
+        assert clauses == [], sentence
+    # A genuine agreement-term renewal still fires.
+    clauses = [c for c in _clauses(
+        ["This SaaS Subscription renews automatically each month unless the customer cancels with notice of 30 days."]
+    ) if c.clause == "renewal"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_insurance_policy_renewal_not_an_insurance_obligation():
+    # "the insurance policy renews annually" is a policy-admin renewal mention,
+    # not a coverage obligation (and not an agreement renewal either).
+    for sentence in [
+        "The insurance policy renews annually on the anniversary date.",
+        "The policy may be renewed upon payment of the annual premium.",
+        "The parties shall arrange renewal of the insurance policy before expiry.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause in ("insurance", "renewal")]
+        assert clauses == [], sentence
+    # A genuine coverage obligation still fires.
+    clauses = [c for c in _clauses(
+        ["Provider shall carry professional indemnity insurance throughout the term."]
+    ) if c.clause == "insurance"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"

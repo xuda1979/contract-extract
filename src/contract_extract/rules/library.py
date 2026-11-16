@@ -820,7 +820,25 @@ def rule_renewal(doc, sentences):
             r"\bapply(?:\s+for\s+(?:a\s+|the\s+)?|ing\s+for\s+(?:a\s+|the\s+)?)"
             r"(?:renewal|a\s+renewal|the\s+renewal)\s+of\b"
             r"|\b(?:renewal|a\s+renewal|the\s+renewal)\s+of\s+(?:the\s+|this\s+)?"
+            r"(?:licen[cs]e|licens\w+|permit|registration|visa|passport|endorsement|patent|trademark)\b"
+            r"|\brenewal\s+fee(?:s)?\s+for\s+(?:the\s+|a\s+|this\s+)?"
             r"(?:licen[cs]e|licens\w+|permit|registration|visa|passport|endorsement|patent|trademark)\b",
+            lower,
+        ):
+            continue
+        # "renewal of the domain name registration / subscription / policy" and
+        # "the insurance policy renews annually" are renewals of accounts,
+        # registrations or policies — not of the agreement itself.  "This SaaS
+        # Subscription renews automatically" stays a genuine term renewal, so the
+        # verb form is not suppressed for subscription.
+        if re.search(
+            r"\b(?:renewal|a\s+renewal|the\s+renewal)\s+of\s+(?:the\s+|this\s+)?"
+            r"(?:domain\s+name|registration|subscription|membership|hosting|"
+            r"insurance\s+policy|policy|account)\b"
+            r"|\b(?:domain\s+name|membership|hosting|registration|account|"
+            r"insurance\s+policy|policy)\b[^.]{0,35}\brenew(?:al|s|ing|ed)?\b"
+            r"|\brenew(?:al|s|ing|ed)?\b[^.]{0,35}\b(?:domain\s+name|membership|hosting|"
+            r"registration|account|insurance\s+policy|policy)\b",
             lower,
         ):
             continue
@@ -1021,6 +1039,15 @@ def rule_insurance(doc, sentences):
                         r"includ\w*|provid\w*|obtain\w*|tak(?:e|en)\s+out)\b[^.]{0,60}\binsurance\b",
                         lower,
                     ):
+                continue
+            # "the insurance policy renews / renewal of the insurance policy" is a
+            # policy-admin renewal mention, not a coverage obligation at all.
+            if re.search(
+                r"\b(?:renew\w*|expir\w*|terminat\w*)\b[^.]{0,40}\binsurance\s+policy\b"
+                r"|\binsurance\s+policy\b[^.]{0,40}\b(?:renew\w*|expir\w*|terminat\w*)\b"
+                r"|\brenewal\s+of\s+(?:the\s+|a\s+|this\s+)?insurance\s+policy\b",
+                lower,
+            ):
                 continue
             flag = "insurance requirement"
             risk = RiskLevel.LOW
