@@ -397,6 +397,23 @@ def rule_penalty(doc, sentences):
             "delay damages", "damages for delay",
         )):
             continue
+        # Negated penalty statements ("no penalty shall apply", "penalties do
+        # not apply", "not be subject to any penalty") must not fire the
+        # clause.  A cap ("no penalty shall exceed X") is NOT a negation — the
+        # penalty is still risk-relevant.
+        if re.search(
+            r"\b(?:no|not|without|neither)\b[^.]{0,60}"
+            r"\b(?:penalty|penalties|liquidated damages|default damages|breach fee|"
+            r"late fee|delay damages|damages for delay)\b[^.]{0,30}"
+            r"\b(?:appl(?:y|ies|ied)|impos(?:e|ed|es)|charge[ds]?|incurr?|assess(?:ed)?|payable|liable)\b"
+            r"|\b(?:penalty|penalties|liquidated damages)\b[^.]{0,30}"
+            r"\b(?:does\s+not|do\s+not|shall\s+not|will\s+not)\s+apply\b"
+            r"|\b(?:not|no|neither|without)\b[^.]{0,50}\bsubject\b[^.]{0,30}"
+            r"\b(?:to\s+)?(?:any\s+)?(?:penalty|penalties|liquidated damages|default damages|"
+            r"breach fee|late fee|late payment|delay damages|damages for delay)\b",
+            lower,
+        ):
+            continue
         pct = _PERCENT_RE.search(sentence)
         amount = _AMOUNT_RE.search(sentence)
         risk = RiskLevel.MEDIUM

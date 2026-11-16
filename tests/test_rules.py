@@ -107,6 +107,29 @@ def test_non_exclusive_not_fired():
     assert clauses == []
 
 
+def test_negated_penalty_not_fired():
+    clauses = [c for c in _clauses(
+        ["No penalty shall apply in the event of delay."]
+    ) if c.clause == "penalty"]
+    assert clauses == []
+
+
+def test_negated_subject_to_penalty_not_fired():
+    clauses = [c for c in _clauses(
+        ["Any party failing to notify the other within 10 days shall not be subject to any penalty."]
+    ) if c.clause == "penalty"]
+    assert clauses == []
+
+
+def test_penalty_cap_not_treated_as_negation():
+    # "No penalty shall exceed X" is a cap, not a negation: the penalty is
+    # still risk-relevant and must fire.
+    clauses = [c for c in _clauses(
+        ["No penalty shall exceed 5% of the contract price."]
+    ) if c.clause == "penalty"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
 def test_exclusive_5_years_is_high():
     clauses = [c for c in _clauses(
         ["This Agreement includes an exclusive license grant to Licensee for a period of 6 years."]
