@@ -329,6 +329,12 @@ def rule_acceptance(doc, sentences):
                                         "acceptance inspection", "acceptance test",
                                         "to inspect", "to accept", "inspect and")):
             continue
+        # Negated acceptance requirements ("no acceptance inspection is
+        # required") make the acceptance machinery optional — not a clause.
+        if re.search(r"\b(?:no|not|without|neither)\b[^.]{0,40}"
+                     r"\b(?:acceptance|inspection)\b[^.]{0,30}"
+                     r"\b(?:required?|necessary|needed|applicable|applies?)\b", lower):
+            continue
         within = re.search(r"\bwithin\s+(\d+)\s*(?:working|business)?\s*days?\b", lower)
         window = re.search(r"\b(\d+)\s*(?:business|working)?\s*days?\s+(?:to|in\s+which\s+to)\s+(?:inspect|accept|complete)", lower)
         risk = RiskLevel.LOW
@@ -612,6 +618,9 @@ def rule_ip(doc, sentences):
         # A "license agreement" heading should not produce an IP-risk clause by itself.
         if re.match(r"^(this\s+)?(software\s+|end[- ]user\s+)?license\w*\s+(agreement|terms)", lower):
             continue
+        # "licensed premises" (alcohol / gaming permits) licenses a place, not IP.
+        if re.search(r"\blicen[cs]ed\s+premises\b", lower):
+            continue
         risk = RiskLevel.LOW
         flag = None
         detail = None
@@ -627,7 +636,11 @@ def rule_ip(doc, sentences):
         elif re.search(r"\bretain(s|ing)?\s+(all\s+)?(ownership|title|rights)\b|\bremain(s|ing)?\s+the\s+property\b|\bbelongs\s+to\b", lower):
             risk = RiskLevel.LOW
             flag = "each party retains ownership"
-        elif re.search(r"\b(licens|licenc)", lower):
+        elif re.search(
+            r"\b(?:grants?|granted)\b[^.]{0,45}\blicen[cs]e\b"
+            r"|\blicen[cs]e[ds]?\b[^.]{0,45}\b(?:grants?|granted|rights?\s+to\s+use|to\s+use|permission)\b",
+            lower,
+        ):
             risk = RiskLevel.MEDIUM
             flag = "IP licence granted"
             detail = "licence terms"
@@ -651,6 +664,15 @@ def rule_renewal(doc, sentences):
                                         "auto renews", "renews")):
             continue
         if re.search(r"\b(no|not|shall\s+not|without)\s+(?:automatic\s+)?(?:renewal|renew|renewing)\b|does\s+not\s+renew|will\s+not\s+renew|no\s+auto", lower):
+            continue
+        # "renewable energy sources" — a resource adjective, not a contract
+        # renewal provision.
+        if re.search(r"\brenewable\s+(?:energy|sources?|resources?|power|technologies?|means?)\b", lower):
+            continue
+        # A denied right to renew ("shall have no right to renew") is an express
+        # non-renewal, not a renewal risk.
+        if re.search(r"\b(?:no|not|without)\b[^.]{0,30}\bright\s+to\s+renew\b", lower) \
+                or re.search(r"\bshall\s+not\s+have\s+(?:the\s+)?right\s+to\s+renew\b", lower):
             continue
         risk = RiskLevel.LOW
         flag = "renewal clause"
@@ -689,6 +711,12 @@ def rule_termination(doc, sentences):
         if not _TERM_CONTEXT.search(sentence):
             continue
         if re.search(r"\b(no termination|may not terminate|shall not terminate|cannot terminate)\b", lower):
+            continue
+        # A sub-provision sunset ("this clause shall terminate upon expiry of
+        # the warranty") is a schedule detail, not a party's right to terminate
+        # the agreement.  "This Agreement shall terminate…" still fires via the
+        # agreement-specific context in _TERM_CONTEXT.
+        if re.search(r"\bthis\s+(?:clause|section|provision|warranty|covenant|obligation|sublause|condition)\b[^.]{0,40}\bterminat", lower):
             continue
         risk = RiskLevel.LOW
         flag = "termination clause"
@@ -734,6 +762,11 @@ def rule_exclusivity(doc, sentences):
             continue
         if re.search(r"\b(no exclusivity|non-exclusive|not exclusive|without exclusivity|no exclusive)\b", lower):
             continue
+        # "exclusive of tax" / "exclusive of VAT" means "excluding", not an
+        # exclusivity grant; "exclusive jurisdiction" is a forum-selection
+        # clause, not a market-exclusivity term.
+        if re.search(r"\bexclusive\s+(?:of|jurisdiction)\b", lower):
+            continue
         risk = RiskLevel.MEDIUM
         flag = "exclusivity clause"
         dur = _DURATION_RE.search(sentence)
@@ -770,6 +803,14 @@ def rule_data_protection(doc, sentences):
             "data processing", "dpa", "standard contractual clauses", "customer data",
             "data subject", "processing of personal", "transfer", "transferred",
         )):
+            continue
+        # "transfer of shares / technology / assets / rights" is a corporate or
+        # asset transfer, not a personal-data transfer.
+        if re.search(
+            r"\btransfer(?:red)?\s+of\s+(?:shares?|stock|technology|assets?|funds?|"
+            r"rights?|ownership|title|property|bonds?|securities)\b",
+            lower,
+        ):
             continue
         risk = RiskLevel.LOW
         flag = "data protection clause"

@@ -167,3 +167,80 @@ def test_exclusive_5_years_is_high():
         ["This Agreement includes an exclusive license grant to Licensee for a period of 6 years."]
     ) if c.clause == "exclusivity"]
     assert clauses and clauses[0].risk.value == "HIGH"
+
+
+def test_renewable_energy_not_a_renewal():
+    # "renewable energy sources" is a resource adjective, not a contract
+    # renewal provision.
+    clauses = [c for c in _clauses(
+        ["The facility shall be powered by renewable energy sources."]
+    ) if c.clause == "renewal"]
+    assert clauses == []
+
+
+def test_denied_right_to_renew_not_fired():
+    # An express denial of a renewal right is a non-renewal statement, not a
+    # renewal risk.
+    clauses = [c for c in _clauses(
+        ["Licensee shall have no right to renew this Agreement."]
+    ) if c.clause == "renewal"]
+    assert clauses == []
+
+
+def test_exclusive_of_tax_not_an_exclusivity_grant():
+    # "exclusive of VAT" means "excluding VAT", not a market-exclusivity grant.
+    clauses = [c for c in _clauses(
+        ["The price is exclusive of VAT and other taxes."]
+    ) if c.clause == "exclusivity"]
+    assert clauses == []
+
+
+def test_exclusive_jurisdiction_not_an_exclusivity_grant():
+    # "exclusive jurisdiction" is a forum-selection clause, not market
+    # exclusivity.
+    clauses = [c for c in _clauses(
+        ["The courts of England shall have exclusive jurisdiction."]
+    ) if c.clause == "exclusivity"]
+    assert clauses == []
+
+
+def test_licensed_premises_not_an_ip_clause():
+    # "licensed premises" (alcohol / gaming permits) licenses a place, not IP.
+    clauses = [c for c in _clauses(
+        ["Sale of alcohol shall be confined to the licensed premises."]
+    ) if c.clause == "ip"]
+    assert clauses == []
+
+
+def test_transfer_of_shares_not_a_data_transfer():
+    # "transfer of shares" is a corporate/asset transfer, not personal data.
+    clauses = [c for c in _clauses(
+        ["The transfer of shares requires board approval."]
+    ) if c.clause == "data_protection"]
+    assert clauses == []
+
+
+def test_no_acceptance_inspection_required_not_fired():
+    # A negated acceptance requirement makes the machinery optional — not a
+    # clause.
+    clauses = [c for c in _clauses(
+        ["No acceptance inspection is required for packaging materials."]
+    ) if c.clause == "acceptance"]
+    assert clauses == []
+
+
+def test_subprovision_sunset_not_a_termination_right():
+    # "This clause shall terminate upon expiry of the warranty" is a schedule
+    # detail, not a party's right to terminate the agreement.
+    clauses = [c for c in _clauses(
+        ["This clause shall terminate upon the expiry of the warranty."]
+    ) if c.clause == "termination"]
+    assert clauses == []
+
+
+def test_agreement_termination_still_fires():
+    # The sunset guard must not swallow genuine agreement-level termination.
+    clauses = [c for c in _clauses(
+        ["This Agreement shall terminate on the expiry of the sponsorship period."]
+    ) if c.clause == "termination"]
+    assert clauses and clauses[0].risk.value == "LOW"
