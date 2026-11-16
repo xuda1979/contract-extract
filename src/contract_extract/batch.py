@@ -17,8 +17,13 @@ from contract_extract.schema import DocumentResult
 
 
 def iter_documents(paths: list[Path]) -> list[Path]:
-    """Expand directories into sorted pdf/docx file paths."""
+    """Expand directories into sorted pdf/docx file paths (deduplicated).
+
+    A file passed both directly and via its parent directory (or via two
+    directories) is returned once, so a batch never processes it twice.
+    """
     out: list[Path] = []
+    seen: set[str] = set()
     for p in paths:
         p = Path(p)
         if p.is_dir():
@@ -26,11 +31,17 @@ def iter_documents(paths: list[Path]) -> list[Path]:
                 [f for f in p.rglob("*") if f.suffix.lower() in (".pdf", ".docx")],
                 key=lambda f: str(f).lower(),
             )
-            out.extend(files)
         elif p.suffix.lower() in (".pdf", ".docx"):
-            out.append(p)
+            files = [p]
         else:
             print(f"skip: unsupported {p}", file=sys.stderr)
+            continue
+        for f in files:
+            key = os.path.normcase(str(f.resolve()))
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(f)
     return out
 
 

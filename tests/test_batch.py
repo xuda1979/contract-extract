@@ -23,6 +23,15 @@ def test_iter_documents_skips_unsupported(tmp_path):
     assert iter_documents([tmp_path]) == []
 
 
+def test_iter_documents_deduplicates_overlapping_paths(contract_dir):
+    # Same file given both directly and via its directory must be processed
+    # once — otherwise the NDJSON stream would hold duplicate documents.
+    f = contract_dir / "supply_agreement_clean.pdf"
+    corpus = iter_documents([contract_dir, f, f])
+    names = [p.name for p in corpus]
+    assert names.count("supply_agreement_clean.pdf") == 1
+
+
 def test_run_batch_streams_ndjson(contract_dir):
     out = io.StringIO()
     summary = run_batch([contract_dir / "supply_agreement_clean.pdf"], out)
