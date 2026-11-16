@@ -233,6 +233,17 @@ def rule_quantity(doc, sentences):
             lower,
         ):
             continue
+        # "distributed in 5 copies to the committee members" counts copies of
+        # a document produced, not a quantity of goods purchased.  A genuine
+        # count ("a total of 5 documents were exchanged") fired here before
+        # Round 2's daily-doc guard — copy counts of physical delivery in a
+        # distribution setting are procedural.
+        if re.search(
+            r"\bdistribut\w*\b[^.]{0,40}\b\d+(?:[.,]\d+)?\s+copies?\b"
+            r"|\b\d+(?:[.,]\d+)?\s+copies?\b[^.]{0,40}\bdistribut\w*\b",
+            lower,
+        ):
+            continue
         m = re.search(
             rf"\b{_NUMTOKEN}\s+units?\b"
             rf"|\b{_NUMTOKEN}\s+items?\b"
@@ -444,6 +455,16 @@ def rule_acceptance(doc, sentences):
             lower,
         ):
             continue
+        # "Acceptance of cash payments is at the sole discretion of the
+        # seller" is a payment-method statement, not a deliverables
+        # acceptance.  Genuine acceptance windows ("10 days to inspect and
+        # accept each deliverable") still fire.
+        if re.search(
+            r"\bacceptance\s+of\s+cash\s+payments?\b"
+            r"|\bacceptance\s+of\s+payments?\b[^.]{0,45}\bdiscretion\b",
+            lower,
+        ):
+            continue
         within = re.search(r"\bwithin\s+(\d+)\s*(?:working|business)?\s*days?\b", lower)
         window = re.search(r"\b(\d+)\s*(?:business|working)?\s*days?\s+(?:to|in\s+which\s+to)\s+(?:inspect|accept|complete)", lower)
         risk = RiskLevel.LOW
@@ -579,6 +600,19 @@ def rule_penalty(doc, sentences):
             lower,
         ):
             continue
+        # "Any penalty clause ... shall be void and unenforceable under
+        # applicable law" denies contractual validity of penalty clauses —
+        # a legal-enforceability statement, not a default penalty.  Genuine
+        # quantified penalties ("a late payment penalty of 2% per month") still
+        # fire.
+        if re.search(
+            r"\bpenalt\w*\b[^.]{0,45}"
+            r"\b(?:void|voidable|unenforce\w*|invalid\w*|not\s+enforce\w*|"
+            r"not\s+be\s+impos(?:ed|able))\b"
+            r"|\b(?:void|voidable|unenforce\w*|invalid\w*)\b[^.]{0,45}\bpenalt\w*\b",
+            lower,
+        ):
+            continue
         # "subject to prosecution and penalties under applicable law" and
         # "disciplinary penalties for breach of policy" are statutory or
         # disciplinary sanctions imposed by an authority — not contractual
@@ -711,6 +745,17 @@ def rule_liability(doc, sentences):
         if re.search(r"\bforce\s+majeure\b", lower):
             continue
         if re.search(r"\bliable\s+for\s+its\s+own\b", lower):
+            continue
+        # "the parties acknowledge that product liability for defective goods
+        # follows the manufacturer" restates a statutory allocation — no cap,
+        # disclaimer or exclusion is being agreed.  Genuine caps ("aggregate
+        # liability shall not exceed USD 1M") and disclaimers still fire.
+        if re.search(
+            r"\bproduct\s+liability\b[^.]{0,45}"
+            r"\b(?:defect\w*|manufacturer|consumer|statutory|"
+            r"shall\s+follow|rests?\s+with|remains?\s+with)\b",
+            lower,
+        ):
             continue
         amount = _AMOUNT_RE.search(sentence)
         pct = _PERCENT_RE.search(sentence)
@@ -974,6 +1019,21 @@ def rule_renewal(doc, sentences):
             lower,
         ):
             continue
+        # "review and renew the annual budget / the forecasts shall be
+        # reviewed and renewed" is an administrative planning cycle for
+        # financial documents, not a renewal of the agreement's term.  The
+        # guard requires "review(d) and renew(ed)" — a bare budget mention
+        # (fixture line 344 "Media buying budget shall not exceed USD
+        # 2,000,000") is untouched.
+        if re.search(
+            r"\breview(?:s|ed)?\s+and\s+renew(?:s|ed|al)?\b[^.]{0,45}"
+            r"\b(?:budget|forecasts?|plans?|projections?|targets?)\b"
+            r"|\b(?:budget|forecasts?|plans?|projections?|targets?)\b[^.]{0,45}"
+            r"\b(?:is|are|shall\s+be|will\s+be|to\s+be)?\s+review(?:s|ed)?\s+and\s+"
+            r"renew(?:s|ed|al)?\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.LOW
         flag = "renewal clause"
         if re.search(r"automatic|auto-renew|auto\s+renew|renews\s+automatically|renew\s+automatically|quarterly|automatically\s+renew", lower):
@@ -1123,6 +1183,16 @@ def rule_exclusivity(doc, sentences):
         if re.search(
             r"\bexclusive\s+rights?\s+of\s+use\b"
             r"|\bexclusive\s+right\w*\s+to\s+use\b",
+            lower,
+        ):
+            continue
+        # "exclusive right to demand repayment / appoint and remove the
+        # auditor" is a creditor or governance control right — not a market
+        # exclusivity grant to sell, license or distribute.  Genuine market
+        # rights ("exclusive right to sell" / "sole distributor") still fire.
+        if re.search(
+            r"\bexclusive\s+right\w*\s+to\s+(?:demand|appoint|remov\w*|dismiss|"
+            r"dispos\w*|redeem|resign|veto|elect|nominate)\b",
             lower,
         ):
             continue
@@ -1295,6 +1365,19 @@ def rule_insurance(doc, sentences):
             # is a payroll or statutory-deduction mention, not a negotiated
             # coverage obligation.
             if re.search(r"\binsurance\s+contributions?\b", lower):
+                continue
+            # "medical insurance to employees as part of their benefits
+            # package" is an employee-benefit perk, not an inter-party
+            # coverage obligation.  Genuine coverage obligations naming a
+            # policy type ("professional indemnity insurance") still fire.
+            if re.search(
+                r"\b(?:medical|health|dental|life|disability|travel|vision)\s+"
+                r"insurance\b[^.]{0,50}"
+                r"\b(?:benefits?\s+package|benefits?|perks?|employees?\s+as\s+part)\b"
+                r"|\b(?:benefits?\s+package|benefits?)\b[^.]{0,45}"
+                r"\binsurance\b",
+                lower,
+            ):
                 continue
             flag = "insurance requirement"
             risk = RiskLevel.LOW

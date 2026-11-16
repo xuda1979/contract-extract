@@ -973,3 +973,111 @@ def test_commercial_privacy_of_not_a_data_clause():
         ["Any data transferred outside the EEA requires appropriate safeguards."]
     ) if c.clause == "data_protection"]
     assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_discretionary_cash_acceptance_not_a_deliverables_clause():
+    # "Acceptance of cash payments is at the sole discretion of the seller"
+    # is a payment-method statement, not a deliverables acceptance.
+    for sentence in [
+        "Acceptance of cash payments is at the sole discretion of the seller.",
+        "Acceptance of payments shall be at the seller's sole discretion.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "acceptance"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Client shall have 10 days to inspect and accept each deliverable."]
+    ) if c.clause == "acceptance"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_review_and_renew_planning_not_a_term_renewal():
+    # "review and renew the annual budget / the forecasts shall be reviewed
+    # and renewed" is an administrative planning cycle, not a renewal of the
+    # agreement's term.
+    for sentence in [
+        "The parties shall review and renew the annual budget each October.",
+        "The forecasts shall be reviewed and renewed on a quarterly basis.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "renewal"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["This Agreement shall automatically renew for successive 1 year terms."]
+    ) if c.clause == "renewal"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_void_penalty_statement_not_a_penalty_clause():
+    # "Any penalty clause ... shall be void and unenforceable" is a
+    # legal-enforceability statement, not a default penalty.
+    for sentence in [
+        "Any penalty clause in this Agreement shall be void and unenforceable under applicable law.",
+        "Penalties that are void under applicable law shall not be imposed.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "penalty"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Interest shall accrue on all late payments at 2% per month."]
+    ) if c.clause == "penalty"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_benefits_package_insurance_not_a_coverage_obligation():
+    # "medical insurance to employees as part of their benefits package" is
+    # an employee-benefit perk, not an inter-party coverage obligation.
+    for sentence in [
+        "The Company shall provide medical insurance to employees as part of their benefits package.",
+        "Health insurance is part of the employee benefits package.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "insurance"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Supplier shall maintain professional indemnity insurance with limits of at least USD 1M."]
+    ) if c.clause == "insurance"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_statutory_product_liability_not_a_cap():
+    # "the parties acknowledge that product liability for defective goods
+    # follows the manufacturer" restates a statutory allocation — no cap,
+    # disclaimer or exclusion is agreed.
+    for sentence in [
+        "The parties acknowledge that product liability for defective goods follows the manufacturer.",
+        "Product liability for defective products rests with the manufacturer under statute.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "liability_cap"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Manufacturer's aggregate liability shall not exceed USD 5,000,000."]
+    ) if c.clause == "liability_cap"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_distributed_copies_not_a_committed_quantity():
+    # "distributed in 5 copies to the committee members" counts copies of a
+    # document distributed, not a committed quantity of goods.
+    for sentence in [
+        "The minutes of the meeting were distributed in 5 copies to the committee members.",
+        "The report was distributed in 12 copies to the reviewers.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "quantity"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Buyer shall purchase 10,000 units in the first year."]
+    ) if c.clause == "quantity"]
+    assert clauses
+
+
+def test_control_right_not_market_exclusivity():
+    # "exclusive right to demand repayment / appoint and remove the auditor"
+    # is a creditor or governance control right — not a market exclusivity
+    # grant.  An exclusive right to sell still fires.
+    for sentence in [
+        "The Lender shall have the exclusive right to demand repayment of the Loan at any time.",
+        "The Company shall have the exclusive right to appoint and remove the auditor.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "exclusivity"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Distributor is granted an exclusive right to sell the Products within the Territory."]
+    ) if c.clause == "exclusivity"]
+    assert clauses
