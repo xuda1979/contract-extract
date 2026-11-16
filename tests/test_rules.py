@@ -244,3 +244,43 @@ def test_agreement_termination_still_fires():
         ["This Agreement shall terminate on the expiry of the sponsorship period."]
     ) if c.clause == "termination"]
     assert clauses and clauses[0].risk.value == "LOW"
+
+
+def test_cancelled_without_penalty_not_fired():
+    # "may be cancelled without penalty" denies a penalty explicitly, the same
+    # way "no penalty shall apply" does.
+    clauses = [c for c in _clauses(
+        ["Up to 3 events may be cancelled without penalty."]
+    ) if c.clause == "penalty"]
+    assert clauses == []
+
+
+def test_deposit_as_placement_verb_not_a_payment_term():
+    # "shall deposit the goods at a warehouse" is placement, not payment.
+    clauses = [c for c in _clauses(
+        ["Buyer shall deposit the goods at the appointed warehouse within 5 days of arrival."]
+    ) if c.clause == "payment"]
+    assert clauses == []
+    # The noun form "Security deposit of USD 5,000" is still a payment term.
+    clauses = [c for c in _clauses(
+        ["The security deposit of USD 5,000 shall be refunded within 30 days of expiry."]
+    ) if c.clause == "payment"]
+    assert clauses and clauses[0].risk.value == "LOW"
+
+
+def test_legal_process_delivery_not_a_delivery_obligation():
+    # "deliver judgment/award" is a procedural deadline, not a goods/services
+    # delivery obligation.
+    clauses = [c for c in _clauses(
+        ["The court shall deliver its judgment within 3 months of the final hearing."]
+    ) if c.clause == "delivery"]
+    assert clauses == []
+    clauses = [c for c in _clauses(
+        ["The arbitral award shall be delivered within 30 days of the hearing."]
+    ) if c.clause == "delivery"]
+    assert clauses == []
+    # Genuine goods delivery still fires.
+    clauses = [c for c in _clauses(
+        ["Seller shall deliver the goods within 30 days of the purchase order."]
+    ) if c.clause == "delivery"]
+    assert clauses and clauses[0].risk.value == "LOW"

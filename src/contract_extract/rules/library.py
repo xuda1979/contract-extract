@@ -261,6 +261,20 @@ def rule_delivery(doc, sentences):
         lower = sentence.lower()
         if not _DELIVER_VERB.search(lower):
             continue
+        # Legal/institutional process deadlines ("deliver judgment/award/verdict/
+        # ruling", "notice of termination shall be delivered") are procedural,
+        # not a goods/services delivery obligation.  "deliver the goods" and date
+        # deadlines ("delivered by 30 June") still fire.
+        if re.search(
+            r"\bdeliver(?:s|ed|y)?\b[^.]{0,40}\b(?:judgment|judgement|award|verdict|ruling|"
+            r"decision|opinion|writ|notice\s+of\s+termination|notice\s+of\s+cancellation)\b"
+            r"|\b(?:judgment|judgement|award|verdict|ruling|decision|opinion|writ|"
+            r"notice\s+of\s+termination|notice\s+of\s+cancellation)\b[^.]{0,40}"
+            r"\bmust\s+be\s+delivered\b|\b(?:judgment|judgement|award|verdict|ruling|"
+            r"notice\s+of\s+termination|notice\s+of\s+cancellation)\b[^.]{0,40}\bshall\s+be\s+delivered\b",
+            lower,
+        ):
+            continue
         m = re.search(
             rf"\bwithin\s+({_NUMTOKEN})\s*(?:business|working|calendar)?\s*(day|week|month)s?\b"
             rf"|\bat\s+least\s+({_NUMTOKEN})\s+days?\s+before\b"
@@ -366,6 +380,22 @@ def rule_payment(doc, sentences):
             continue
         if any(k in lower for k in ("penalty", "liquidated damages", "breach fee")):
             continue
+        # "deposit" as a placement verb ("shall deposit the goods at a warehouse",
+        # "deposit this Agreement with solicitors") is not a payment term.
+        # "Security deposit of USD X" / "refundable deposit" (the noun form) is
+        # still a payment term and must fire.
+        if re.search(
+            r"\b(?:shall|will|must|to)\s+deposit\s+(?:the|any|such)\s+"
+            r"(?:goods?|equipment|product|products|merchandise|inventory|materials|"
+            r"property|assets?|documents?|agreement|contract|instrument)\b",
+            lower,
+        ) or re.search(
+            r"\bdeposits?\s+(?:the|any|such)\s+"
+            r"(?:goods?|equipment|product|products|merchandise|inventory|materials|"
+            r"property|assets?|documents?|agreement|contract|instrument)\b",
+            lower,
+        ):
+            continue
         # find a specific financial term
         pct = _PERCENT_RE.search(sentence)
         amount = _AMOUNT_RE.search(sentence)
@@ -440,7 +470,13 @@ def rule_penalty(doc, sentences):
             r"\b(?:does\s+not|do\s+not|shall\s+not|will\s+not)\s+apply\b"
             r"|\b(?:not|no|neither|without)\b[^.]{0,50}\bsubject\b[^.]{0,30}"
             r"\b(?:to\s+)?(?:any\s+)?(?:penalty|penalties|liquidated damages|default damages|"
-            r"breach fee|late fee|late payment|delay damages|damages for delay)\b",
+            r"breach fee|late fee|late payment|delay damages|damages for delay)\b"
+            r"|\b(?:cancelled?|canceled|terminated|withdrawn|amended|delayed|paid|"
+            r"renewed|extended|waived)\s+without\s+(?:any\s+)?"
+            r"(?:penalty|penalties|liquidated damages|default damages|breach fee|late fee)"
+            r"|\bwithout\s+(?:any\s+)?(?:penalty|penalties|liquidated damages)\b[^.]{0,30}"
+            r"\b(?:may|shall|will|can|could)\s+be\s+(?:cancelled?|canceled|terminated|"
+            r"withdrawn|paid|renewed)\b",
             lower,
         ):
             continue
