@@ -780,3 +780,29 @@ def test_product_coverage_renewal_not_a_term_renewal():
         ["This Agreement shall automatically renew for successive 1 year terms."]
     ) if c.clause == "renewal"]
     assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_integrity_reliance_and_sports_penalty_suppressed():
+    # "rely exclusively on the statements in this Agreement" is an
+    # entire-agreement / integrity clause and "granted exclusively to the
+    # Licensee's employees" is an adverbial restriction — neither grants
+    # market exclusivity.  A sports "penalty of 5 goals" is a game score,
+    # not a contractual default penalty.
+    for rule, sentence in [
+        ("exclusivity", "The Buyer may rely exclusively on the statements in this Agreement."),
+        ("exclusivity", "The parties placed exclusive reliance upon the representations made herein."),
+        ("exclusivity", "Use of the Software is granted exclusively to the Licensee's employees."),
+        ("penalty", "A penalty of 5 goals applies in the event of a tie."),
+        ("penalty", "The losing team pays a penalty of 3 points in the league table."),
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == rule]
+        assert clauses == [], f"{rule}: {sentence}"
+    # Genuine market exclusivity and quantified contractual penalties still fire.
+    clauses = [c for c in _clauses(
+        ["Distributor is granted an exclusive right to sell the Products within the Territory for the duration of the Agreement."]
+    ) if c.clause == "exclusivity"]
+    assert clauses and clauses[0].risk.value in ("MEDIUM", "HIGH")
+    clauses = [c for c in _clauses(
+        ["A penalty of EUR 500 per day applies to each late deliverable."]
+    ) if c.clause == "penalty"]
+    assert clauses and clauses[0].risk.value in ("MEDIUM", "HIGH")

@@ -564,6 +564,17 @@ def rule_penalty(doc, sentences):
             lower,
         ):
             continue
+        # A sports / contest "penalty" ("penalty of 5 goals in the event of a
+        # tie") is a game score, not a contractual default penalty.  Zero
+        # fixture lines use these terms (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bpenalt\w*\b[^.]{0,45}"
+            r"\b(?:goals?|tie|match|tournament|league|fixture|scor(?:e|ed|ing)|"
+            r"red\s+card|free\s+kick|touchdown|wickets?|overs?)\b",
+            lower,
+        ):
+            continue
         pct = _PERCENT_RE.search(sentence)
         amount = _AMOUNT_RE.search(sentence)
         risk = RiskLevel.MEDIUM
@@ -1011,6 +1022,22 @@ def rule_exclusivity(doc, sentences):
         # describe a remedy or a physical right, not market exclusivity.  An
         # "exclusive right to sell" / "exclusive license grant" still fires.
         if re.search(r"\bexclusive\s+(?:remedy|use|possession)\b", lower):
+            continue
+        # "rely exclusively on the statements" / "placed exclusive reliance
+        # upon" is an entire-agreement / integrity clause, and "granted
+        # exclusively to the Licensee's employees" is an adverbial
+        # restriction on who may use the works — neither grants market
+        # exclusivity.  An "exclusive license grant to Licensee" (fixture
+        # line 68) still fires.
+        if re.search(
+            r"\b(?:rely|relied|reliance)\b[^.]{0,30}\bexclusively\b"
+            r"|\bexclusively\b[^.]{0,30}\b(?:rely|relied|reliance)\b"
+            r"|\bexclusive\s+reliance\b"
+            r"|\bgranted\s+exclusively\s+to\s+(?:the\s+|this\s+)?"
+            r"(?:licensee's|licensor's|employee(?:s)?|contractor(?:s)?|staff|"
+            r"consultant(?:s)?|vendor(?:s)?|supplier(?:s)?)\b",
+            lower,
+        ):
             continue
         risk = RiskLevel.MEDIUM
         flag = "exclusivity clause"
