@@ -192,6 +192,11 @@ def rule_duration(doc, sentences):
             lower,
         ):
             continue
+        # "The cooling-off period shall be 14 days from the date of the
+        # order" is a statutory consumer-protection window (right to cancel a
+        # distance purchase), not the agreement's term.
+        if re.search(r"\bcooling[- ]?off\s+period\b", lower):
+            continue
         m = _DUR_PAT1.search(sentence) or _DUR_PAT4.search(sentence) or _DUR_PAT5.search(sentence)
         if not m:
             continue
@@ -689,6 +694,32 @@ def rule_penalty(doc, sentences):
             lower,
         ):
             continue
+        # "The Club shall pay a transfer penalty of EUR 5 million to the
+        # football association" is a sports-federation sanction on a club
+        # (transfer rules), not a default penalty for a contractual breach.
+        if re.search(
+            r"\btransfer\s+(?:fee|penalty)\b",
+            lower,
+        ) and re.search(
+            r"\b(?:club\b|football|soccer|federation|association|player\b|"
+            r"agent\b|transfer\s+window|fixtures?)\b",
+            lower,
+        ):
+            continue
+        # "An early withdrawal penalty of 3% of the principal shall apply to
+        # deposits withdrawn before maturity" is a banking product term (a
+        # CD / deposit early-withdrawal fee), not a default penalty for a
+        # contractual breach.
+        if re.search(
+            r"\bpenalt\w*\b[^.]{0,45}\bearly\s+withdraw\w*\b"
+            r"|\bearly\s+withdraw\w*\b[^.]{0,45}\bpenalt\w*\b",
+            lower,
+        ) and re.search(
+            r"\b(?:deposit\w*|principal|maturity|savings|account\b|bank\w*|"
+            r"certificate\s+of\s+deposit)\b",
+            lower,
+        ):
+            continue
         pct = _PERCENT_RE.search(sentence)
         amount = _AMOUNT_RE.search(sentence)
         risk = RiskLevel.MEDIUM
@@ -830,6 +861,31 @@ def rule_liability(doc, sentences):
             r"|\bliability\b[^.]{0,40}\bjoint\s+and\s+several\b",
             lower,
         ):
+            continue
+        # "Nothing in this clause creates strict liability for latent defects
+        # in the Goods" restates the strict-liability doctrine (tort) — it is
+        # not an agreed cap, disclaimer or exclusion.  Genuine caps
+        # ("aggregate liability shall not exceed USD 1M") and disclaimers
+        # still fire.
+        if re.search(
+            r"\b(?:strict|absolute)\s+liability\b[^.]{0,45}"
+            r"\b(?:creat\w*|impos\w*|incur\w*|aris\w*|attach\w*|result\w*)\b"
+            r"|\b(?:creat\w*|impos\w*|incur\w*|aris\w*|attach\w*|result\w*)\b"
+            r"[^.]{0,45}\b(?:strict|absolute)\s+liability\b",
+            lower,
+        ):
+            continue
+        # "The indemnity shall not apply to the extent prohibited by
+        # applicable law" is a statutorily-mandated carve-out limiting the
+        # scope of an indemnity to what the law allows — it does not agree a
+        # cap, disclaimer or exclusion.  Genuine caps and disclaimers still
+        # fire.
+        if re.search(r"\bprohibited\s+by\b[^.]{0,30}\bapplicable\s+law\b", lower) \
+                and re.search(
+                    r"\b(?:not\s+apply|no\s+obligation|void\b|unenforceable|"
+                    r"invalid\b|without\s+effect)\b",
+                    lower,
+                ):
             continue
         amount = _AMOUNT_RE.search(sentence)
         pct = _PERCENT_RE.search(sentence)
@@ -984,6 +1040,18 @@ def rule_ip(doc, sentences):
             r"receivables?|debts?)\b"
             r"|\b(?:payment|receive|receipt|collection)\w*\s+rights?\b[^.]{0,35}"
             r"\b(?:assign(?:s|ed|ing)?|transfer(?:s|red|ring)?)\b",
+            lower,
+        ):
+            continue
+        # "The Contractor warrants that it does not infringe third party
+        # intellectual property rights" is a non-infringement warranty /
+        # assurance — it confirms the deliverables are free of third-party
+        # IP, not a transfer, grant or ownership clause about the parties'
+        # own IP.  Genuine assignments and licence grants still fire.
+        if re.search(
+            r"\b(?:warrant\w*|represents?\b|undertake\w*|acknowledges?)\b"
+            r"[^.]{0,60}\b(?:not\s+|no\s+)?infring\w*\b[^.]{0,40}"
+            r"\b(?:third[- ]?part\w*|third\s+part\w*)\b",
             lower,
         ):
             continue
@@ -1207,6 +1275,21 @@ def rule_termination(doc, sentences):
             lower,
         ):
             continue
+        # "The parties shall terminate the project upon completion of the Q3
+        # deliverables" / "the engagement of the consultant shall terminate
+        # upon completion of the project" describe the winding-down of a
+        # task, engagement or deliverable work, not a party's right to
+        # terminate the agreement.  The guard requires the task noun to be
+        # the direct object being terminated, so a genuine "terminate this
+        # Agreement if the work is late" still fires.
+        if re.search(
+            r"\bterminat\w*\s+(?:the\s+|a\s+)?\b(?:project\b|engagement\b|"
+            r"assignment\b|task\b|work\b)\b"
+            r"|\b(?:project\b|engagement\b|assignment\b|task\b|work\b)\b[^.]{0,40}"
+            r"\bshall\s+(?:be\s+)?terminat\w*\b",
+            lower,
+        ):
+            continue
         # "the employee may terminate the employment contract by giving 2
         # weeks' notice" is an HR-event verb form (the employment itself is
         # terminated), not a party's right to terminate the agreement.  The
@@ -1321,6 +1404,22 @@ def rule_exclusivity(doc, sentences):
         ) and re.search(
             r"\b(?:property|real\s+estate|estate|premises|listing|broker|agency|"
             r"commissioned?\s+sale|candidate)\b",
+            lower,
+        ):
+            continue
+        # "The Company shall have the exclusive right to purchase all shares
+        # in the event of a Change of Control" is a right of first refusal /
+        # pre-emption over the company's own shares — a governance right, not
+        # a market exclusivity grant to sell, license or distribute.  Genuine
+        # market rights ("exclusive right to sell" / "sole distributor")
+        # still fire.
+        if re.search(
+            r"\bexclusive\s+right\w*\s+to\s+(?:purchase|acquire|exercis\w*|"
+            r"call\w*|buy\b)\b",
+            lower,
+        ) and re.search(
+            r"\b(?:shares?|stock|capital\b|securities|equity|"
+            r"pre[- ]?emption|change\s+of\s+control|first\s+refusal)\b",
             lower,
         ):
             continue
@@ -1445,6 +1544,16 @@ def rule_data_protection(doc, sentences):
             lower,
         ):
             continue
+        # "pay a transfer penalty of EUR 5 million" is a sports-federation
+        # transfer compound, not a personal-data transfer.  The bare keyword
+        # "transfer" still fires on genuine data-movement sentences.
+        if re.search(r"\btransfer\s+(?:penalty|fee(?:s)?|payment\w*)\b", lower) \
+                and not re.search(
+                    r"\b(?:personal|customer|consumer|user|employee|health|financial|"
+                    r"banking|credit|identity|biometric)\s+data\b",
+                    lower,
+                ):
+            continue
         risk = RiskLevel.LOW
         flag = "data protection clause"
         detail = None
@@ -1484,6 +1593,26 @@ def rule_insurance(doc, sentences):
                         r"includ\w*|provid\w*|obtain\w*|tak(?:e|en)\s+out)\b[^.]{0,60}\binsurance\b",
                         lower,
                     ):
+                continue
+            # "Group life insurance shall be provided to all employees by the
+            # employer" is an employer-funded employee-benefit perk (both
+            # noun-first and provide-first word orders), not an inter-party
+            # coverage obligation.  Genuine coverage obligations naming a
+            # policy type ("professional indemnity insurance") or a
+            # maintain/procure verb still fire.
+            if re.search(
+                r"\b(?:medical|health|dental|life|disability|travel|vision|"
+                r"accident|group)\s+insurance\b[^.]{0,40}"
+                r"\b(?:provid\w*|grant\w*|furnish\w*|mak(?:e|ing|es)|"
+                r"offer\w*|pay\w*)\b[^.]{0,35}"
+                r"\b(?:employe\w*|staff\b|worker\w*|personnel\b)\b"
+                r"|\b(?:provid\w*|grant\w*|furnish\w*|mak(?:e|ing|es)|"
+                r"offer\w*|pay\w*)\b[^.]{0,40}"
+                r"\b(?:medical|health|dental|life|disability|travel|vision|"
+                r"accident|group)\s+insurance\b[^.]{0,35}"
+                r"\b(?:employe\w*|staff\b|worker\w*|personnel\b)\b",
+                lower,
+            ):
                 continue
             # "the insurance policy renews / renewal of the insurance policy" is a
             # policy-admin renewal mention, not a coverage obligation at all.

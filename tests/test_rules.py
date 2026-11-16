@@ -1290,3 +1290,148 @@ def test_insurance_premium_adjustment_not_a_coverage_obligation():
         ["The Supplier shall maintain professional indemnity insurance for the term of this Agreement."]
     ) if c.clause == "insurance"]
     assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_cooling_off_period_not_a_duration():
+    # "cooling-off period" is a statutory consumer-protection window (right
+    # to cancel a distance purchase), not the agreement's term.  A genuine
+    # agreement term ("period of 3 years") still fires.
+    for sentence in [
+        "The cooling-off period shall be 14 days from the date of the order.",
+        "A cooling-off period of 7 days applies to the purchase.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "duration"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["This Agreement shall remain in effect for a period of 3 years from the Effective Date."]
+    ) if c.clause == "duration"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_project_termination_not_a_termination_clause():
+    # "terminate the project / the engagement of the consultant shall
+    # terminate" winds down a task or engagement, not a party's right to
+    # terminate the agreement.  A genuine termination right still fires.
+    for sentence in [
+        "The Parties shall terminate the project upon completion of the Q3 deliverables.",
+        "The engagement of the consultant shall terminate upon completion of the project.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "termination"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Either party may terminate this Agreement upon 30 days written notice."]
+    ) if c.clause == "termination"]
+    assert clauses and clauses[0].risk.value == "LOW"
+
+
+def test_sports_transfer_penalty_not_a_contract_penalty():
+    # A football-club transfer sanction and a banking early-withdrawal fee
+    # are stand-alone product/regime charges, not default penalties for a
+    # contractual breach.  A quantified delay penalty still fires.
+    for sentence in [
+        "The Club shall pay a transfer penalty of EUR 5 million to the football association.",
+        "The Club shall pay a transfer fee of EUR 5 million to the association.",
+        "An early withdrawal penalty of 3% of the principal shall apply to deposits withdrawn before maturity.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "penalty"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Contractor shall pay a penalty of USD 1,000 per day for each day of delay."]
+    ) if c.clause == "penalty"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_transfer_compound_not_a_data_transfer():
+    # "transfer penalty / transfer fee" is a sports-federation compound, not
+    # a personal-data transfer.  Genuine cross-border transfers still fire.
+    for sentence in [
+        "The Club shall pay a transfer penalty of EUR 5 million to the football association.",
+        "No transfer payments shall be made to foreign clubs.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "data_protection"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Any data transferred outside the EEA shall be subject to standard contractual clauses."]
+    ) if c.clause == "data_protection"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_rofr_on_shares_not_exclusive_market_right():
+    # "exclusive right to purchase ... shares in a Change of Control" is a
+    # right of first refusal over the company's own capital — a governance
+    # right, not a market exclusivity grant.  Genuine market exclusivity
+    # still fires.
+    for sentence in [
+        "The Company shall have the exclusive right to purchase all shares in the event of a Change of Control.",
+        "The holder has the exclusive right to acquire the securities on a change of control.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "exclusivity"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Seller shall have the exclusive right to sell the Products in the Territory."]
+    ) if c.clause == "exclusivity"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_group_employee_insurance_not_a_coverage_obligation():
+    # "Group life insurance shall be provided to all employees by the
+    # employer" is an employer-funded employee-benefit perk, not an
+    # inter-party coverage obligation.  A maintain/procure coverage
+    # obligation still fires.
+    for sentence in [
+        "Group life insurance shall be provided to all employees by the employer.",
+        "The employer shall provide health insurance to all staff members.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "insurance"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Supplier shall maintain professional indemnity insurance for the term of this Agreement."]
+    ) if c.clause == "insurance"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_non_infringement_warranty_not_ip_transfer():
+    # A non-infringement warranty confirms the deliverables are free of
+    # third-party IP — it is not a transfer, grant or ownership clause.
+    # Genuine IP assignments still fire.
+    for sentence in [
+        "The Contractor warrants that it does not infringe third party intellectual property rights.",
+        "The Supplier represents that no third-party rights are infringed by the Goods.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "ip"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["All inventions created during employment are assigned to the employer."]
+    ) if c.clause == "ip"]
+    assert clauses and clauses[0].risk.value == "HIGH"
+
+
+def test_strict_liability_doctrine_not_a_cap():
+    # "creates strict liability" restates the tort doctrine — not an agreed
+    # cap, disclaimer or exclusion.  Genuine caps and disclaimers still fire.
+    for sentence in [
+        "Nothing in this clause creates strict liability for latent defects in the Goods.",
+        "Absolute liability shall arise upon delivery of the dangerous substance.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "liability_cap"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Supplier shall not be liable for indirect or consequential damages."]
+    ) if c.clause == "liability_cap"]
+    assert clauses and clauses[0].risk.value == "LOW"
+
+
+def test_prohibited_by_law_carveout_not_a_cap():
+    # "shall not apply to the extent prohibited by applicable law" is a
+    # statutory carve-out limiting an indemnity's scope — not an agreed cap.
+    # A genuine aggregate cap still fires.
+    for sentence in [
+        "The indemnity shall not apply to the extent prohibited by applicable law.",
+        "This clause shall be void to the extent prohibited by applicable law.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "liability_cap"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The aggregate liability of each party shall not exceed USD 1,000,000."]
+    ) if c.clause == "liability_cap"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
