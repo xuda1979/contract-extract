@@ -1213,3 +1213,80 @@ def test_certificate_issuance_not_insurance_obligation():
         ["The Contractor shall maintain professional indemnity insurance with a limit of USD 1,000,000."]
     ) if c.clause == "insurance"]
     assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_perjury_declaration_not_a_contract_penalty():
+    # "Under penalty of perjury" is the oath formula of a legal declaration,
+    # not a contractual default penalty.  A quantified late-payment penalty
+    # still fires.
+    for sentence in [
+        "Under penalty of perjury, the declarant certifies that the statements are true.",
+        "The affidavit is made under penalty of perjury by the officer.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "penalty"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["A late payment penalty of 2% per month shall apply to any overdue amount."]
+    ) if c.clause == "penalty"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_industrial_wage_premium_not_a_contract_penalty():
+    # Night-shift / overtime "penalty rates" under an award are statutory
+    # wage premiums, not negotiated default penalties for a breach.
+    for sentence in [
+        "Night-shift penalty rates of 150 percent shall apply under the award.",
+        "Overtime shall be paid at a penalty rate of 200% of the base wage.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "penalty"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["A late payment penalty of 2% per month shall apply to any overdue amount."]
+    ) if c.clause == "penalty"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_several_not_joint_not_a_liability_cap():
+    # "Liability ... several, not joint" allocates proportionate responsibility
+    # among obligors — a doctrine of joint-and-several liability, not an
+    # agreed cap or disclaimer.  A genuine aggregate cap still fires.
+    for sentence in [
+        "Each party's liability to the other shall be several, not joint.",
+        "The liability of the joint venturers shall be several and not joint.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "liability_cap"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The aggregate liability of each party shall not exceed USD 1,000,000."]
+    ) if c.clause == "liability_cap"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_grant_commitment_renewal_not_a_term_renewal():
+    # "renew their grant commitments" renews a funding-programme commitment,
+    # not the agreement's term.  A genuine automatic term renewal still fires.
+    for sentence in [
+        "The parties shall renew their grant commitments for the next cycle.",
+        "The foundation renews its grant round on an annual basis.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "renewal"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["This Agreement shall automatically renew for successive 1 year terms."]
+    ) if c.clause == "renewal"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_insurance_premium_adjustment_not_a_coverage_obligation():
+    # "Insurance premium adjustments ... tariff bulletin" is administrative
+    # bookkeeping on premium levels, not an inter-party coverage obligation.
+    for sentence in [
+        "Insurance premium adjustments shall be set out in the tariff bulletin.",
+        "Premium schedules for the insurance shall be revised quarterly by the insurer.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "insurance"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Supplier shall maintain professional indemnity insurance for the term of this Agreement."]
+    ) if c.clause == "insurance"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"

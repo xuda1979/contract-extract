@@ -670,6 +670,25 @@ def rule_penalty(doc, sentences):
             lower,
         ):
             continue
+        # "Under penalty of perjury, the declarant certifies ..." is the oath
+        # formula of a legal declaration, not a contractual default penalty.
+        if re.search(
+            r"\bpenalty\s+of\s+perjury\b",
+            lower,
+        ):
+            continue
+        # "Night-shift penalty rates of 150 percent shall apply under the
+        # award" is a statutory/industrial wage-premium rate (employment law),
+        # not a negotiated default penalty for a contractual breach.
+        if re.search(
+            r"\bpenalt\w*\b[^.]{0,40}"
+            r"\b(?:night[- ]?shift|overtime|penalty\s+rates?|award|wages?|"
+            r"hourly\s+rates?|industrial\s+award|workers)\b"
+            r"|\b(?:night[- ]?shift|overtime|penalty\s+rates?|award|wages?|"
+            r"hourly\s+rates?|industrial\s+award|workers)\b[^.]{0,40}\bpenalt\w*\b",
+            lower,
+        ):
+            continue
         pct = _PERCENT_RE.search(sentence)
         amount = _AMOUNT_RE.search(sentence)
         risk = RiskLevel.MEDIUM
@@ -796,6 +815,19 @@ def rule_liability(doc, sentences):
         ) and re.search(
             r"\b(?:govern\w*|settle\w*|determine\w*|pursuant\s+to\s+(?:the\s+)?"
             r"applicable|under\s+applicable|statute|legislation|statutory\s+limits?)\b",
+            lower,
+        ):
+            continue
+        # "Each party's liability to the other shall be several, not joint"
+        # allocates proportionate (several) responsibility among obligors — a
+        # doctrine of joint-and-several liability, not an agreed cap,
+        # disclaimer or exclusion.  Genuine caps and disclaimers still fire.
+        if re.search(
+            r"\bliability\b[^.]{0,40}"
+            r"\b(?:several|proportionate)(?:\s+and)?,?\s+not\s+joint\b"
+            r"|\b(?:several|proportionate),?\s+not\s+joint\b[^.]{0,40}\bliability\b"
+            r"|\bjoint\s+and\s+several\b[^.]{0,40}\bliability\b"
+            r"|\bliability\b[^.]{0,40}\bjoint\s+and\s+several\b",
             lower,
         ):
             continue
@@ -1085,6 +1117,19 @@ def rule_renewal(doc, sentences):
             r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,40}"
             r"\b(?:campaign\w*|advertis\w*|marketing\w*|promotion\w*|season)\b"
             r"|\b(?:campaign\w*|advertis\w*|marketing\w*|promotion\w*|season)\b[^.]{0,40}"
+            r"\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ):
+            continue
+        # "the parties shall renew their grant commitments for the next cycle"
+        # renews a funding-programme commitment, not the agreement's term.  The
+        # guard requires the funding noun ("grant ... commitment") so a genuine
+        # "renew the grant of the Licence for a further term" stays untouched
+        # (and the credential guard already owns licence re-issuance).
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,45}\bgrant\w*\b[^.]{0,25}"
+            r"\b(?:commitment\w*|cycle|round)\b"
+            r"|\b(?:commitment\w*|cycle|round)\b[^.]{0,25}\bgrant\w*\b[^.]{0,45}"
             r"\brenew(?:al|s|ing|ed|able)?\b",
             lower,
         ):
@@ -1502,6 +1547,28 @@ def rule_insurance(doc, sentences):
                 lower,
             ) and not re.search(
                 r"\b(?:maintain\w*|procure\w*|carry|obtain\w*)\b[^.]{0,40}"
+                r"\binsurance\b",
+                lower,
+            ):
+                continue
+            # "Insurance premium adjustments shall be set out in the tariff
+            # bulletin" is administrative bookkeeping on premium levels — no
+            # inter-party coverage obligation is created.  Genuine coverage
+            # obligations ("shall maintain professional indemnity insurance")
+            # still fire.
+            if re.search(
+                r"\binsurance\s+premium\w*\b[^.]{0,45}"
+                r"\b(?:adjustment\w*|tariff|bulletin|rate\w*|schedule\w*|"
+                r"premium\s+levels?|assessment\w*|notice\b)\b"
+                r"|\b(?:adjustment\w*|tariff|bulletin|rate\w*|schedule\w*|"
+                r"premium\s+levels?|assessment\w*|notice\b)\b[^.]{0,45}"
+                r"\binsurance\s+premium\w*\b"
+                r"|\bpremium\w*\b[^.]{0,20}\b(?:adjustment\w*|tariff|bulletin|"
+                r"rate\w*|schedule\w*|premium\s+levels?|assessment\w*)\b[^.]{0,30}"
+                r"\binsurance\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|carry|obtain\w*|cover\w*)\b[^.]{0,40}"
                 r"\binsurance\b",
                 lower,
             ):
