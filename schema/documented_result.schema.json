@@ -1,0 +1,143 @@
+{
+  "$defs": {
+    "ExtractedClause": {
+      "description": "One extracted risk clause.",
+      "properties": {
+        "clause": {
+          "description": "Clause name, e.g. 'termination'.",
+          "title": "Clause",
+          "type": "string"
+        },
+        "page": {
+          "description": "1-based page number where found.",
+          "title": "Page",
+          "type": "integer"
+        },
+        "quote": {
+          "description": "Original text snippet.",
+          "title": "Quote",
+          "type": "string"
+        },
+        "risk": {
+          "$ref": "#/$defs/RiskLevel",
+          "description": "Risk flag: LOW/MEDIUM/HIGH."
+        },
+        "flag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional human-readable risk flag, e.g. 'no cap on liability'.",
+          "title": "Flag"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional normalised detail.",
+          "title": "Detail"
+        }
+      },
+      "required": [
+        "clause",
+        "page",
+        "quote",
+        "risk"
+      ],
+      "title": "ExtractedClause",
+      "type": "object"
+    },
+    "RiskLevel": {
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH"
+      ],
+      "title": "RiskLevel",
+      "type": "string"
+    }
+  },
+  "description": "The output for a single document.",
+  "properties": {
+    "source": {
+      "description": "Input file path.",
+      "title": "Source",
+      "type": "string"
+    },
+    "format": {
+      "description": "Input format: pdf or docx.",
+      "title": "Format",
+      "type": "string"
+    },
+    "title": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Document title if known.",
+      "title": "Title"
+    },
+    "pages": {
+      "description": "Number of pages.",
+      "title": "Pages",
+      "type": "integer"
+    },
+    "risk": {
+      "$ref": "#/$defs/RiskLevel",
+      "description": "Document-level overall risk flag (LOW/MEDIUM/HIGH)."
+    },
+    "clauses": {
+      "description": "Extracted clauses (rules + optional LLM).",
+      "items": {
+        "$ref": "#/$defs/ExtractedClause"
+      },
+      "title": "Clauses",
+      "type": "array"
+    },
+    "engine": {
+      "description": "Extraction engine used: 'rules' or 'rules+llm'.",
+      "title": "Engine",
+      "type": "string"
+    },
+    "generated_at": {
+      "description": "Extraction date (YYYY-MM-DD).",
+      "format": "date",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "warnings": {
+      "description": "Non-fatal processing warnings.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "source",
+    "format",
+    "pages",
+    "risk",
+    "engine",
+    "generated_at"
+  ],
+  "title": "DocumentResult",
+  "type": "object"
+}

@@ -1,0 +1,24 @@
+  ad_agency_msa.docx                     doc_risk=MEDIUM fields= 6
+  consulting_engagement_clean.pdf        doc_risk=MEDIUM fields= 8
+  consulting_high_penalty.docx           doc_risk=HIGH   fields= 7  [extra: duration]
+  distribution_partnership.pdf           doc_risk=MEDIUM fields=10  [extra: ip]
+  early_termination_clean.docx           doc_risk=LOW    fields= 5
+  employment_offer.docx                  doc_risk=HIGH   fields= 8  [extra: payment]
+  event_security.docx                    doc_risk=MEDIUM fields= 7
+  joint_venture.docx                     doc_risk=MEDIUM fields= 5
+  loan_term_high.docx                    doc_risk=HIGH   fields= 4
+  master_service_agreement.pdf           doc_risk=MEDIUM fields=12  [extra: renewal]
+  mfs_terms.docx                         doc_risk=MEDIUM fields= 6  [extra: payment]
+  nondisclosure_bilateral.pdf            doc_risk=LOW    fields= 2
+  office_lease.docx                      doc_risk=MEDIUM fields= 5  [extra: payment]
+  outsole_buyback.docx                   doc_risk=HIGH   fields= 4
+  procurement_bid_gov.pdf                doc_risk=MEDIUM fields= 8
+  saas_terms_auto.pdf                    doc_risk=MEDIUM fields= 8  [extra: duration]
+  software_license_risk.pdf              doc_risk=HIGH   fields=11  [extra: payment]
+  sponsorship_clean.pdf                  doc_risk=LOW    fields= 4
+  subcontract_heavy.pdf                  doc_risk=HIGH   fields=11  [extra: payment]
+  supply_agreement_clean.pdf             doc_risk=MEDIUM fields=11
+
+expected fields: 133   found: 133   recall: 100.0%  (AC1 >= 95%)
+risk accuracy:   133/133 = 100.0%  (AC2 >= 90%)
+document risk:   20/20 = 100.0%

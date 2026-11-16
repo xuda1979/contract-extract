@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "contract-extract"
+version = "0.1.0"
+description = "Contract / bid risk-clause extraction from PDF/DOCX (rules + optional LLM, offline-safe)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "pydantic>=2",
+    "pypdf>=4",
+    "pdfplumber>=0.10",
+    "python-docx>=1.0",
+]
+
+[project.optional-dependencies]
+llm = ["openai>=1", "anthropic>=0.30"]
+web = ["pdfplumber>=0.10"]  # web demo is stdlib-only
+test = ["pytest>=8"]
+
+[project.scripts]
+contract-extract = "contract_extract.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
