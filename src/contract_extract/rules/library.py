@@ -729,7 +729,18 @@ def rule_ip(doc, sentences):
             "rights in its own", "vest",
         )):
             continue
-        if re.search(r"(nothing\s+.*\s+grants\s+any\s+right|no\s+.*\s+license\b|does\s+not\s+grant\s+any\s+right|grants\s+no\s+right)", lower):
+        # A denied transfer ("nothing grants any right", "does not grant any
+        # right", "no rights are transferred") states what will not happen —
+        # not an IP risk.  "Grantees no right" covers multi-word right kinds
+        # ("grants any intellectual property rights").
+        if re.search(
+            r"(nothing\s+.*\s+grants\s+any\b|does\s+not\s+grant\s+(?:any\s+|the\s+)?|"
+            r"grants\s+no\s+)\b[^.]{0,35}\b(?:ip\s+rights?|intellectual\s+property|rights?)\b"
+            r"|\bno\s+.*\s+licen[cs]e\b"
+            r"|\b(?:no|not)\b[^.]{0,40}\b(?:rights?|ownership|title)\b[^.]{0,30}"
+            r"\btransfer(?:s|red)?\b",
+            lower,
+        ):
             continue
         # A "license agreement" heading should not produce an IP-risk clause by itself.
         if re.match(r"^(this\s+)?(software\s+|end[- ]user\s+)?license\w*\s+(agreement|terms)", lower):
@@ -957,6 +968,17 @@ def rule_data_protection(doc, sentences):
             r"rights?|ownership|title|property|bonds?|securities|"
             r"(?:the\s+)?business|employees?|personnel|staff|"
             r"(?:the\s+)?projects?)\b",
+            lower,
+        ):
+            continue
+        # "no rights are transferred / nothing transfers any rights" is an IP
+        # ownership statement, not a personal-data transfer.
+        if re.search(
+            r"\b(?:no|not|nothing|neither)\b[^.]{0,40}"
+            r"\b(?:rights?|ownership|title)\b[^.]{0,30}\btransfer(?:s|red)?\b"
+            r"|\btransfer(?:s|red)?\b[^.]{0,30}\b(?:no|not)\b[^.]{0,30}\b(?:rights?|ownership|title)\b"
+            r"|\b(?:no|not|nothing|neither)\b[^.]{0,40}\btransfer(?:s|red)?\b[^.]{0,40}"
+            r"\b(?:rights?|ownership|title)\b",
             lower,
         ):
             continue

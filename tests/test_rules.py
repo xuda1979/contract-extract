@@ -498,3 +498,38 @@ def test_statutory_or_regulatory_penalty_not_a_contract_penalty():
         ["In the event of breach, the defaulting party shall pay a penalty of 1.5% per month of the invoice amount."]
     ) if c.clause == "penalty"]
     assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_denied_ip_transfer_not_fired():
+    # "nothing grants any intellectual property rights", "does not grant any
+    # rights", "no rights are transferred" state what will not happen — not an
+    # IP ownership risk.
+    for sentence in [
+        "Nothing in this Agreement grants any intellectual property rights to either party.",
+        "The Licensor does not grant any rights to the intellectual property.",
+        "All intellectual property remains with its respective owner and no rights are transferred.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "ip"]
+        assert clauses == [], sentence
+    # A genuine IP transfer still fires.
+    clauses = [c for c in _clauses(
+        ["All inventions created during employment are assigned to the employer."]
+    ) if c.clause == "ip"]
+    assert clauses and clauses[0].risk.value == "HIGH"
+
+
+def test_negated_transfer_not_a_data_transfer():
+    # "no rights are transferred / nothing transfers any rights" is an IP
+    # ownership statement, not a personal-data transfer.
+    for sentence in [
+        "All intellectual property remains with its respective owner and no rights are transferred.",
+        "Nothing in this Agreement transfers any rights to the purchaser.",
+        "No ownership is transferred under this clause.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "data_protection"]
+        assert clauses == [], sentence
+    # A genuine cross-border personal-data transfer still fires.
+    clauses = [c for c in _clauses(
+        ["Any data transferred outside the EEA requires appropriate safeguards."]
+    ) if c.clause == "data_protection"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
