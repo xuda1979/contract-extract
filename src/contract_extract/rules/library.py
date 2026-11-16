@@ -204,7 +204,7 @@ def rule_quantity(doc, sentences):
         ):
             continue
         m = re.search(
-            rf"|\b{_NUMTOKEN}\s+units?\b"
+            rf"\b{_NUMTOKEN}\s+units?\b"
             rf"|\b{_NUMTOKEN}\s+items?\b"
             rf"|\b{_NUMTOKEN}\s+copies?\b"
             rf"|\b{_NUMTOKEN}\s+events?\b"
@@ -548,7 +548,7 @@ def rule_penalty(doc, sentences):
         ):
             continue
         is_interest = re.search(r"\b(interest|default interest)\b", lower) is not None
-        is_penalty = re.search(r"\b(penalty|penalties|liquidated damages|delay damages|damages for delay|breach fee|late fee|late payment)\b", lower) is not None
+        is_penalty = re.search(r"\b(penalty|penalties|liquidated damages|delay damages|damages for delay|breach fee|breach fees|late fee|late fees|late payment|late payments)\b", lower) is not None
         # A negated accrual statement ("interest shall not accrue", "no interest
         # will accrue on late payments") states what will NOT happen — not a
         # penalty risk.  Genuine accrual clauses ("interest of 2% per month
@@ -558,6 +558,12 @@ def rule_penalty(doc, sentences):
             r"|\bno\s+(?:interest|late\s+fee|penalty)\b[^.]{0,60}\b(?:shall\s+)?accrue\b",
             lower,
         ):
+            continue
+        # A rate-less interest mention with no late/breach-context tokens
+        # ("the interest rate shall apply for the remaining period of the
+        # loan") is loan pricing, not a default penalty.  Sentences that name
+        # late payment / penalty / liquidated damages (is_penalty) still fire.
+        if is_interest and not is_penalty and not pct and not amount:
             continue
         if pct:
             p = float(pct.group("pct"))

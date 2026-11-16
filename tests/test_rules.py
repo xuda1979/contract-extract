@@ -570,3 +570,36 @@ def test_insurance_policy_renewal_not_an_insurance_obligation():
         ["Provider shall carry professional indemnity insurance throughout the term."]
     ) if c.clause == "insurance"]
     assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_quantity_detail_populated_with_real_counts():
+    # The count-regex previously started with a bare alternation that matched
+    # the empty string, so EVERY quantity hit emitted an empty quote/detail.
+    # Procedural mentions ("against the presented documents") must not fire;
+    # genuine countable deliveries must carry their real count as detail.
+    clauses = [c for c in _clauses(
+        ["The bank shall make payment against the presented documents."]
+    ) if c.clause == "quantity"]
+    assert clauses == []
+    positive = [c for c in _clauses(
+        ["A total of 10,000 units shall be delivered within 45 days."]
+    ) if c.clause == "quantity"]
+    assert positive and positive[0].detail == "10,000 units"
+    pages = [c for c in _clauses(
+        ["Each deliverable shall contain at least 50 pages of documentation."]
+    ) if c.clause == "quantity"]
+    assert pages and pages[0].detail == "50 pages"
+
+
+def test_rate_less_loan_interest_not_a_penalty():
+    # "the interest rate shall apply for the remaining period of the loan" is
+    # loan pricing with no rate and no late/breach context — not a default
+    # penalty.  Genuine late-payment accrual still fires.
+    clauses = [c for c in _clauses(
+        ["The interest rate shall apply for the remaining period of the loan."]
+    ) if c.clause == "penalty"]
+    assert clauses == []
+    positive = [c for c in _clauses(
+        ["Interest shall accrue on all late payments."]
+    ) if c.clause == "penalty"]
+    assert positive and positive[0].risk.value == "MEDIUM"
