@@ -762,3 +762,21 @@ def test_security_prices_not_a_contract_price():
         ["The price of the first batch shall be EUR 5,000 per unit."]
     ) if c.clause == "price"]
     assert clauses and clauses[0].risk.value in ("LOW", "MEDIUM", "HIGH")
+
+
+def test_product_coverage_renewal_not_a_term_renewal():
+    # "renewal of the warranty", "support renewal for the software" and
+    # "extended warranty renewal" extend product coverage after purchase —
+    # they are not renewals of the agreement's term.
+    for sentence in [
+        "The supplier shall honour the renewal of the warranty for spare parts.",
+        "Support renewal for the software is included in the annual fee.",
+        "The extended warranty renewal must be purchased within 30 days.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "renewal"]
+        assert clauses == [], sentence
+    # Genuine term renewals still fire.
+    clauses = [c for c in _clauses(
+        ["This Agreement shall automatically renew for successive 1 year terms."]
+    ) if c.clause == "renewal"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"

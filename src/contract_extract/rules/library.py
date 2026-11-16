@@ -892,6 +892,19 @@ def rule_renewal(doc, sentences):
             lower,
         ):
             continue
+        # "renewal of the warranty / support renewal for the software /
+        # extended warranty renewal" extend product coverage, not the
+        # agreement's term.  Genuine term renewals ("the term shall renew
+        # automatically") still fire.  Zero fixture lines mention warranty /
+        # support renewals (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:renewal|(?:the|this)\s+renewal)\s+of\s+(?:the\s+|this\s+)?"
+            r"(?:warrant\w*|support)\b"
+            r"|\b(?:warrant\w*|support)\s+(?:renewal|renew\w*)\b"
+            r"|\brenew\w*\b[^.]{0,25}\b(?:warrant\w*|support)\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.LOW
         flag = "renewal clause"
         if re.search(r"automatic|auto-renew|auto\s+renew|renews\s+automatically|renew\s+automatically|quarterly|automatically\s+renew", lower):
