@@ -1081,3 +1081,135 @@ def test_control_right_not_market_exclusivity():
         ["Distributor is granted an exclusive right to sell the Products within the Territory."]
     ) if c.clause == "exclusivity"]
     assert clauses
+
+
+def test_educational_course_period_not_agreement_duration():
+    # "The course is offered for a period of 8 weeks each semester" is an
+    # educational-program window, not the agreement's term.  A genuine term
+    # ("This Agreement shall remain in force for a period of 3 years") still
+    # fires.
+    for sentence in [
+        "The course is offered for a period of 8 weeks each semester.",
+        "Each curriculum module runs for a term of 6 months.",
+        "The degree programme lasts for a period of one academic year.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "duration"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["This Agreement shall remain in force for a period of 3 years."]
+    ) if c.clause == "duration"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_statutory_tax_penalty_not_contract_penalty():
+    # "The tax penalty for late filing shall be 5% of the tax due" is a
+    # statutory revenue sanction, not a negotiated default penalty.  A
+    # genuine late-payment breach penalty still fires.
+    for sentence in [
+        "The tax penalty for late filing shall be 5% of the tax due.",
+        "A VAT penalty applies for each month of delayed submission of returns.",
+        "Interest shall accrue on the late filing penalty imposed by the revenue authority.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "penalty"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["A late payment penalty of 2% per month shall apply to overdue invoices."]
+    ) if c.clause == "penalty"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_statutory_tort_liability_not_agreed_cap():
+    # "The Company's liability in tort shall be governed by the applicable
+    # statute" allocates substantive law — no cap, disclaimer or exclusion
+    # is agreed.  A genuine agreed cap still fires.
+    for sentence in [
+        "The Company's liability in tort shall be governed by the applicable statute.",
+        "Liability for negligence shall be settled in accordance with the legislation.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "liability_cap"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Supplier's aggregate liability shall not exceed USD 1,000,000."]
+    ) if c.clause == "liability_cap"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_campaign_renewal_not_agreement_term_renewal():
+    # "The parties may renew the campaign for the upcoming season" renews an
+    # advertising/marketing campaign cycle, not the agreement's term.  A
+    # genuine automatic term renewal still fires.
+    for sentence in [
+        "The parties may renew the campaign for the upcoming season.",
+        "The marketing programme shall be renewed before each advertising season.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "renewal"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["This Agreement shall automatically renew for successive 1 year terms."]
+    ) if c.clause == "renewal"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_employment_termination_verb_not_agreement_termination():
+    # "The employee may terminate the employment contract by providing
+    # notice" is an HR-event verb form — the employment is terminated, not
+    # the agreement.  "Either party may terminate this Agreement" still
+    # fires.
+    for sentence in [
+        "The employee may terminate the employment contract by providing 2 weeks notice.",
+        "Terminate the employment contract at any time without penalty.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "termination"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Either party may terminate this Agreement upon 30 days written notice."]
+    ) if c.clause == "termination"]
+    assert clauses
+
+
+def test_exclusive_basis_listing_not_market_exclusivity():
+    # "The property is listed on an exclusive basis for 30 days" is a
+    # real-estate listing instruction, not a market-exclusivity grant.  An
+    # exclusive right to sell still fires.
+    for sentence in [
+        "The property is listed on an exclusive basis for 30 days.",
+        "The premises are marketed through the broker on an exclusive basis.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "exclusivity"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Distributor is granted an exclusive right to sell the Products within the Territory."]
+    ) if c.clause == "exclusivity"]
+    assert clauses
+
+
+def test_commodity_data_transfer_not_personal_data():
+    # "The parties shall transfer the raw material data to the manufacturer"
+    # moves commercial commodity data, not personal data.  A genuine
+    # personal-data transfer still fires.
+    for sentence in [
+        "The parties shall transfer the raw material data to the manufacturer.",
+        "Supplier shall furnish the product specification data to the buyer.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "data_protection"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Any personal data transferred outside the EEA shall be subject to standard contractual clauses."]
+    ) if c.clause == "data_protection"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_certificate_issuance_not_insurance_obligation():
+    # "The insurance certificate shall be issued within 5 business days" is
+    # a documentary timeline, not a negotiated coverage obligation.  A
+    # genuine coverage obligation naming a policy type still fires.
+    for sentence in [
+        "The insurance certificate shall be issued within 5 business days of signing.",
+        "A cover note shall be delivered upon request of the insured.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "insurance"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Contractor shall maintain professional indemnity insurance with a limit of USD 1,000,000."]
+    ) if c.clause == "insurance"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"

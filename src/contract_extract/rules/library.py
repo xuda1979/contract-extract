@@ -179,6 +179,19 @@ def rule_duration(doc, sentences):
             lower,
         ):
             continue
+        # "The course is offered for a period of 8 weeks each semester" is an
+        # educational-program window (course / semester / curriculum), not the
+        # agreement's term.  Zero fixture lines mention these (checked against
+        # fixtures/generate_fixtures.py); a "term of the License" still fires.
+        if re.search(
+            r"\b(?:period|term|duration)\b[^.]{0,50}"
+            r"\b(?:course|semester|curriculum|degree|academic\s+(?:year|term)|"
+            r"school(?:year)?|trimester|quarter\s+of\s+studies?)\b"
+            r"|\b(?:course|semester|curriculum|degree|academic\s+(?:year|term)|"
+            r"school(?:year)?|trimester)\b[^.]{0,50}\b(?:period|term|duration)\b",
+            lower,
+        ):
+            continue
         m = _DUR_PAT1.search(sentence) or _DUR_PAT4.search(sentence) or _DUR_PAT5.search(sentence)
         if not m:
             continue
@@ -642,6 +655,21 @@ def rule_penalty(doc, sentences):
             lower,
         ):
             continue
+        # "The tax penalty for late filing shall be 5% of the tax due" is a
+        # statutory revenue-filing sanction imposed on a taxpayer — not a
+        # negotiated default penalty for a contractual breach.  A genuine
+        # late-payment breach penalty ("late payment penalty of 2% per
+        # month") has no tax / filing / returns context and stays untouched.
+        if re.search(
+            r"\b(?:tax|vat|duty|customs|excise|revenue|returns?|"
+            r"late\s+(?:filing|submission)|filing|e-?filing)\b[^.]{0,45}"
+            r"\bpenalt"
+            r"|\bpenalt\w*\b[^.]{0,45}"
+            r"\b(?:tax|vat|duty|customs|excise|revenue|returns?|"
+            r"late\s+(?:filing|submission)|filing|e-?filing)\b",
+            lower,
+        ):
+            continue
         pct = _PERCENT_RE.search(sentence)
         amount = _AMOUNT_RE.search(sentence)
         risk = RiskLevel.MEDIUM
@@ -757,6 +785,20 @@ def rule_liability(doc, sentences):
             lower,
         ):
             continue
+        # "The company's liability in tort shall be governed by the applicable
+        # statute" allocates substantive law (statutory text governs a cause of
+        # action) — no cap, disclaimer or agreed exclusion.  Genuine agreed caps
+        # ("aggregate liability shall not exceed USD 1M") still fire.
+        if re.search(
+            r"\bliability\b[^.]{0,45}\b(?:in\s+tort\b|in\s+negligence\b|for\s+negligence\b)"
+            r"|\b(?:in\s+tort\b|in\s+negligence\b|for\s+negligence\b)[^.]{0,45}\bliability\b",
+            lower,
+        ) and re.search(
+            r"\b(?:govern\w*|settle\w*|determine\w*|pursuant\s+to\s+(?:the\s+)?"
+            r"applicable|under\s+applicable|statute|legislation|statutory\s+limits?)\b",
+            lower,
+        ):
+            continue
         amount = _AMOUNT_RE.search(sentence)
         pct = _PERCENT_RE.search(sentence)
 
@@ -852,7 +894,7 @@ def rule_ip(doc, sentences):
             "assigns", "copyright", "patent rights", "work product", "works made",
             "inventions", "trademark", "license to", "licences", "licence grant",
             "licensed", "grants .* license", "granted .* license", "exclusive license",
-            "rights in its own", "vest",
+            "rights in its own", " vest",
         )):
             continue
         # A denied transfer ("nothing grants any right", "does not grant any
@@ -1034,6 +1076,19 @@ def rule_renewal(doc, sentences):
             lower,
         ):
             continue
+        # "the parties may renew the campaign for the upcoming season" renews
+        # an advertising / marketing campaign cycle, not the agreement's term.
+        # Zero fixture lines mention renewing campaigns (checked against
+        # fixtures/generate_fixtures.py; "campaign" appears only in a
+        # confidentiality fixture, which is a different rule).
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,40}"
+            r"\b(?:campaign\w*|advertis\w*|marketing\w*|promotion\w*|season)\b"
+            r"|\b(?:campaign\w*|advertis\w*|marketing\w*|promotion\w*|season)\b[^.]{0,40}"
+            r"\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.LOW
         flag = "renewal clause"
         if re.search(r"automatic|auto-renew|auto\s+renew|renews\s+automatically|renew\s+automatically|quarterly|automatically\s+renew", lower):
@@ -1104,6 +1159,20 @@ def rule_termination(doc, sentences):
         if re.search(
             r"\btermination\s+of\s+(?:the\s+|a\s+)?"
             r"(?:employment|office|appointment|mandate|engagement)\b",
+            lower,
+        ):
+            continue
+        # "the employee may terminate the employment contract by giving 2
+        # weeks' notice" is an HR-event verb form (the employment itself is
+        # terminated), not a party's right to terminate the agreement.  The
+        # noun-form guard above plus this verb-form guard keep both word
+        # orders clean; "either party may terminate this Agreement" still
+        # fires.
+        if re.search(
+            r"\bterminat\w*\b[^.]{0,40}\bemployment\s+contract\b"
+            r"|\bemployment\s+contract\b[^.]{0,40}\bterminat\w*\b"
+            r"|\bterminat\w*\b[^.]{0,40}\b(?:the\s+)?employment\b[^.]{0,20}"
+            r"\b(?:relationship|arrangement)\b",
             lower,
         ):
             continue
@@ -1193,6 +1262,20 @@ def rule_exclusivity(doc, sentences):
         if re.search(
             r"\bexclusive\s+right\w*\s+to\s+(?:demand|appoint|remov\w*|dismiss|"
             r"dispos\w*|redeem|resign|veto|elect|nominate)\b",
+            lower,
+        ):
+            continue
+        # "The property is listed on an exclusive basis for 30 days" is a
+        # real-estate listing term (agency instruction), not a market
+        # exclusivity grant to sell, license or distribute.  Both word orders
+        # are covered; an "exclusive right to sell" still fires.
+        if re.search(
+            r"\b(?:listed|marketed?|advertised?)\b[^.]{0,35}\bexclusive\s+basis\b"
+            r"|\bexclusive\s+basis\b[^.]{0,35}\b(?:listed|marketed?|advertised?)\b",
+            lower,
+        ) and re.search(
+            r"\b(?:property|real\s+estate|estate|premises|listing|broker|agency|"
+            r"commissioned?\s+sale|candidate)\b",
             lower,
         ):
             continue
@@ -1296,6 +1379,27 @@ def rule_data_protection(doc, sentences):
             lower,
         ):
             continue
+        # "the parties shall transfer the raw material data to the
+        # manufacturer" moves commercial commodity data — recipe / material
+        # specs — not personal data.  Only transfers of product / material /
+        # commodity data are guarded; "personal data" / "customer data"
+        # transfers (fixture lines) still fire.
+        if re.search(
+            r"\b(?:transfer(?:s|red|ring)?|disclos(?:e|ed|es|ure)?|provid\w*|"
+            r"furnish\w*|deliver\w*)\b[^.]{0,40}"
+            r"\b(?:raw\s+material\w*|commodity|product\s+data\b|formulas?|"
+            r"specifications?|samples?|batch\s+records?)\b[^.]{0,30}\bdata\b"
+            r"|\b(?:transfer(?:s|red|ring)?|disclos(?:e|ed|es|ure)?|provid\w*|"
+            r"furnish\w*|deliver\w*)\b[^.]{0,40}\bdata\b[^.]{0,30}"
+            r"\b(?:raw\s+material\w*|material\w*\s+data|commodity|product\s+data\b|"
+            r"formulas?|specifications?|samples?|batch\s+records?)\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:personal|customer|consumer|user|employee|health|financial|"
+            r"banking|credit|identity|biometric)\s+data\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.LOW
         flag = "data protection clause"
         detail = None
@@ -1375,6 +1479,29 @@ def rule_insurance(doc, sentences):
                 r"insurance\b[^.]{0,50}"
                 r"\b(?:benefits?\s+package|benefits?|perks?|employees?\s+as\s+part)\b"
                 r"|\b(?:benefits?\s+package|benefits?)\b[^.]{0,45}"
+                r"\binsurance\b",
+                lower,
+            ):
+                continue
+            # "the insurance certificate shall be issued within 5 business
+            # days" is a documentary timeline for issuing a certificate /
+            # cover note, not a negotiated coverage obligation.  A coverage
+            # obligation that mentions the certificate in passing ("maintain
+            # professional indemnity insurance and provide a certificate of
+            # insurance upon request") still fires — the negative leg keeps
+            # maintain/procure/carry/obtain obligations untouched.
+            if re.search(
+                r"\binsurance\s+(?:certificate|certificates|cover\s+(?:note|notes)|"
+                r"policy\s+documents?|policies?\s+documents?)\b"
+                r"[^.]{0,60}\b(?:issu(?:e|ed|ing)|deliver\w*|supply\w*|furnish\w*|"
+                r"transmit\w*|submit\w*)\b"
+                r"|\b(?:issu(?:e|ed|ing)|deliver\w*|supply\w*|furnish\w*|"
+                r"transmit\w*|submit\w*)\b[^.]{0,60}"
+                r"\binsurance\s+(?:certificate|certificates|cover\s+(?:note|notes)|"
+                r"policy\s+documents?|policies?\s+documents?)\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|carry|obtain\w*)\b[^.]{0,40}"
                 r"\binsurance\b",
                 lower,
             ):
