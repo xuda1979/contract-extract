@@ -139,6 +139,20 @@ def test_penalty_cap_not_treated_as_negation():
     assert clauses and clauses[0].risk.value == "MEDIUM"
 
 
+def test_damages_not_a_penalty_boilerplate_not_fired():
+    # "the sums are liquidated damages and not a penalty" is boilerplate
+    # characterization with no amount or rate — not a penalty clause.
+    clauses = [c for c in _clauses(
+        ["The sums payable under this clause are liquidated damages and not a penalty."]
+    ) if c.clause == "penalty"]
+    assert clauses == []
+    # A quantified liquidated-damages amount still fires.
+    clauses = [c for c in _clauses(
+        ["Buyer shall pay 10% of the fees as liquidated damages and not as a penalty."]
+    ) if c.clause == "penalty"]
+    assert clauses and clauses[0].risk.value == "HIGH"
+
+
 def test_percent_of_fees_not_a_price():
     # A bare "N% of <money kind>" is a rate/share (late-payment rate, retention,
     # commission), not the price itself — the price rule must not fire.
@@ -218,6 +232,23 @@ def test_transfer_of_shares_not_a_data_transfer():
         ["The transfer of shares requires board approval."]
     ) if c.clause == "data_protection"]
     assert clauses == []
+
+
+def test_transfer_of_business_or_employees_not_a_data_transfer():
+    # "transfer of the business / employees / project" is a business or asset
+    # transfer, not personal data.
+    for sentence in [
+        "The transfer of the business shall be completed within 60 days of signing.",
+        "The transfer of employees to the purchaser shall occur on closing.",
+        "The transfer of the project to the new operator requires board approval.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "data_protection"]
+        assert clauses == [], sentence
+    # A genuine cross-border personal-data transfer still fires.
+    clauses = [c for c in _clauses(
+        ["Any data transferred outside the EEA requires appropriate safeguards."]
+    ) if c.clause == "data_protection"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
 
 
 def test_no_acceptance_inspection_required_not_fired():

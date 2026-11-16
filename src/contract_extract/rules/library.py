@@ -485,6 +485,13 @@ def rule_penalty(doc, sentences):
         risk = RiskLevel.MEDIUM
         flag = "penalty clause present"
         detail = None
+        # "the sums are liquidated damages and not a penalty" is boilerplate
+        # characterization with no amount or rate — not a penalty clause.  Only
+        # the no-detail fallback is guarded; a quantified penalty still fires.
+        if not pct and not amount and re.search(
+            r"\bliquidated damages\b[^.]{0,50}\bnot\s+a\s+penalty\b", lower
+        ):
+            continue
         is_interest = re.search(r"\b(interest|default interest)\b", lower) is not None
         is_penalty = re.search(r"\b(penalty|penalties|liquidated damages|delay damages|damages for delay|breach fee|late fee|late payment)\b", lower) is not None
         if pct:
@@ -841,10 +848,14 @@ def rule_data_protection(doc, sentences):
         )):
             continue
         # "transfer of shares / technology / assets / rights" is a corporate or
-        # asset transfer, not a personal-data transfer.
+        # asset transfer, not a personal-data transfer — likewise business /
+        # employee / project transfers ("transfer of employees to the purchaser",
+        # "transfer of the business to the acquirer").
         if re.search(
             r"\btransfer(?:red)?\s+of\s+(?:shares?|stock|technology|assets?|funds?|"
-            r"rights?|ownership|title|property|bonds?|securities)\b",
+            r"rights?|ownership|title|property|bonds?|securities|"
+            r"(?:the\s+)?business|employees?|personnel|staff|"
+            r"(?:the\s+)?projects?)\b",
             lower,
         ):
             continue
