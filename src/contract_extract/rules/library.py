@@ -184,8 +184,16 @@ def rule_quantity(doc, sentences):
                                         " units ", " items", " copies ", " events",
                                         " pages", " documents", " sets of")):
             continue
+        # Procedural time periods ("a total of 5 business days to respond") are
+        # deadlines, not a quantity of goods.  Countable deliverables ("a total
+        # of 10,000 units", "a total of 12 events") still fire.
+        if re.search(
+            r"\btotal\s+of\s+\d+(?:[.,]\d+)?\s*(?:business|working|calendar)?\s*"
+            r"(?:days?|weeks?|months?|years?)\b",
+            lower,
+        ):
+            continue
         m = re.search(
-            rf"\b(?:a\s+)?total\s+of\s+{_NUMTOKEN}\b"
             rf"|\b{_NUMTOKEN}\s+units?\b"
             rf"|\b{_NUMTOKEN}\s+items?\b"
             rf"|\b{_NUMTOKEN}\s+copies?\b"
@@ -271,7 +279,10 @@ def rule_delivery(doc, sentences):
             r"|\b(?:judgment|judgement|award|verdict|ruling|decision|opinion|writ|"
             r"notice\s+of\s+termination|notice\s+of\s+cancellation)\b[^.]{0,40}"
             r"\bmust\s+be\s+delivered\b|\b(?:judgment|judgement|award|verdict|ruling|"
-            r"notice\s+of\s+termination|notice\s+of\s+cancellation)\b[^.]{0,40}\bshall\s+be\s+delivered\b",
+            r"notice\s+of\s+termination|notice\s+of\s+cancellation)\b[^.]{0,40}\bshall\s+be\s+delivered\b"
+            r"|\bdelivery\s+of\s+(?:this\s+|the\s+)?(?:notice|notification|letter|demand|"
+            r"disclosure|report|statement)\b"
+            r"|\b(?:notice|notification|letter|demand|disclosure|report|statement)\s+delivery\b",
             lower,
         ):
             continue
@@ -494,6 +505,16 @@ def rule_penalty(doc, sentences):
             continue
         is_interest = re.search(r"\b(interest|default interest)\b", lower) is not None
         is_penalty = re.search(r"\b(penalty|penalties|liquidated damages|delay damages|damages for delay|breach fee|late fee|late payment)\b", lower) is not None
+        # A negated accrual statement ("interest shall not accrue", "no interest
+        # will accrue on late payments") states what will NOT happen — not a
+        # penalty risk.  Genuine accrual clauses ("interest of 2% per month
+        # shall accrue" / "default interest accrues") still fire.
+        if re.search(
+            r"\b(?:interest|late\s+fee|penalty)\b[^.]{0,50}\b(?:shall\s+)?not\s+accrue\b"
+            r"|\bno\s+(?:interest|late\s+fee|penalty)\b[^.]{0,60}\b(?:shall\s+)?accrue\b",
+            lower,
+        ):
+            continue
         if pct:
             p = float(pct.group("pct"))
             if is_interest and not is_penalty:
@@ -559,6 +580,14 @@ def rule_liability(doc, sentences):
             "liability", "aggregate liability", "maximum liability", "indemn", "cap on damages",
             "not be liable for", "be liable for", "disclaims all", "no liability",
         )):
+            continue
+        # A force-majeure event ("neither party shall be liable for damages
+        # caused by a force majeure event") relaxes one narrow excuse, and
+        # "each party shall be liable for its own taxes and duties" allocates
+        # statutory charges — neither is a liability-cap risk.
+        if re.search(r"\bforce\s+majeure\b", lower):
+            continue
+        if re.search(r"\bliable\s+for\s+its\s+own\b", lower):
             continue
         amount = _AMOUNT_RE.search(sentence)
         pct = _PERCENT_RE.search(sentence)
@@ -663,6 +692,19 @@ def rule_ip(doc, sentences):
             continue
         # "licensed premises" (alcohol / gaming permits) licenses a place, not IP.
         if re.search(r"\blicen[cs]ed\s+premises\b", lower):
+            continue
+        # "project manager assigned to the account" allocates personnel, not
+        # intellectual property: a person/role token (staff, manager, analyst,
+        # engineer, consultant, team member, ...) as the assigned subject is
+        # personnel direction.  "inventions / work product assigned to the
+        # employer / the Client" is a genuine IP transfer and still fires.
+        if re.search(
+            r"\b(?:personnel|staff\s+members?|managers?|engineers?|consultants?|"
+            r"analysts?|representatives?|specialists?|officers?|lawyers?|attorneys?|"
+            r"contractors?)\b"
+            r"[^.]{0,35}\bassigned\b",
+            lower,
+        ):
             continue
         risk = RiskLevel.LOW
         flag = None
@@ -810,6 +852,11 @@ def rule_exclusivity(doc, sentences):
         # clause, not a market-exclusivity term.
         if re.search(r"\bexclusive\s+(?:of|jurisdiction)\b", lower):
             continue
+        # "exclusive remedy / use of the premises / possession of the goods"
+        # describe a remedy or a physical right, not market exclusivity.  An
+        # "exclusive right to sell" / "exclusive license grant" still fires.
+        if re.search(r"\bexclusive\s+(?:remedy|use|possession)\b", lower):
+            continue
         risk = RiskLevel.MEDIUM
         flag = "exclusivity clause"
         dur = _DURATION_RE.search(sentence)
@@ -885,6 +932,20 @@ def rule_insurance(doc, sentences):
     for page, sentence in sentences:
         lower = sentence.lower()
         if "insurance" in lower:
+            # A negated or disclaimed coverage statement ("nothing requires
+            # either party to maintain insurance", "does not include liability
+            # insurance") is not a coverage obligation and must not fire.  The
+            # coercion verb (require/maintain/carry/include/provide) may sit on
+            # either side of "insurance".
+            if re.search(r"\b(?:no|not|nothing|neither)\b|\b(?:does|shall|will)\s+not\b", lower) \
+                    and re.search(
+                        r"\binsurance\b[^.]{0,60}\b(?:requir\w*|maintain\w*|carr(?:y|ies|ied|ying)|"
+                        r"includ\w*|provid\w*|obtain\w*|tak(?:e|en)\s+out)\b"
+                        r"|\b(?:requir\w*|maintain\w*|carr(?:y|ies|ied|ying)|"
+                        r"includ\w*|provid\w*|obtain\w*|tak(?:e|en)\s+out)\b[^.]{0,60}\binsurance\b",
+                        lower,
+                    ):
+                continue
             flag = "insurance requirement"
             risk = RiskLevel.LOW
             if "professional indemnity" in lower or "errors and omissions" in lower:

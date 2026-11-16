@@ -315,3 +315,115 @@ def test_legal_process_delivery_not_a_delivery_obligation():
         ["Seller shall deliver the goods within 30 days of the purchase order."]
     ) if c.clause == "delivery"]
     assert clauses and clauses[0].risk.value == "LOW"
+
+
+def test_notice_report_delivery_not_a_delivery_obligation():
+    # "delivery of this notice / the report delivery" is a procedural
+    # communication deadline, not a goods/services delivery obligation.
+    for sentence in [
+        "Delivery of this notice shall be within 3 days of the event.",
+        "The report delivery shall be within 5 days of the board meeting.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "delivery"]
+        assert clauses == [], sentence
+    # Genuine goods delivery still fires.
+    clauses = [c for c in _clauses(
+        ["Seller shall deliver the goods within 30 days of the purchase order."]
+    ) if c.clause == "delivery"]
+    assert clauses and clauses[0].risk.value == "LOW"
+
+
+def test_total_of_business_days_not_a_quantity():
+    # "a total of N business/calendar days" is a procedural time period (review
+    # period, response window), not a quantity of deliverables.
+    for sentence in [
+        "The review period is a total of 5 business days from the request.",
+        "A total of 30 calendar days is allowed for the appeal window.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "quantity"]
+        assert clauses == [], sentence
+    # Countable deliverables still fire.
+    clauses = [c for c in _clauses(
+        ["Buyer shall purchase a total of 10,000 units within the term."]
+    ) if c.clause == "quantity"]
+    assert clauses and clauses[0].risk.value == "LOW"
+
+
+def test_negated_interest_accrual_not_a_penalty():
+    # "interest shall not accrue" / "no interest will accrue" states what will
+    # not happen — not a penalty risk.
+    for sentence in [
+        "Interest shall not accrue on any late payments under this Agreement.",
+        "No interest will accrue on overdue invoices.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "penalty"]
+        assert clauses == [], sentence
+    # A genuine accrual clause still fires.
+    clauses = [c for c in _clauses(
+        ["In the event of late payment, interest of 2% per month shall accrue."]
+    ) if c.clause == "penalty"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_force_majeure_not_a_liability_cap():
+    # A force-majeure excuse and an own-taxes allocation are not party-to-party
+    # liability caps.
+    for sentence in [
+        "Neither party shall be liable for damages caused by a force majeure event.",
+        "Each party shall be liable for its own taxes and duties under this Agreement.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "liability_cap"]
+        assert clauses == [], sentence
+    # A genuine disclaimer still fires.
+    clauses = [c for c in _clauses(
+        ["The Licensor disclaims all warranties and shall not be liable for any damages whatsoever."]
+    ) if c.clause == "liability_cap"]
+    assert clauses and clauses[0].risk.value == "HIGH"
+
+
+def test_personnel_assignment_not_an_ip_clause():
+    # "project manager assigned to the account / assigned personnel" allocates
+    # staff, not intellectual property.
+    for sentence in [
+        "The project manager assigned to the account shall report weekly.",
+        "Two staff members assigned to the task shall be seconded.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "ip"]
+        assert clauses == [], sentence
+    # A genuine IP assignment still fires.
+    clauses = [c for c in _clauses(
+        ["All inventions created during employment are assigned to the employer."]
+    ) if c.clause == "ip"]
+    assert clauses and clauses[0].risk.value == "HIGH"
+
+
+def test_exclusive_remedy_or_use_not_an_exclusivity_grant():
+    # "exclusive remedy for a breach" / "exclusive use of the premises" are a
+    # remedy and a physical right, not a market-exclusivity term.
+    for sentence in [
+        "Termination is the exclusive remedy for any breach of this Agreement.",
+        "Tenant shall have exclusive use of the premises during the term.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "exclusivity"]
+        assert clauses == [], sentence
+    # An exclusive license grant still fires.
+    clauses = [c for c in _clauses(
+        ["This Agreement includes an exclusive license grant to Licensee for a period of 6 years."]
+    ) if c.clause == "exclusivity"]
+    assert clauses and clauses[0].risk.value == "HIGH"
+
+
+def test_negated_insurance_requirement_not_fired():
+    # "nothing requires either party to maintain insurance" / "does not include
+    # liability insurance" deny a coverage obligation — no clause.
+    for sentence in [
+        "Nothing in this Agreement requires either party to maintain any insurance.",
+        "The Service does not include liability insurance of any kind.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "insurance"]
+        assert clauses == [], sentence
+    # A genuine coverage obligation still fires.
+    clauses = [c for c in _clauses(
+        ["Provider shall carry professional indemnity insurance throughout the term."]
+    ) if c.clause == "insurance"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
