@@ -497,6 +497,15 @@ def rule_liability(doc, sentences):
     out = []
     for page, sentence in sentences:
         lower = sentence.lower()
+        # Insurance-requirement sentences ("professional indemnity insurance",
+        # "general liability insurance with limits of at least USD 1M") are
+        # coverage obligations handled by rule_insurance, not party-to-party
+        # liability caps.  A genuine indemnity obligation ("indemnifies",
+        # "hold harmless") still fires.
+        if "insurance" in lower and not re.search(
+            r"\bindemnif|hold\s+harmless", lower
+        ):
+            continue
         if not any(k in lower for k in (
             "liability", "aggregate liability", "maximum liability", "indemn", "cap on damages",
             "not be liable for", "be liable for", "disclaims all", "no liability",

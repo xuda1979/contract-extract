@@ -148,6 +148,20 @@ def test_percent_of_fees_not_a_price():
     assert clauses == []
 
 
+def test_insurance_requirement_not_a_liability_cap():
+    # "Professional indemnity insurance" is a coverage obligation (handled by
+    # rule_insurance), not a party-to-party liability cap — the liability rule
+    # must not fire, but a genuine indemnity obligation still does.
+    clauses = [c for c in _clauses(
+        ["Provider shall carry professional indemnity insurance throughout the term."]
+    ) if c.clause == "liability_cap"]
+    assert clauses == []
+    clauses = [c for c in _clauses(
+        ["Provider indemnifies Client against all claims arising from staff misconduct."]
+    ) if c.clause == "liability_cap"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
 def test_exclusive_5_years_is_high():
     clauses = [c for c in _clauses(
         ["This Agreement includes an exclusive license grant to Licensee for a period of 6 years."]
