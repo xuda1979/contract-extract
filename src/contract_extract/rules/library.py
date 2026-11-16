@@ -370,6 +370,22 @@ def rule_acceptance(doc, sentences):
                      r"\b(?:acceptance|inspection)\b[^.]{0,30}"
                      r"\b(?:required?|necessary|needed|applicable|applies?)\b", lower):
             continue
+        # "The bank shall accept the documentary credit / bill of exchange" and
+        # "accept the offer / appointment" are trade-finance or formation
+        # acceptances of documents or relationships — not of deliverables.
+        if re.search(
+            r"\baccept\w*\s+(?:the\s+|a\s+|this\s+)?"
+            r"(?:documentary\s+credit(?:s)?|letter\s+of\s+credit|bill(?:s)?\s+of\s+exchange|"
+            r"promissory\s+note(?:s)?|draft(?:s)?|offer(?:s)?|tender(?:s)?|bid(?:s)?|"
+            r"purchase\s+order(?:s)?|quotation(?:s)?|term(?:s)?\s+(?:and|&)\s+condition(?:s)?|"
+            r"appointment(?:s)?|engagement(?:s)?)\b"
+            r"|\bacceptance\s+of\s+(?:the\s+|a\s+|this\s+)?"
+            r"(?:documentary\s+credit(?:s)?|letter\s+of\s+credit|bill(?:s)?\s+of\s+exchange|"
+            r"promissory\s+note(?:s)?|draft(?:s)?|offer(?:s)?|tender(?:s)?|bid(?:s)?|"
+            r"purchase\s+order(?:s)?|quotation(?:s)?)\b",
+            lower,
+        ):
+            continue
         within = re.search(r"\bwithin\s+(\d+)\s*(?:working|business)?\s*days?\b", lower)
         window = re.search(r"\b(\d+)\s*(?:business|working)?\s*days?\s+(?:to|in\s+which\s+to)\s+(?:inspect|accept|complete)", lower)
         risk = RiskLevel.LOW

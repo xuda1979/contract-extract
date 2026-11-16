@@ -459,3 +459,22 @@ def test_court_order_term_not_a_contract_duration():
         ["The term of this Agreement shall be for a period of 2 years, effective from January 1, 2024."]
     ) if c.clause == "duration"]
     assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_banking_acceptance_not_a_deliverables_clause():
+    # "accept the documentary credit / bill of exchange / offer / tender" is a
+    # trade-finance or formation acceptance, not acceptance of deliverables.
+    for sentence in [
+        "The bank shall accept the documentary credit within 7 days of presentation.",
+        "The bank shall accept the bill of exchange upon presentation by the seller.",
+        "Buyer accepts the offer set out in the quotation of 15 May.",
+        "The customer may accept a tender submitted by any qualified bidder.",
+        "Acceptance of the offer shall be communicated in writing within 10 days.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "acceptance"]
+        assert clauses == [], sentence
+    # A genuine deliverables acceptance window still fires.
+    clauses = [c for c in _clauses(
+        ["The Buyer shall have 10 days to inspect and accept each deliverable."]
+    ) if c.clause == "acceptance"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
