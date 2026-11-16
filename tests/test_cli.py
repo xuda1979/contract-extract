@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
-from contract_extract.cli import main
+from contract_extract.cli import _schema_text, main
 
 
 def test_version(capsys):
@@ -51,3 +52,14 @@ def test_checklist_writes_markdown(sample_pdf, tmp_path, capsys):
     text = md_files[0].read_text(encoding="utf-8")
     assert "Contract Review Checklist" in text
     assert "overall risk" in text.lower()
+
+
+def test_checked_in_schema_matches_live_output():
+    # The schema/ tree is the documented authoritative downstream contract
+    # (see schema.py docstring and the manual). It must not drift from
+    # `contract-extract --schema`.
+    repo = Path(__file__).resolve().parents[1]
+    checked_in = json.loads(
+        (repo / "schema" / "documented_result.schema.json").read_text(encoding="utf-8")
+    )
+    assert checked_in == json.loads(_schema_text())

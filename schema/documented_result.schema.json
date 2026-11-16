@@ -1,4 +1,7 @@
 {
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DocumentResult",
+  "description": "The output for a single document.",
   "$defs": {
     "ExtractedClause": {
       "description": "One extracted risk clause.",
@@ -68,7 +71,6 @@
       "type": "string"
     }
   },
-  "description": "The output for a single document.",
   "properties": {
     "source": {
       "description": "Input file path.",
@@ -138,6 +140,5 @@
     "engine",
     "generated_at"
   ],
-  "title": "DocumentResult",
   "type": "object"
 }
