@@ -223,6 +223,16 @@ def rule_quantity(doc, sentences):
             lower,
         ):
             continue
+        # "Quantity discounts of 5% apply for orders above 10,000 units" is a
+        # pricing threshold for discounts, not a committed quantity.  A
+        # purchase commitment ("Buyer shall purchase 10,000 units") still fires.
+        if re.search(
+            r"\bquantity\s+discount\w*\b"
+            r"|\bdiscount\w*\b[^.]{0,30}\borders?\s+(?:above|exceeding|over|greater\s+than)\b"
+            r"|\borders?\s+(?:above|exceeding|over|greater\s+than)\b[^.]{0,30}\bdiscount\w*\b",
+            lower,
+        ):
+            continue
         m = re.search(
             rf"\b{_NUMTOKEN}\s+units?\b"
             rf"|\b{_NUMTOKEN}\s+items?\b"
@@ -422,6 +432,15 @@ def rule_acceptance(doc, sentences):
             r"(?:documentary\s+credit(?:s)?|letter\s+of\s+credit|bill(?:s)?\s+of\s+exchange|"
             r"promissory\s+note(?:s)?|draft(?:s)?|offer(?:s)?|tender(?:s)?|bid(?:s)?|"
             r"purchase\s+order(?:s)?|quotation(?:s)?)\b",
+            lower,
+        ):
+            continue
+        # "Acceptance of the risk under this policy" is an underwriting /
+        # risk-appetite statement, not a deliverables acceptance.  No fixture
+        # uses "acceptance of risk" or "underwriting".
+        if re.search(
+            r"\bacceptance\s+of\s+(?:the\s+|all\s+|any\s+)?risk\b"
+            r"|\bunderwrit\w*\b",
             lower,
         ):
             continue
@@ -943,6 +962,18 @@ def rule_renewal(doc, sentences):
             lower,
         ):
             continue
+        # "renew the engagement / appointment / mandate" renews a consulting
+        # relationship or an office ("the Board may renew the appointment of
+        # the auditor"), not the agreement's term.  Genuine term renewals name
+        # the Agreement / term / lease and still fire.
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,35}"
+            r"\b(?:engagement|appointment|mandate)\b"
+            r"|\b(?:engagement|appointment|mandate)\b[^.]{0,35}"
+            r"\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.LOW
         flag = "renewal clause"
         if re.search(r"automatic|auto-renew|auto\s+renew|renews\s+automatically|renew\s+automatically|quarterly|automatically\s+renew", lower):
@@ -1003,6 +1034,16 @@ def rule_termination(doc, sentences):
         if re.search(
             r"\bsupersed\w*\b[^.]{0,30}\bterminat\w*\b"
             r"|\bterminat\w*\b[^.]{0,30}\bsupersed\w*\b",
+            lower,
+        ):
+            continue
+        # "Termination of the employment / office / appointment" is an HR or
+        # governance event, not a party's right to terminate the agreement.
+        # "This Agreement shall be terminated / Either party may terminate"
+        # still fires (the guard is tied to the "of the <role>" form).
+        if re.search(
+            r"\btermination\s+of\s+(?:the\s+|a\s+)?"
+            r"(?:employment|office|appointment|mandate|engagement)\b",
             lower,
         ):
             continue
@@ -1073,6 +1114,15 @@ def rule_exclusivity(doc, sentences):
             r"|\bgranted\s+exclusively\s+to\s+(?:the\s+|this\s+)?"
             r"(?:licensee's|licensor's|employee(?:s)?|contractor(?:s)?|staff|"
             r"consultant(?:s)?|vendor(?:s)?|supplier(?:s)?)\b",
+            lower,
+        ):
+            continue
+        # "exclusive rights of use over the marketing materials" is a usage
+        # right alongside a licence grant, not a market-exclusivity term.  An
+        # "exclusive right to sell" (fixture line 146) still fires.
+        if re.search(
+            r"\bexclusive\s+rights?\s+of\s+use\b"
+            r"|\bexclusive\s+right\w*\s+to\s+use\b",
             lower,
         ):
             continue
@@ -1164,6 +1214,17 @@ def rule_data_protection(doc, sentences):
         # processing clause.  "privacy policy" (fixture "under the employer's
         # privacy policy") is untouched and still fires.
         if re.search(r"\b(?:privacy\s+rights?|right\w*\s+to\s+privacy)\b", lower):
+            continue
+        # "maintain the privacy of the negotiation strategy" protects a
+        # commercial secret, not personal data.  Only the negotiation /
+        # strategy / deliberations family is guarded — "privacy of personal
+        # data" would be a genuine data clause and is untouched.
+        if re.search(
+            r"\bprivacy\s+of\s+(?:the\s+|a\s+|its\s+|our\s+|their\s+)?"
+            r"(?:negotiation\w*|strategy|proceedings?|deliberations?|discussions?|"
+            r"commercial\s+information)\b",
+            lower,
+        ):
             continue
         risk = RiskLevel.LOW
         flag = "data protection clause"

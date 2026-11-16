@@ -883,3 +883,93 @@ def test_privacy_rights_carveout_not_a_data_clause():
         ["Any data transferred outside the EEA requires appropriate safeguards."]
     ) if c.clause == "data_protection"]
     assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_underwriting_risk_acceptance_not_a_deliverables_clause():
+    # "Acceptance of the risk under this policy" is an underwriting /
+    # risk-appetite statement, not a deliverables acceptance.  Genuine
+    # deliverable acceptance windows still fire.
+    for sentence in [
+        "Acceptance of the risk under this policy is governed by the insurer's underwriting guidelines.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "acceptance"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Client shall have 10 days to inspect and accept each deliverable."]
+    ) if c.clause == "acceptance"]
+    assert clauses
+
+
+def test_quantity_discount_threshold_not_a_purchase_commitment():
+    # "Quantity discounts of 5% for orders above 10,000 units" is a pricing
+    # threshold, not a committed quantity.  A purchase commitment still fires.
+    for sentence in [
+        "Quantity discounts of 5% apply for orders above 10,000 units.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "quantity"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Buyer shall purchase 10,000 units in the first year."]
+    ) if c.clause == "quantity"]
+    assert clauses
+
+
+def test_engagement_appointment_renewal_not_a_term():
+    # "renew the engagement / appointment" renews a consulting relationship
+    # or an office, not the agreement's term.  Genuine term renewals still
+    # fire.
+    for sentence in [
+        "The parties may mutually agree to renew the engagement for a further term.",
+        "The Board may renew the appointment of the auditor for another year.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "renewal"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["This Agreement shall automatically renew for successive 1 year terms."]
+    ) if c.clause == "renewal"]
+    assert clauses
+
+
+def test_employment_termination_not_an_agreement_termination():
+    # "Termination of the employment" is an HR event, not a party's right
+    # to terminate the agreement.
+    for sentence in [
+        "Termination of the employment by the employee requires 30 days written notice.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "termination"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Either party may terminate this Agreement for convenience upon 90 days written notice."]
+    ) if c.clause == "termination"]
+    assert clauses
+
+
+def test_exclusive_rights_of_use_not_a_market_term():
+    # "exclusive rights of use over the marketing materials" is a usage
+    # right, not market exclusivity.  An exclusive right to sell still fires.
+    for sentence in [
+        "The parties grant each other exclusive rights of use over the joint marketing materials.",
+        "The parties grant each other an exclusive right to use the joint marketing materials.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "exclusivity"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Distributor is granted an exclusive right to sell the Products within the Territory."]
+    ) if c.clause == "exclusivity"]
+    assert clauses
+
+
+def test_commercial_privacy_of_not_a_data_clause():
+    # "maintain the privacy of the negotiation strategy" protects a
+    # commercial secret, not personal data.  Genuine data statements still
+    # fire.
+    for sentence in [
+        "The Parties shall maintain the privacy of the negotiation strategy at all times.",
+        "The Parties shall maintain the privacy of their deliberations.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "data_protection"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Any data transferred outside the EEA requires appropriate safeguards."]
+    ) if c.clause == "data_protection"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
