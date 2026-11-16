@@ -280,6 +280,16 @@ def rule_price(doc, sentences):
             lower,
         ):
             continue
+        # "average price of comparable products" is a market benchmark, not a
+        # contract price; "notes payable" on a balance sheet is an accounting
+        # line item, not money owed under this Agreement.  Neither phrase
+        # appears in the fixtures.
+        if re.search(
+            r"\baverage\s+price\b[^.]{0,20}\bcomparable\b"
+            r"|\bnotes?\s+payable\b",
+            lower,
+        ):
+            continue
         flag = f"price: {detail}"
         if any(k in lower for k in ("in advance", "advance payment", "upon execution",
                                     "upfront", "payable in advance", "non-refundable")):
@@ -461,6 +471,10 @@ def rule_payment(doc, sentences):
             r"property|assets?|documents?|agreement|contract|instrument)\b",
             lower,
         ):
+            continue
+        # "notes payable" on a balance sheet is an accounting line item, not a
+        # payment term between the parties.  None of the fixtures use it.
+        if re.search(r"\bnotes?\s+payable\b", lower):
             continue
         # find a specific financial term
         pct = _PERCENT_RE.search(sentence)
@@ -822,6 +836,19 @@ def rule_ip(doc, sentences):
             lower,
         ):
             continue
+        # "assign its rights to the payment of receivables / to receive
+        # payments" assigns money rights (factoring, receivables), not
+        # intellectual property.  "inventions / work product assigned to the
+        # employer / the Client" still fires (the subject is a creation).
+        if re.search(
+            r"\b(?:assign(?:s|ed|ing)?|transfer(?:s|red|ring)?)\s+(?:its|any|all|the)\s+"
+            r"rights?\b[^.]{0,35}\b(?:to\s+(?:the\s+)?(?:payment|receive|receipt|collection)\w*|"
+            r"receivables?|debts?)\b"
+            r"|\b(?:payment|receive|receipt|collection)\w*\s+rights?\b[^.]{0,35}"
+            r"\b(?:assign(?:s|ed|ing)?|transfer(?:s|red|ring)?)\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.LOW
         flag = None
         detail = None
@@ -966,6 +993,16 @@ def rule_termination(doc, sentences):
         if re.search(
             r"\bterminat\w*\b[^.]{0,50}\bsurviv\w*\b"
             r"|\bsurviv\w*\b[^.]{0,50}\bterminat\w*\b",
+            lower,
+        ):
+            continue
+        # "supersedes and terminates any prior agreements" is supersession
+        # boilerplate about earlier contracts, not a party's right to
+        # terminate this one.  "This Agreement shall be terminated by either
+        # party" still fires.
+        if re.search(
+            r"\bsupersed\w*\b[^.]{0,30}\bterminat\w*\b"
+            r"|\bterminat\w*\b[^.]{0,30}\bsupersed\w*\b",
             lower,
         ):
             continue
@@ -1121,6 +1158,12 @@ def rule_data_protection(doc, sentences):
         if re.search(r"\bcomply\w*\s+with\b[^.]{0,60}\b(?:laws?|regulations?|legislation)\b", lower):
             continue
         if re.search(r"\bdata\s+protection\s+officer\b[^.]{0,30}\b(?:contact|e-?mail)\b", lower):
+            continue
+        # "privacy rights" / "right to privacy" ("restricts the privacy rights
+        # of employees") is a fundamental-rights carve-out, not a data-
+        # processing clause.  "privacy policy" (fixture "under the employer's
+        # privacy policy") is untouched and still fires.
+        if re.search(r"\b(?:privacy\s+rights?|right\w*\s+to\s+privacy)\b", lower):
             continue
         risk = RiskLevel.LOW
         flag = "data protection clause"

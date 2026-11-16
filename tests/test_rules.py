@@ -806,3 +806,80 @@ def test_integrity_reliance_and_sports_penalty_suppressed():
         ["A penalty of EUR 500 per day applies to each late deliverable."]
     ) if c.clause == "penalty"]
     assert clauses and clauses[0].risk.value in ("MEDIUM", "HIGH")
+
+
+def test_market_benchmark_and_accounting_figures_not_contract_prices():
+    # "average price of comparable products" benchmarks the market and
+    # "notes payable" is a balance-sheet line item — neither is a price
+    # under this contract, and "notes payable" is not a payment term either.
+    for sentence in [
+        "The average price of comparable products in the market is EUR 45.",
+        "The balance sheet includes notes payable of USD 250,000.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause in ("price", "payment")]
+        assert clauses == [], sentence
+    # A genuine contract price and a loan principal still fire.
+    clauses = [c for c in _clauses(
+        ["The supply price is EUR 12.00 per unit."]
+    ) if c.clause == "price"]
+    assert clauses and clauses[0].risk.value in ("LOW", "MEDIUM", "HIGH")
+    clauses = [c for c in _clauses(
+        ["The Lender agrees to lend EUR 1,500,000 to the Borrower."]
+    ) if c.clause == "price"]
+    assert clauses
+
+
+def test_money_rights_assignment_not_an_ip_transfer():
+    # Assigning "rights to the payment of receivables" or "rights to receive
+    # payments" moves money rights (factoring / receivables), not
+    # intellectual property — the ip rule must not fire.
+    for sentence in [
+        "The Seller may assign its rights to the payment of receivables to a factoring company.",
+        "Either party may assign its rights to receive payments to an affiliate without consent.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "ip"]
+        assert clauses == [], sentence
+    # Genuine IP transfers to the counterparty still fire.
+    clauses = [c for c in _clauses(
+        ["All inventions created during employment are assigned to the employer."]
+    ) if c.clause == "ip"]
+    assert clauses and clauses[0].risk.value == "HIGH"
+    clauses = [c for c in _clauses(
+        ["All work product produced under this Agreement is the property of the Client."]
+    ) if c.clause == "ip"]
+    assert clauses
+
+
+def test_supersede_clause_not_a_termination_right():
+    # "supersedes and terminates any prior agreements" is supersession
+    # boilerplate about earlier contracts — not a party's right to
+    # terminate this Agreement.
+    for sentence in [
+        "This Agreement supersedes and terminates any prior agreements between the parties.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "termination"]
+        assert clauses == [], sentence
+    # A genuine termination right still fires.
+    clauses = [c for c in _clauses(
+        ["Either party may terminate this Agreement for convenience upon 90 days written notice."]
+    ) if c.clause == "termination"]
+    assert clauses
+
+
+def test_privacy_rights_carveout_not_a_data_clause():
+    # "restricts the privacy rights of employees" is a fundamental-rights
+    # carve-out, not a data-processing clause.  The employer's privacy
+    # policy statement and a cross-border transfer still fire.
+    for sentence in [
+        "Nothing in this clause restricts the privacy rights of employees.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "data_protection"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Personal data of employees is processed under the employer's privacy policy."]
+    ) if c.clause == "data_protection"]
+    assert clauses
+    clauses = [c for c in _clauses(
+        ["Any data transferred outside the EEA requires appropriate safeguards."]
+    ) if c.clause == "data_protection"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
