@@ -167,6 +167,18 @@ def rule_duration(doc, sentences):
         # stays narrow to the two validated families.
         if re.search(r"\b(?:warranty|standstill)\s+period\b", lower):
             continue
+        # "negotiate in good faith for a period of 30 days before mediation",
+        # "the period for objections shall be 14 days" are procedural
+        # windows, not the agreement's term.  Only "negotiate in good faith"
+        # with a length follows; fixture line 365 ("negotiate in good faith
+        # on any extension", no period) does not match.
+        if re.search(
+            r"\b(a\s+|the\s+)?period\s+(?:of|for)\b[^.]{0,40}"
+            r"\b(?:negotiat\w*|objection\w*)\b"
+            r"|\bnegotiat\w*\s+in\s+good\s+faith\b[^.]{0,40}\b(?:for\s+|for\s+a\s+period\s+of\s+)",
+            lower,
+        ):
+            continue
         m = _DUR_PAT1.search(sentence) or _DUR_PAT4.search(sentence) or _DUR_PAT5.search(sentence)
         if not m:
             continue
@@ -258,6 +270,15 @@ def rule_price(doc, sentences):
             if not _PCT_OF_MONEY_RE.search(sentence):
                 detail = pct.group(0)
         if not detail:
+            continue
+        # "redemption price of the shares", "strike price of each Option" are
+        # security / instrument prices, not a contract purchase price.  Zero
+        # fixture files use these phrases (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:redemption|strike|exercise|conversion|repurchase|buy[- ]back)\s+price\b",
+            lower,
+        ):
             continue
         flag = f"price: {detail}"
         if any(k in lower for k in ("in advance", "advance payment", "upon execution",
@@ -761,6 +782,19 @@ def rule_ip(doc, sentences):
         # A "license agreement" heading should not produce an IP-risk clause by itself.
         if re.match(r"^(this\s+)?(software\s+|end[- ]user\s+)?license\w*\s+(agreement|terms)", lower):
             continue
+        # "assign / transfer this/the Agreement to a third party" is a
+        # contract-assignment right, not an IP-rights transfer.  "inventions /
+        # work product assigned to" still fires (they bind the assigned
+        # subject to an entity, not to the Agreement itself), and the gap
+        # between the verb and the agreement noun is tempered so a sentence
+        # mentioning data / "transferred under the Agreement" never matches.
+        if re.search(
+            r"\b(?:assign(?:ed|s)?|transfer(?:s|red|ring)?)\b"
+            r"(?:(?!\bdata\b)[^.]){0,40}"
+            r"\b(?:this|the)\s+(?:agreement|contract)\b",
+            lower,
+        ):
+            continue
         # "licensed premises" (alcohol / gaming permits) licenses a place, not IP.
         if re.search(r"\blicen[cs]ed\s+premises\b", lower):
             continue
@@ -1025,6 +1059,20 @@ def rule_data_protection(doc, sentences):
             lower,
         ):
             continue
+        # "transfer / assign this Agreement" is a contract-assignment or
+        # novation right, not a personal-data transfer ("the Agreement" /
+        # "this Agreement" word orders both covered).  "Any data transferred
+        # outside the EEA" (fixture line) is a genuine data transfer and is
+        # untouched — the gap between the verb and the agreement noun is
+        # tempered so a "data/transferred under the Agreement" sentence never
+        # matches.
+        if re.search(
+            r"\b(?:assign(?:ed|s)?|transfer(?:s|red|ring)?)\b"
+            r"(?:(?!\bdata\b)[^.]){0,40}"
+            r"\b(?:this|the)\s+(?:agreement|contract)\b",
+            lower,
+        ):
+            continue
         # "comply with all applicable data protection laws" is a generic legal
         # promise with no processing, transfer or breach obligation — and a
         # "data protection officer contact details:" line is a label, not a
@@ -1098,6 +1146,11 @@ def rule_insurance(doc, sentences):
                 r"comp(?:ensation)?)\b",
                 lower,
             ):
+                continue
+            # "insurance contributions to the pension fund / social security"
+            # is a payroll or statutory-deduction mention, not a negotiated
+            # coverage obligation.
+            if re.search(r"\binsurance\s+contributions?\b", lower):
                 continue
             flag = "insurance requirement"
             risk = RiskLevel.LOW

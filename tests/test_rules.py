@@ -691,3 +691,74 @@ def test_warranty_and_standstill_period_not_a_term():
     ]:
         clauses = [c for c in _clauses(sentence) if c.clause == "duration"]
         assert clauses and clauses[0].risk.value == risk, sentence
+
+
+def test_insurance_contributions_not_a_coverage_obligation():
+    # "insurance contributions to the pension fund" are statutory payroll
+    # contributions, not a negotiated insurance-coverage type.
+    for sentence in [
+        "The employer shall make insurance contributions to the pension fund.",
+        "Insurance contributions are deducted from each employee's salary.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "insurance"]
+        assert clauses == [], sentence
+    # A genuine coverage obligation still fires.
+    clauses = [c for c in _clauses(
+        ["Provider shall carry professional indemnity insurance throughout the term."]
+    ) if c.clause == "insurance"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_contract_assignment_not_a_data_or_ip_transfer():
+    # "assign / transfer this/the Agreement" is a contract-assignment (or
+    # novation) right — it is not a personal-data transfer (both word orders
+    # covered) nor an IP-rights transfer.
+    for sentence in [
+        "Either party may transfer this Agreement to an affiliate upon written notice.",
+        "The Licensee shall not assign or transfer the Agreement to a third party without consent.",
+    ]:
+        for rule in ("data_protection", "ip"):
+            clauses = [c for c in _clauses(sentence) if c.clause == rule]
+            assert clauses == [], f"{rule}: {sentence}"
+    # A genuine cross-border data transfer and a genuine IP assignment both fire.
+    clauses = [c for c in _clauses(
+        ["Any data transferred outside the EEA requires appropriate safeguards."]
+    ) if c.clause == "data_protection"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+    clauses = [c for c in _clauses(
+        ["All inventions created during employment are assigned to the employer."]
+    ) if c.clause == "ip"]
+    assert clauses and clauses[0].risk.value in ("LOW", "MEDIUM", "HIGH")
+
+
+def test_negotiation_and_objection_windows_not_a_term():
+    # A "negotiate in good faith for a period of N days" deadlock window and a
+    # "period for objections of N days" are procedural response windows, not
+    # the agreement's term.
+    for sentence in [
+        "The parties shall negotiate in good faith for a period of 30 days before mediation.",
+        "The period for objections shall be 14 days from the date of such notice.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "duration"]
+        assert clauses == [], sentence
+    # A genuine agreement term still fires.
+    clauses = [c for c in _clauses(
+        ["The term of this Agreement shall be for a period of 2 years, effective from January 1, 2024."]
+    ) if c.clause == "duration"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_security_prices_not_a_contract_price():
+    # A redemption/strike price of shares or options prices a security, not
+    # the goods/services price — the price rule must not fire.
+    for sentence in [
+        "The redemption price of the shares shall be EUR 100 per share.",
+        "The strike price of each Option shall be USD 10.00.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "price"]
+        assert clauses == [], sentence
+    # A genuine supply price still fires.
+    clauses = [c for c in _clauses(
+        ["The price of the first batch shall be EUR 5,000 per unit."]
+    ) if c.clause == "price"]
+    assert clauses and clauses[0].risk.value in ("LOW", "MEDIUM", "HIGH")
