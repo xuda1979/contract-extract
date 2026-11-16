@@ -1,0 +1,214 @@
+软件设计说明书（GB/T 8567-2006）　合同/标书风险条款抽取软件 contract-extract V1.0
+====================================================================================
+
+1 引言
+--------------------------------------------------------------------------------
+1.1 编写目的
+    本说明书描述 contract-extract V1.0（合同/标书风险条款抽取软件）的总体
+    设计、模块划分、接口设计与数据库（数据模型）设计，供后续开发、测试、
+    维护及著作权登记使用。文档结构参照 GB/T 8567-2006《计算机软件文档编制
+    规范》之《软件设计说明书（概要/详细设计）》大纲。
+
+1.2 背景
+    合同与标书审阅是律所、企业与采购人员的高频事务。电子合同多以 PDF/DOCX
+    形式存在，人工逐条比对 15 类风险条款耗时且易遗漏。本软件以"离线优先、
+    双层抽取"为设计原则，在本地完成文本解析与规则抽取，按需启用 LLM 增量。
+
+1.3 术语与定义
+    - 文档（Document）：单份 PDF 或 DOCX，经解析后为分页文本集合。
+    - 条款（Clause）：表示一个已识别的风险条款（期限、违约金等 15 域之一）。
+    - 风险级（RiskLevel）：LOW（低）／MEDIUM（中）／HIGH（高）。
+    - 规则层（rule layer）：不依赖云接口的确定性正则规则引擎。
+    - LLM 增强层：可选的按次付费大模型补充抽取，离线时为零操作。
+    - NDJSON：每行一个 JSON 对象的流式文本格式。
+
+2 总体设计
+--------------------------------------------------------------------------------
+2.1 系统结构
+    系统采用单进程、紧耦合分层结构，按数据流方向分为四层：
+
+        输入层    PDF/DOCX 文件、目录路径
+                    │
+        解析层    parsers（extract_pdf / extract_docx / load_document）
+                    │  Document（分页 Page 列表，页号、页文本）
+        抽取层    rules（engine + library + match + utils）
+                    │        （可选）llm（provider / openai / anthropic）
+                    │  list[ExtractedClause]
+        输出层    pipeline → DocumentResult → JSON / JSON-Schema / NDJSON
+                                              → checklist（Markdown 审查清单）
+                                              → cli / web / batch 入口
+
+    数据流为单向：解析层产出结构化的 Document，抽取层对 Document 逐句运行
+    15 条规则并聚合文档风险，输出层将 DocumentResult 序列化为 JSON 族格式；
+    LLM 增强仅在"显式启用 + 配置密钥 + 非离线"时介入抽取层，且只负责补加
+    规则未命中的新字段。
+
+2.2 模块划分
+    - parsers：PDF/DOCX 本地解析、文本规范化、分页估计。PDF 采用 pypdf 与
+      pdfplumber 双通道提取并择优，DOCX 按行高/每页 44 行估算页码。
+    - rules.engine：分句（iter_sentences）、规则调度（run_rules）、去重
+      （_dedupe）、文档风险聚合（document_risk）。
+    - rules.library：15 个规则函数与共享正则、货币/期限/日期模式、风险分级
+      逻辑，是风险知识的编码载体。
+    - rules.match / rules.utils：Match 数据类与去引号、编号清理、否定探测、
+      顶/底限、风险混合等工具。
+    - llm：LLMProvider 抽象、NoopLLM（离线零操作）、OpenAIProvider 与
+      AnthropicProvider（文本片段 + JSON 输出解析）。
+    - schema：pydantic 输出契约（RiskLevel / ExtractedClause / DocumentResult /
+      BatchResult），并可导出 JSON-Schema。
+    - pipeline：单文档端到端编排（加载→规则→可选 LLM→结果封装）。
+    - batch：目录展开、流式批处理写 NDJSON、简要汇总。
+    - checklist：由 DocumentResult 生成 Markdown 审查清单。
+    - cli / web：命令行入口与 stdlib 版 Web 演示（上传→抽取→展示）。
+
+2.3 接口设计
+    - 对外接口：
+        CLI:  contract-extract [路径...] [--llm] [--checklist] [-o FILE]
+              [--schema] [--fixtures] [--version]
+        函数: load_document(path) -> Document
+              run_rules(doc) -> list[ExtractedClause]
+              extract_document(path, use_llm=False) -> DocumentResult
+              run_batch(paths, out_stream, use_llm=False) -> dict
+        HTTP: POST 上传 .pdf/.docx（multipart/form-data，≤20MiB），
+              返回 HTML 表格 + 审查清单 + JSON。
+    - 内部接口：
+        engine.iter_sentences(doc) -> (page_no, sentence) 迭代器；
+        library 每个规则函数签名 (doc, sentences) -> list[Match]；
+        llm.LLMProvider.enhance(doc, clauses) -> list[ExtractedClause]|None；
+        pipeline._merge_clauses(base, extra)：仅补加 base 未含的 clause 域。
+    - 错误接口：errors 定义 UnsupportedFormatError（不支持的/损坏输入）、
+      OfflineModeError（离线态请求 LLM）与基类 ContractExtractError；
+      规则单条异常被 engine 捕获忽略，保证单点失败不断链。
+
+2.4 数据库设计
+    本软件不依赖外部数据库。持久化数据模型即 JSON 契约，等价于一张
+    "文档结果表"，示例字段设计如下（表名：DocumentResult）：
+
+    字段            类型            说明
+    source          string          输入文件路径（主键语义）
+    format          string          pdf | docx
+    title           string|null     文档标题（如有）
+    pages           integer         非空页数
+    risk            LOW/MEDIUM/HIGH 文档整体风险
+    clauses         ExtractedClause[] 条款列表
+    engine          string          rules | rules+llm
+    generated_at    date            YYYY-MM-DD
+    warnings        string[]        非致命告警
+
+    子表（条款，一对多）ExtractedClause：
+        clause  string   条款域（15 域之一）
+        page    integer  出现页码（1 起）
+        quote   string   原句摘引
+        risk    enum     风险级
+        flag    string?  人工可读风险标记
+        detail  string?  归一整型明细（期限/金额等）
+
+    该模型通过 pydantic model_json_schema() 导出为 JSON-Schema 文件
+    （schema/documented_result.schema.json），供下游系统以 Schema 校验消费。
+
+3 详细设计
+--------------------------------------------------------------------------------
+3.1 解析层（parsers）详细设计
+    3.1.1 文本规范化算法
+        输入：doc 原始提取文本；输出：规范化文本。
+        步骤：CRLF/LF 归一化→连字符断行还原（'(?<=\w)-\n(?=\w)' 去 '-'）
+              →空白坍缩→软换行拼接（依据句末标点决策是否续接，空行视为
+              段落边界）→行尾空白清理→多空行压缩。
+        数据结构：Page(text, page_index, page_number) 与
+         Document(source, format, pages, nonempty_pages, warnings)。
+        关键过程：page_number_of(text) 返回首含该文本的 1 起页码，供
+            rules._page_of 兜底定位片段。
+    3.1.2 PDF 提取
+        双通道：pypdf 抽取 + pdfplumber 抽取，按每页文本长度取较长者；
+        pdfplumber 失败时回退 pypdf 并记告警。损坏/不可读 PDF 抛
+        UnsupportedFormatError。
+    3.1.3 DOCX 提取
+        python-docx 读全部段落，过滤空段；以每页约 44 行估算分页，逐段累计
+        行数达到阈值即翻页。DOCX 无原生页号，页码为估算值（对外标注为估算）。
+
+3.2 规则库（rules.library）详细设计
+    3.2.1 共享模式与结构
+        - _CURR / _NUMTOKEN / AMOUNT：货币符号与千分位数字的组合模式，
+          纯数字不识别为金额（防 '90'、'12' 误报）。
+        - _DURATION 系列：年/月/周/日/每期单位的年限折算表 _UNIT_TO_YEARS
+          （年=1、月=1/12、周=1/52、季=1/4、日=1/365），用于将任意期限
+          折算为年以统一分级阈值（>5 年 HIGH，2-5 年 MEDIUM）。
+        - 否定探测：多规则显式忽略否定语境（如 "No confidentiality obligation
+          applies"、"non-exclusive"、"does not grant any right"）。
+    3.2.2 规则实现要点（节选）
+        (a) duration：先排除存续性表述（survive/after termination 等），再
+        依次匹配三组期限模式，必要时要求出现协议语境词（term/agreement/
+        license 等），折算年数后分级并标注固期过长标记。
+        (b) price：须命中"关键词（price/fee/to pay/payable 等）"且存在货币
+        金额或价格百分比；排除违约金/罚息类句（liquidated damages,
+        penalty...）；出现预付（in advance/upfront/non-refundable）升为中风险。
+        (c) penalty：命中违约金关键词后，按百分比阈值（≥10% 为 HIGH 且标
+        "onerous"，按天/周/月计罚为中风险）；仅有利率性表述（interest 而无
+        penalty 词）不判定为违约罚；有 cap/limit 字样降级并标注 (capped)。
+        (d) liability_cap：优先级链——金额型上限（MEDIUM/LOW，视 up to）、
+        百分比型上限、合同价/已付费上限、宽泛免责（disclaims all warranties
+        等 HIGH）、仅排除间接损失（LOW）、金额暴露（MEDIUM）、兜底
+        赔偿条款（MEDIUM）。
+        (e) acceptance：识别验收/检查语境并解析验收窗口（within N days 或
+        N days to accept/inspect），有窗口即中风险并给出窗口明细。
+        (f) ip：区分一方让渡（one-way 转让 HIGH）与"付清全款后转移"
+        （conditional 转让 MEDIUM）、各自保留所有权（LOW）、授权许可
+        （MEDIUM）；License 协议标题不进规则。
+        (g) renewal/termination/exclusivity/data_protection/insurance：
+        分别处理自动续约（auto-renew MEDIUM、长续期 MEDIUM）、终止语境
+        （for convenience 单方 MEDIUM/双方 LOW、immediately upon default
+        MEDIUM、for cause/material breach LOW）、排他（≥3 年 HIGH、独家
+        供应商 HIGH）、数据跨境（transfer outside 中风险）、通知义务、
+        保险（专业责任险 MEDIUM）等。
+    3.2.3 规则输出：每个命中生成 Match(rule, page, sentence, risk, flag,
+        detail) 列表；engine 负责转 ExtractedClause 并截断长引文。
+
+3.3 抽取引擎（rules.engine）详细设计
+    - 分句：iter_sentences 按页、按段落（双空行分隔）切分；以中文/西文句末
+      标点后跟空白 + 大写/中文字首为断句边界；跳过纯编号片段。
+    - 调度：按规则名排序，逐规则运行并聚合并行结果；单规则异常被捕获忽略。
+    - 去重：以 (rule, page, sentence[:80]) 为键；引文超过 260 字符截断加 …
+    - 聚合：document_risk 依 HIGH→MEDIUM→LOW 优先级求文档整体风险。
+
+3.4 LLM 增强层（llm）详细设计
+    - 接口：LLMProvider（abstract enhance / active）；NoopLLM 返回规则层
+      复跑增量（模板兜底）、active()=False。
+    - 启用条件：is_llm_available() 为真，即未设 LLM_OFFLINE 且存在 OpenAI /
+      Anthropic 密钥；优先 OpenAI（ANTHROPIC 密钥存在且无 OPENAI 时用 Anthropic）。
+    - Prompt 设计：仅送前 3 页、每页 900 字符的文本片段与已知 clause 列表，
+      要求只返回规则未覆盖的新条款 JSON（temperature=0, max_tokens=1500）。
+    - 合并：_merge_clauses 仅追加 base 无的新 clause 域，从不删改规则结果；
+      调用异常一律静默回退规则结果（engine 保持 "rules"）。
+
+3.5 输出与入口（pipeline/batch/checklist/cli/web）详细设计
+    - pipeline.extract_document：加载→run_rules→（可选 LLM 增量）→
+      document_risk→封装 DocumentResult（source/format/pages/risk/clauses/
+      engine/generated_at/warnings）。
+    - batch.run_batch：iter_documents 展开目录为排序的 pdf/docx 列表；
+      逐文档处理并 immediate 写入一行 NDJSON（model_dump(mode="json") +
+      ensure_ascii=False），返回 (documents, failed, total) 汇总；
+      内存与文档总数无关。
+    - checklist.build_checklist：按 FIELD_LABELS 分组、风险图标、原文页码
+      引用表、检查项清单，输出 Markdown。
+    - cli：参数解析（--llm/--llm-embed/--checklist/--schema/--version/-o/
+      --fixtures）；--schema 打印 JSON-Schema；--fixtures 运行验收套件；
+      --checklist 在输出 NDJSON 后按文件生成同名 _checklists/*.md。
+    - web：ThreadingHTTPServer + BaseHTTPRequestHandler；GET 返回页面；
+      POST 用 BytesParser + boundary 正则解析 multipart，校验 Content-Length
+      与后缀，临时目录落盘→extract_document→HTML 表格 + 清单 + JSON；
+      完成后删除临时文件。
+
+3.6 关键流程（伪代码）
+    process_one(path, use_llm):
+        doc = load_document(path)
+        clauses = run_rules(doc)
+        if use_llm and is_llm_available():
+            try: extra = provider.enhance(doc, clauses)
+                 clauses = merge_clauses(clauses, extra)   # 只增不删
+            except: pass                                    # 回退规则结果
+        return DocumentResult(..., risk=document_risk(clauses), ...)
+
+3.7 验收设计
+    eval_fixtures：固定语料 20 份（pdf/docx 混合）+ 专家期望表（字段级期望
+    风险），逐文档比对召回与风险准确率；阈值 95% 召回、90% 准确率，实测
+    100%/100%。用于规则回归与著作权登记材料一致性说明。

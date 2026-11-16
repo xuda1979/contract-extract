@@ -1,0 +1,3063 @@
+【排版说明】A4纵向；页眉「contract-extract V1.0」左对齐；正文宋体五号，每页50行；页脚标注页码。
+软件名称：contract-extract V1.0　源程序（去除注释与空行后共 1652 行；前段为源程序，后段为代表代码接续）。
+contract-extract V1.0
+//============== 源程序 src/contract_extract/__init__.py ==============
+"""contract_extract: contract / bid risk clause extraction (PDF/DOCX).
+Two-layer extraction: local rule-based layer (always available) plus an
+optional pay-per-use LLM enhancement layer (off by default, disabled when
+LLM_OFFLINE=1, falls back to the rule layer).
+"""
+__version__ = "0.1.0"
+from contract_extract.schema import (
+    RiskLevel,
+    ExtractedClause,
+    DocumentResult,
+    BatchResult,
+)
+__all__ = [
+    "RiskLevel",
+    "ExtractedClause",
+    "DocumentResult",
+    "BatchResult",
+    "__version__",
+]
+//============== 源程序 src/contract_extract/errors.py ==============
+"""Shared exception types."""
+from __future__ import annotations
+class ContractExtractError(Exception):
+    """Base error."""
+class UnsupportedFormatError(ContractExtractError):
+    """Input format is unsupported (not pdf/docx or corrupt)."""
+class OfflineModeError(ContractExtractError):
+    """LLM requested while in offline mode (LLM_OFFLINE=1)."""
+//============== 源程序 src/contract_extract/schema.py ==============
+"""Pydantic output models: the JSON-Schema contract of the extractor.
+One JSON file per input document (one JSON *object* per document):
+DocumentResult. Batch mode emits a JSON *array* of DocumentResult, one per
+input document.  Use `DocumentResult.model_json_schema()` to obtain the JSON
+Schema (also written to `schema/documented_result.schema.json` and exposed by
+the CLI with `--schema`).
+"""
+from __future__ import annotations
+import enum
+from datetime import date
+from typing import Optional
+from pydantic import BaseModel, Field
+class RiskLevel(str, enum.Enum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+class ExtractedClause(BaseModel):
+    """One extracted risk clause."""
+    clause: str = Field(..., description="Clause name, e.g. 'termination'.")
+    page: int = Field(..., description="1-based page number where found.")
+第 1 页 / 共 60 页contract-extract V1.0
+    quote: str = Field(..., description="Original text snippet.")
+    risk: RiskLevel = Field(..., description="Risk flag: LOW/MEDIUM/HIGH.")
+    flag: Optional[str] = Field(
+        None, description="Optional human-readable risk flag, e.g. 'no cap on li
+    )
+    detail: Optional[str] = Field(None, description="Optional normalised detail.
+class DocumentResult(BaseModel):
+    """The output for a single document."""
+    source: str = Field(..., description="Input file path.")
+    format: str = Field(..., description="Input format: pdf or docx.")
+    title: Optional[str] = Field(None, description="Document title if known.")
+    pages: int = Field(..., description="Number of pages.")
+    risk: RiskLevel = Field(
+        ..., description="Document-level overall risk flag (LOW/MEDIUM/HIGH)."
+    )
+    clauses: list[ExtractedClause] = Field(
+        default_factory=list, description="Extracted clauses (rules + optional L
+    )
+    engine: str = Field(
+        ..., description="Extraction engine used: 'rules' or 'rules+llm'."
+    )
+    generated_at: date = Field(..., description="Extraction date (YYYY-MM-DD).")
+    warnings: list[str] = Field(
+        default_factory=list, description="Non-fatal processing warnings."
+    )
+class BatchResult(BaseModel):
+    """The output for a batch of documents."""
+    documents: list[DocumentResult] = Field(
+        default_factory=list, description="Per-document results."
+    )
+//============== 源程序 src/contract_extract/rules/match.py ==============
+"""Shared match object between the rule library and the engine."""
+from __future__ import annotations
+from dataclasses import dataclass
+from contract_extract.schema import RiskLevel
+@dataclass
+class Match:
+    """One rule-based hit.  The engine converts these to ExtractedClause."""
+    rule: str
+    page: int
+    sentence: str
+    risk: RiskLevel
+    flag: str | None = None
+    detail: str | None = None
+//============== 源程序 src/contract_extract/rules/utils.py ==============
+"""Rule utilities: regex-based matches, numbering, dedupe, risk levels."""
+from __future__ import annotations
+import re
+from collections.abc import Iterable
+from typing import TYPE_CHECKING
+第 2 页 / 共 60 页contract-extract V1.0
+from contract_extract.schema import RiskLevel
+if TYPE_CHECKING:
+    from contract_extract.rules.match import Match
+def strip_quotes(s: str) -> str:
+    s = s.strip()
+    if len(s) >= 2 and s[0] in '"\u201c\u201d' and s[-1] in '"\u201c\u201d':
+        s = s[1:-1]
+    return s.strip()
+LEADING_MARKER_RE = re.compile(r"^\s*(?:\(\d+\)|\d+\.?|[ivxlcdm]+\.?|[A-Z]\)?)?\
+def clean_marker(text: str) -> str:
+    """Remove leading clause/hard numbered markers for tidier flags/quotes."""
+    return LEADING_MARKER_RE.sub("", text).strip()
+def has_negation(text: str) -> bool:
+    """Hedges that weaken a hard dollar/date/percent statement."""
+    return any(
+        w in text.lower()
+        for w in (
+            "not apply",
+            "no limit",
+            "not limit",
+            "unlimited",
+            "uncapped",
+            "no cap",
+            "no monetary",
+            "without limitation",
+        )
+    )
+def is_negative_sentence(text: str, words: Iterable[str]) -> bool:
+    """True when the sentence already contains a negation about `words`."""
+    lower = text.lower()
+    return any(m in lower for m in ("no", "not", "never", "without", "exclu", "d
+def compact(text: str) -> str:
+    """Compact whitespace for tests/audit output."""
+    return " ".join(text.split())
+TOPPED = ("cap", "limit", "maximum", "max of", "up to", "at most", "ceiling", "n
+BOTTOM = ("minimum", "min of", "at least", "floor", "lowest", "starting from", "
+def contains_top(words: list[str]) -> bool:
+    return any(w in words for w in TOPPED)
+def contains_bottom(words: list[str]) -> bool:
+    return any(w in words for w in BOTTOM)
+def risk_mix(clauses: Iterable[Match]) -> RiskLevel:
+    """Aggregate risk over a list of clauses."""
+    levels = [c.risk for c in clauses]
+    if not levels:
+        return RiskLevel.LOW
+    if RiskLevel.HIGH in levels:
+        return RiskLevel.HIGH
+    if RiskLevel.MEDIUM in levels:
+        return RiskLevel.MEDIUM
+    return RiskLevel.LOW
+第 3 页 / 共 60 页contract-extract V1.0
+//============== 源程序 src/contract_extract/rules/library.py ==============
+"""Clause rule library.
+Each rule is a callable (doc, sentences) -> list[Match].  Rules are pure
+string-pattern based so the offline layer needs no models.  A `Match` carries
+rule name, page (1-based), sentence, risk (LOW/MEDIUM/HIGH) and a flag.
+Design notes:
+- Every rule must avoid firing on *negated* statements (e.g. "No confidentiality
+  obligation applies", "non-exclusive").  Negation probes are explicit per rule.
+- Amounts/dates are extracted with currency-aware patterns so bare numbers
+  ("90", "12") are never treated as financial amounts.
+"""
+from __future__ import annotations
+import re
+from contract_extract.rules.match import Match
+from contract_extract.rules import utils
+from contract_extract.schema import RiskLevel
+_CURR = r"(?:US\$|USD|EUR|GBP|AUD|CAD|CNY|RMB|SGD|HKD|JPY|\$|€|£|¥|元)"
+_NUMTOKEN = r"(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
+AMOUNT = (
+    rf"{_CURR}\s*{_NUMTOKEN}"
+    rf"|{_NUMTOKEN}\s*(?:US\$|USD|EUR|GBP|AUD|CAD|CNY|RMB|SGD|HKD|JPY|元|人民币|doll
+)
+_AMOUNT_RE = re.compile(rf"\b(?:{AMOUNT})\b(?!\s*%)")
+_DURATION_UNIT = r"(?:year|month|week|day|quarter|annual|yearly|monthly|weekly)"
+_DURATION_RE = re.compile(
+    rf"(?P<num>{_NUMTOKEN})\s*\-?\s*(?P<unit>{_DURATION_UNIT})s?\b",
+    re.IGNORECASE,
+)
+_DUR_PAT1 = re.compile(
+    rf"\b(?:initial\s+)?(?:term|duration|period|lease|sponsorship|employment|loa
+    rf"(?:of|is|shall\s+be|will\s+be|commences?)?\s*"
+    rf"(?:for\s+|a\s+period\s+of\s+)?(?P<num>{_NUMTOKEN})\s*(?P<unit>{_DURATION_
+    re.IGNORECASE,
+)
+_DUR_PAT4 = re.compile(
+    rf"\bfor\s+(?:a\s+period\s+of\s+)?(?:the\s+)?(?:initial\s+|first\s+)?"
+    rf"(?P<num>{_NUMTOKEN})\s*(?P<unit>{_DURATION_UNIT})s?\b",
+    re.IGNORECASE,
+)
+_DUR_PAT5 = re.compile(
+    rf"\b(?:term|duration|period)\s+of\s+(?:the\s+)?[a-z\u4e00-\u9fff]+(?:\s+[a-
+    rf"\s+(?:is|shall\s+be|will\s+be)\s+(?P<num>{_NUMTOKEN})\s*(?P<unit>{_DURATI
+    re.IGNORECASE,
+)
+_DUR_CONTEXT = (
+    "term",
+    "duration",
+    "period",
+    "agreement",
+    "contract",
+第 4 页 / 共 60 页contract-extract V1.0
+    "lease",
+    "engagement",
+    "joint venture",
+    "venture",
+    "sponsorship",
+    "employment",
+    "appointment",
+    "license",
+    "licence",
+    "subscription",
+    "loan",
+    "arrangement",
+    "facility",
+)
+_DUR_SURVIVAL = ("surviv", "after termination", "following termination", "post-t
+                 "after the termination", "non-compete", "not compete", "followi
+_MONTHS = r"(?:January|February|March|April|May|June|July|August|September|Octob
+_DATE_RE = re.compile(
+    rf"\b(?:{_MONTHS}\s+\d{{1,2}}(?:st|nd|rd|th)?[\s,]+\d{{4}}"
+    rf"|\d{{1,2}}(?:st|nd|rd|th)?\s+(?:of\s+)?(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug
+    rf"|\d{{1,2}}/\d{{1,2}}/\d{{2,4}}"
+    rf"|\d{{1,2}}-\d{{1,2}}-\d{{4}}"
+    rf"|\d{{4}}-\d{{1,2}}-\d{{1,2}})\b",
+    re.IGNORECASE,
+)
+_PERCENT_RE = re.compile(r"(?P<pct>\d+(?:\.\d+)?)\s*%")
+_UNIT_TO_YEARS = {
+    "year": 1, "annual": 1, "yearly": 1,
+    "month": 1 / 12, "monthly": 1 / 12,
+    "week": 1 / 52, "weekly": 1 / 52,
+    "quarter": 1 / 4, "day": 1 / 365,
+}
+def _page_of(doc, sentence: str) -> int:
+    for page in doc.pages:
+        if sentence in page.text:
+            return page.page_number
+    best, best_sc = 1, -1
+    words = sentence.split()
+    for page in doc.pages:
+        n = sum(1 for w in words if w in page.text)
+        if n > best_sc:
+            best, best_sc = page.page_number, n
+    return best
+def _agg(risk: RiskLevel) -> RiskLevel:
+    return risk
+def rule_duration(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if any(k in lower for k in _DUR_SURVIVAL):
+第 5 页 / 共 60 页contract-extract V1.0
+            continue
+        m = _DUR_PAT1.search(sentence) or _DUR_PAT4.search(sentence) or _DUR_PAT
+        if not m:
+            continue
+        if not (_DUR_PAT1.search(sentence) or _DUR_PAT5.search(sentence)):
+            if not any(k in lower for k in _DUR_CONTEXT):
+                continue
+        n = float(m.group("num"))
+        unit = m.group("unit").lower()
+        years = n * _UNIT_TO_YEARS.get(unit, 1)
+        flag = f"term {m.group('num')} {m.group('unit')}(s)"
+        risk = RiskLevel.LOW
+        if years > 5:
+            risk = RiskLevel.HIGH
+            flag += " (long fix-term >5y)"
+        elif years >= 2:
+            risk = RiskLevel.MEDIUM
+        out.append(Match("duration", page, sentence, risk, flag, None))
+    return out
+def rule_quantity(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not any(k in lower for k in ("total of", "quantity", "quantities of",
+                                        " equal to ", "consists of", " units",
+                                        " units ", " items", " copies ", " event
+                                        " pages", " documents", " sets of")):
+            continue
+        m = re.search(
+            rf"\b(?:a\s+)?total\s+of\s+{_NUMTOKEN}\b"
+            rf"|\b{_NUMTOKEN}\s+units?\b"
+            rf"|\b{_NUMTOKEN}\s+items?\b"
+            rf"|\b{_NUMTOKEN}\s+copies?\b"
+            rf"|\b{_NUMTOKEN}\s+events?\b"
+            rf"|\b{_NUMTOKEN}\s+pages?\b",
+            sentence,
+            re.IGNORECASE,
+        )
+        if not m:
+            continue
+        detail = m.group(0)
+        out.append(Match("quantity", page, sentence, RiskLevel.LOW, f"quantity {
+    return out
+def rule_price(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not any(k in lower for k in (
+            "price", "fee", "fees", "rent ", "retainer", "capital contribution",
+            "loan", "lend", "borrow", "consideration", "contract sum", "budget",
+第 6 页 / 共 60 页contract-extract V1.0
+            "salary", "reimburse", "quote", "to pay", "payable",
+        )):
+            continue
+        if any(k in lower for k in ("liquidated damages", "penalty", "penalties"
+            continue
+        amounts = _AMOUNT_RE.findall(sentence)
+        pct = _PERCENT_RE.search(sentence)
+        risk = RiskLevel.LOW
+        detail = None
+        if amounts:
+            detail = ", ".join(a.strip() for a in amounts[:3])
+        elif pct and ("price" in lower or "fee" in lower or "rent" in lower or "
+            if not re.search(rf"{_PERCENT_RE.pattern}\s*of\s+the\s+.*\b(price|va
+                detail = pct.group(0)
+        if not detail:
+            continue
+        flag = f"price: {detail}"
+        if any(k in lower for k in ("in advance", "advance payment", "upon execu
+                                    "upfront", "payable in advance", "non-refund
+            risk = RiskLevel.MEDIUM
+            flag += " (upfront payment)"
+        out.append(Match("price", page, sentence, risk, flag, detail))
+    return out
+_DELIVER_VERB = re.compile(
+    r"\b(?:shall\s+deliver|deliver\s+(?:the|all)|delivery\s+(?:of|shall|date|dea
+    r"delivered\s+within|delivered\s+by|must\s+be\s+delivered|shipment|ship\s+wi
+    r"delivery\s+of\s+the\s+licensed|deliver\s+services|conform\s+to)",
+    re.IGNORECASE,
+)
+_DATE_KW = re.compile(r"\b\d{1,2}/\d{1,2}/\d{2,4}\b|\b\d{4}-\d{1,2}-\d{1,2}\b|\b
+def rule_delivery(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not _DELIVER_VERB.search(lower):
+            continue
+        m = re.search(
+            rf"\bwithin\s+({_NUMTOKEN})\s*(?:business|working|calendar)?\s*(day|
+            rf"|\bat\s+least\s+({_NUMTOKEN})\s+days?\s+before\b"
+            rf"|\bup\s+to\s+({_NUMTOKEN})\s+days?\b"
+            rf"|\bby\s+{_DATE_RE.pattern}",
+            sentence,
+            re.IGNORECASE,
+        )
+        date_kw = _DATE_KW.search(sentence)
+        deadline = None
+        detail = None
+        if m:
+            num = m.group(1)
+            unit = (m.group(2) or "day").lower()
+第 7 页 / 共 60 页contract-extract V1.0
+            if num:
+                deadline = f"within {num} {unit}s"
+                detail = f"{num} {unit}s"
+            elif m.group(3):
+                deadline = f"at least {m.group(3)} days before"
+                detail = f"{m.group(3)} days notice"
+            elif m.group(4):
+                deadline = f"up to {m.group(4)} days"
+                detail = f"{m.group(4)} days"
+            else:
+                deadline = f"by {date_kw.group(0) if date_kw else 'date'}"
+                detail = date_kw.group(0) if date_kw else None
+        elif date_kw:
+            deadline = f"by {date_kw.group(0)}"
+            detail = date_kw.group(0)
+        if deadline is None:
+            continue
+        if m and m.group(1):
+            dnum = float(m.group(1))
+            unit = (m.group(2) or "day").lower()
+            days = {"day": 1, "week": 7, "month": 30}.get(unit, 1) * dnum
+        elif m and m.group(3):
+            days = float(m.group(3))
+        elif m and m.group(4):
+            days = float(m.group(4))
+        else:
+            days = None
+        risk = RiskLevel.LOW
+        if days is not None and days > 60:
+            risk = RiskLevel.MEDIUM
+            deadline += " (long)"
+        elif days is not None and days <= 7:
+            risk = RiskLevel.MEDIUM
+            deadline += " (aggressive)"
+        if any(k in lower for k in ("penalty", "liquidated damages", "liable for
+            risk = RiskLevel.MEDIUM
+        out.append(Match("delivery", page, sentence, risk, f"delivery deadline: 
+    return out
+def rule_acceptance(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not any(k in lower for k in ("inspection", "acceptance", "accept the"
+                                        "acceptance inspection", "acceptance tes
+                                        "to inspect", "to accept", "inspect and"
+            continue
+        within = re.search(r"\bwithin\s+(\d+)\s*(?:working|business)?\s*days?\b"
+        window = re.search(r"\b(\d+)\s*(?:business|working)?\s*days?\s+(?:to|in\
+        risk = RiskLevel.LOW
+        detail = None
+第 8 页 / 共 60 页contract-extract V1.0
+        flag = "acceptance clause present"
+        if within or window:
+            days = int((within or window).group(1))
+            risk = RiskLevel.MEDIUM
+            detail = f"acceptance window: {days} days"
+            flag = detail
+        out.append(Match("acceptance", page, sentence, risk, flag, detail))
+    return out
+def rule_payment(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not any(k in lower for k in (
+            "payment", "payable", "invoice", "net 30", "net 45", "net 60", "net 
+            "installment", "instalment", "advance payment", "prepay", "to pay",
+            "deposit", "retainer", "recurring", "credit card",
+        )):
+            continue
+        if any(k in lower for k in ("penalty", "liquidated damages", "breach fee
+            continue
+        pct = _PERCENT_RE.search(sentence)
+        amount = _AMOUNT_RE.search(sentence)
+        net = re.search(r"\bnet\s+(\d+)\s+days?\b", lower)
+        within = re.search(r"\bwithin\s+(\d+)\s+days?\b", lower)
+        risk = RiskLevel.LOW
+        detail_parts: list[str] = []
+        flag_parts: list[str] = []
+        if net:
+            if int(net.group(1)) > 45:
+                risk = RiskLevel.MEDIUM
+            detail_parts.append(f"net {net.group(1)} days")
+            flag_parts.append(net.group(0))
+        if within:
+            if int(within.group(1)) > 45:
+                risk = RiskLevel.MEDIUM
+            detail_parts.append(f"within {within.group(1)} days")
+        if amount:
+            detail_parts.append(amount.group(0).strip())
+            flag_parts.append(amount.group(0).strip())
+        if pct and any(k in lower for k in ("payment", "payable", "instalment", 
+            if float(pct.group("pct")) >= 30:
+                risk = RiskLevel.MEDIUM
+            detail_parts.append(f"{pct.group('pct')}% tranche")
+            flag_parts.append(f"{pct.group('pct')}%")
+        if re.search(r"\b\d{1,4}\s+(?:monthly|weekly|quarterly|annual)?\s*instal
+            detail_parts.append("instalment schedule")
+            flag_parts.append("instalments")
+        if any(k in lower for k in ("advance", "in advance", "prepay", "upfront"
+            risk = RiskLevel.MEDIUM
+            detail_parts.append("advance payment")
+第 9 页 / 共 60 页contract-extract V1.0
+        if "recurring" in lower or "credit card" in lower:
+            risk = RiskLevel.MEDIUM
+            detail_parts.append("automatic recurring billing")
+        if "retention" in lower:
+            risk = RiskLevel.MEDIUM
+            detail_parts.append("retention money")
+        if not (detail_parts or net or within or flag_parts):
+            continue
+        flag = "payment terms: " + "|".join(filter(None, flag_parts)) if flag_pa
+        detail = "; ".join(detail_parts) if detail_parts else None
+        out.append(Match("payment", page, sentence, risk, flag, detail))
+    return out
+def rule_penalty(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not any(k in lower for k in (
+            "penalty", "penalties", "liquidated damages", "default damages",
+            "breach fee", "late payment", "late fee", "interest of", "interest r
+            "delay damages", "damages for delay",
+        )):
+            continue
+        pct = _PERCENT_RE.search(sentence)
+        amount = _AMOUNT_RE.search(sentence)
+        risk = RiskLevel.MEDIUM
+        flag = "penalty clause present"
+        detail = None
+        is_interest = re.search(r"\b(interest|default interest)\b", lower) is no
+        is_penalty = re.search(r"\b(penalty|penalties|liquidated damages|delay d
+        if pct:
+            p = float(pct.group("pct"))
+            if is_interest and not is_penalty:
+                continue
+            if p >= 10:
+                risk = RiskLevel.HIGH
+                flag = f"penalty {pct.group(0)} (onerous)"
+            elif any(u in lower for u in ("per month", "per week", "per day", "/
+                risk = RiskLevel.MEDIUM
+                flag = f"penalty {pct.group(0)} per period"
+            else:
+                risk = RiskLevel.MEDIUM
+                flag = f"penalty {pct.group(0)}"
+            detail = pct.group(0)
+        elif amount:
+            flag = f"penalty amount {amount.group(0)}"
+            risk = RiskLevel.MEDIUM
+            detail = amount.group(0).strip()
+        if re.search(r"\b(cap|limited|maximum|ceiling)\b", lower):
+            flag += " (capped)"
+            risk = RiskLevel.LOW if risk != RiskLevel.HIGH else risk
+第 10 页 / 共 60 页contract-extract V1.0
+        out.append(Match("penalty", page, sentence, risk, flag, detail))
+    return out
+_CAP_MARK = re.compile(
+    r"\b(?:cap|capped|caps|limit|limited|maximum|ceiling|not\s+exceed|up\s+to|sh
+    re.IGNORECASE,
+)
+_BROAD_DISCLAIM = re.compile(
+    r"(?:disclaims?\s+all\s+warranties|without\s+limitation|not\s+be\s+liable\s+
+    r"no\s+liability\s+whatsoever|shall\s+not\s+be\s+liable\s+for\s+any|disclaim
+    r"not\s+be\s+liable\s+for\s+any)",
+    re.IGNORECASE,
+)
+_EXCLUSION_ONLY = re.compile(
+    r"(?:indirect|incidental|consequential|special|punitive|loss\s+of\s+profit)\
+    re.IGNORECASE,
+)
+def rule_liability(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not any(k in lower for k in (
+            "liability", "aggregate liability", "maximum liability", "indemn", "
+            "not be liable for", "be liable for", "disclaims all", "no liability
+        )):
+            continue
+        amount = _AMOUNT_RE.search(sentence)
+        pct = _PERCENT_RE.search(sentence)
+        if amount and _CAP_MARK.search(sentence):
+            risk = RiskLevel.MEDIUM if not re.search(r"\bup to\b", lower) else R
+            flag = f"liability cap {amount.group(0).strip()}"
+            detail = f"liability capped at {utils.compact(amount.group(0))}"
+        elif pct and _CAP_MARK.search(sentence):
+            risk = RiskLevel.MEDIUM
+            flag = f"liability tied to {pct.group(0)} of contract price"
+            detail = pct.group(0)
+        elif _CAP_MARK.search(sentence):
+            if "contract price" in lower or "purchase price" in lower or "subcon
+                risk = RiskLevel.MEDIUM
+                flag = "liability capped at contract price"
+            elif "fees" in lower or "amounts paid" in lower or "amount actually 
+                    or "paid by" in lower or "paid under" in lower or "months fe
+                risk = RiskLevel.MEDIUM
+                flag = "liability capped at fees/amounts paid"
+            elif "up to" in lower:
+                risk = RiskLevel.LOW
+                flag = "financial cap (up to) present"
+            else:
+                risk = RiskLevel.MEDIUM
+                flag = "liability cap present (detail unspecified)"
+            detail = flag
+第 11 页 / 共 60 页contract-extract V1.0
+        elif _BROAD_DISCLAIM.search(lower):
+            risk = RiskLevel.HIGH
+            flag = "party disclaims liability (broad)"
+            detail = "disclaimer / no-liability"
+        elif _EXCLUSION_ONLY.search(lower):
+            risk = RiskLevel.LOW
+            flag = "exclusion of indirect/consequential damages"
+            detail = flag
+        elif amount:
+            risk = RiskLevel.MEDIUM
+            flag = f"liability exposure {amount.group(0).strip()}"
+            detail = amount.group(0).strip()
+        else:
+            risk = RiskLevel.MEDIUM
+            flag = "indemnification / liability clause present"
+            detail = flag
+        out.append(Match("liability_cap", page, sentence, risk, flag, detail))
+    return out
+def rule_confidentiality(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not any(k in lower for k in ("confidential", "non-disclosure", "priva
+            continue
+        if re.search(r"\b(no|nothing|not)\s+confidential", lower) or "does not a
+            continue
+        dur = _DURATION_RE.search(sentence)
+        risk = RiskLevel.LOW
+        flag = "confidentiality clause"
+        detail = None
+        if dur:
+            detail = f"for {dur.group(0)}"
+            if dur.group("unit").lower() in ("year",) and float(dur.group("num")
+                risk = RiskLevel.MEDIUM
+                flag += f" long survival (> {dur.group('num')}y)"
+        if re.search(r"\bsurvive\b.*\btermination\b|\bsurvives?\s+termination", 
+            risk = RiskLevel.MEDIUM
+            flag += " (survives termination)"
+        out.append(Match("confidentiality", page, sentence, risk, flag, detail))
+    return out
+def rule_ip(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not any(k in lower for k in (
+            "intellectual property", "ip rights", "ownership", "assignment", "as
+            "assigns", "copyright", "patent rights", "work product", "works made
+            "inventions", "trademark", "license to", "licences", "licence grant"
+            "licensed", "grants .* license", "granted .* license", "exclusive li
+            "rights in its own", "vest",
+第 12 页 / 共 60 页contract-extract V1.0
+        )):
+            continue
+        if re.search(r"(nothing\s+.*\s+grants\s+any\s+right|no\s+.*\s+license\b|
+            continue
+        if re.match(r"^(this\s+)?(software\s+|end[- ]user\s+)?license\w*\s+(agre
+            continue
+        risk = RiskLevel.LOW
+        flag = None
+        detail = None
+        if re.search(r"\b(work[- ]for[- ]hire|works made|shall vest in|vested in
+            conditional = re.search(r"\b(upon\s+(?:full\s+)?payment|upon\s+recei
+            if conditional:
+                risk = RiskLevel.MEDIUM
+                flag = "IP assigned to other party (upon payment)"
+            else:
+                risk = RiskLevel.HIGH
+                flag = "IP assigned to other party (one-way)"
+            detail = "ownership transfers out"
+        elif re.search(r"\bretain(s|ing)?\s+(all\s+)?(ownership|title|rights)\b|
+            risk = RiskLevel.LOW
+            flag = "each party retains ownership"
+        elif re.search(r"\b(licens|licenc)", lower):
+            risk = RiskLevel.MEDIUM
+            flag = "IP licence granted"
+            detail = "licence terms"
+        else:
+            flag = "IP clause present"
+            risk = RiskLevel.LOW
+        out.append(Match("ip", page, sentence, risk, flag, detail))
+    return out
+def rule_renewal(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not any(k in lower for k in ("renewal", "renew", "renewable", "auto-r
+                                        "auto renews", "renews")):
+            continue
+        if re.search(r"\b(no|not|shall\s+not|without)\s+(?:automatic\s+)?(?:rene
+            continue
+        risk = RiskLevel.LOW
+        flag = "renewal clause"
+        if re.search(r"automatic|auto-renew|auto\s+renew|renews\s+automatically|
+            risk = RiskLevel.MEDIUM
+            flag = "automatic renewal (auto-renew)"
+            rr = _DURATION_RE.search(sentence)
+            if rr:
+                flag += f" for {rr.group(0)}"
+        rr = _DURATION_RE.search(sentence)
+        if rr and "automatic" not in flag:
+            flag += f" renews for {rr.group(0)}"
+第 13 页 / 共 60 页contract-extract V1.0
+            if rr.group("unit").lower() in ("year",) and float(rr.group("num")) 
+                risk = RiskLevel.MEDIUM
+        if "notice" in lower and "day" in lower:
+            flag += " (notice required)"
+        out.append(Match("renewal", page, sentence, risk, flag))
+    return out
+_TERM_CONTEXT = re.compile(
+    r"\b(either party|party may|may be terminated|right to terminate|shall termi
+    r"will terminate|terminates this|terminate this|termination of this|this agr
+    r"the agreement|the contract|the lease|for convenience|for cause|without cau
+    r"upon default|immediately|notice)\b",
+    re.IGNORECASE,
+)
+def rule_termination(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not re.search(r"\b(termination|terminate|terminates|terminated|withdr
+            continue
+        if not _TERM_CONTEXT.search(sentence):
+            continue
+        if re.search(r"\b(no termination|may not terminate|shall not terminate|c
+            continue
+        risk = RiskLevel.LOW
+        flag = "termination clause"
+        if "withdraw" in lower and "for convenience" in lower:
+            risk = RiskLevel.MEDIUM if "either party" not in lower else RiskLeve
+            flag = "withdrawal / termination for convenience"
+        elif "for convenience" in lower:
+            if "either party" in lower or "mutual" in lower or "by seller" in lo
+                risk = RiskLevel.LOW
+                flag = "termination for convenience (either party)"
+            else:
+                risk = RiskLevel.MEDIUM
+                flag = "termination for convenience (one-sided)"
+        elif "without cause" in lower:
+            risk = RiskLevel.MEDIUM
+            flag = "termination without cause"
+        elif "immediately" in lower and "default" in lower:
+            risk = RiskLevel.MEDIUM
+            flag = "termination immediately upon default"
+        elif "for cause" in lower or "material breach" in lower:
+            risk = RiskLevel.LOW
+            flag = "termination for cause"
+        if "notice" in lower and "day" in lower:
+            flag += " (notice period)"
+        out.append(Match("termination", page, sentence, risk, flag))
+    return out
+def rule_exclusivity(doc, sentences):
+    out = []
+第 14 页 / 共 60 页contract-extract V1.0
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not any(k in lower for k in (
+            "exclusive", "exclusivity", "sole supplier", "sole provider", "sole 
+            "sole seller", "sole agent", "non-compete", "not compete", "not to c
+            "not provide services", "not to provide",
+        )):
+            continue
+        if re.search(r"\b(no exclusivity|non-exclusive|not exclusive|without exc
+            continue
+        risk = RiskLevel.MEDIUM
+        flag = "exclusivity clause"
+        dur = _DURATION_RE.search(sentence)
+        if dur:
+            unit = dur.group("unit").lower()
+            n = float(dur.group("num"))
+            years = n * _UNIT_TO_YEARS.get(unit, 1)
+            flag += f" for {dur.group(0)}"
+            if years >= 3:
+                risk = RiskLevel.HIGH
+        if "sole" in lower and not dur:
+            risk = RiskLevel.HIGH
+            flag += " (sole supplier/distributor)"
+        if re.search(r"\b(not\s+to\s+provide|not\s+provide)\s+services\b", lower
+            risk = RiskLevel.MEDIUM
+            flag += " (no-compete services)"
+        if re.search(r"\b(territory|market|region|country)\b", lower) and "sole"
+            risk = RiskLevel.HIGH
+        out.append(Match("exclusivity", page, sentence, risk, flag))
+    return out
+def rule_data_protection(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not any(k in lower for k in (
+            "data protection", "gdpr", "personal data", "privacy policy", "priva
+            "data processing", "dpa", "standard contractual clauses", "customer 
+            "data subject", "processing of personal", "transfer", "transferred",
+        )):
+            continue
+        risk = RiskLevel.LOW
+        flag = "data protection clause"
+        detail = None
+        if re.search(r"\b(transfer outside|transferred outside|outside the (?:ee
+            risk = RiskLevel.MEDIUM
+            flag = "cross-border data transfer (needs adequacy)"
+        if re.search(r"\b(breach|security incident)\b.*\b(notify|notification)\b
+            risk = RiskLevel.MEDIUM
+            flag = "breach notification obligation"
+        if "gdpr" in lower:
+第 15 页 / 共 60 页contract-extract V1.0
+            risk = RiskLevel.LOW
+            flag = "GDPR compliance mentioned"
+        out.append(Match("data_protection", page, sentence, risk, flag, detail))
+    return out
+def rule_insurance(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if "insurance" in lower:
+            flag = "insurance requirement"
+            risk = RiskLevel.LOW
+            if "professional indemnity" in lower or "errors and omissions" in lo
+                flag += " professional liability"
+                risk = RiskLevel.MEDIUM
+            out.append(Match("insurance", page, sentence, risk, flag))
+    return out
+RULES = {
+    "duration": rule_duration,
+    "quantity": rule_quantity,
+    "price": rule_price,
+    "delivery": rule_delivery,
+    "acceptance": rule_acceptance,
+    "payment": rule_payment,
+    "penalty": rule_penalty,
+    "liability_cap": rule_liability,
+    "confidentiality": rule_confidentiality,
+    "ip": rule_ip,
+    "renewal": rule_renewal,
+    "termination": rule_termination,
+    "exclusivity": rule_exclusivity,
+    "data_protection": rule_data_protection,
+    "insurance": rule_insurance,
+}
+//============== 源程序 src/contract_extract/rules/engine.py ==============
+"""Rule-based extraction engine.
+The engine walks a loaded document sentence by sentence (page-aware),
+applies every clause rule in the library, dedupes and returns
+`ExtractedClause` objects.  This layer always works — LLM is optional.
+"""
+from __future__ import annotations
+import re
+from contract_extract.parsers import Document
+from contract_extract.rules.match import Match
+from contract_extract.schema import ExtractedClause, RiskLevel
+from contract_extract.rules import library
+_SENTENCE_SPLIT = re.compile(
+    r"(?<=[.!?\u3002\uff01\uff1f\uff1b])\s+(?=[0-9A-Z\u4e00-\u9fff\"'\u2018\u201
+    r";\s+(?=[A-Z0-9\u4e00-\u9fff])"
+)
+def iter_sentences(doc: Document):
+第 16 页 / 共 60 页contract-extract V1.0
+    """Yield (page_number, sentence_text) for every page of a document."""
+    for page in doc.pages:
+        for paragraph in re.split(r"\n\s*\n", page.text):
+            for sentence in _SENTENCE_SPLIT.split(paragraph):
+                sentence = sentence.strip()
+                if not sentence:
+                    continue
+                if not re.search(r"[0-9A-Za-z\u4e00-\u9fff]", sentence):
+                    continue
+                if re.fullmatch(r"[0-9A-Za-z.]{1,4}", sentence):
+                    continue  # bare numbering / fragments
+                yield page.page_number, sentence
+def run_rules(doc: Document) -> list[ExtractedClause]:
+    """Run every clause rule over a loaded document."""
+    sentences = list(iter_sentences(doc))
+    matches: list[Match] = []
+    for rule_name, rule_fn in sorted(library.RULES.items()):
+        try:
+            matches.extend(rule_fn(doc, sentences))
+        except Exception:
+            continue
+    return _dedupe(matches)
+def _dedupe(matches: list[Match]) -> list[ExtractedClause]:
+    seen: set[tuple[str, int, str]] = set()
+    out: list[ExtractedClause] = []
+    for m in matches:
+        key = (m.rule, m.page, m.sentence[:80])
+        if key in seen:
+            continue
+        seen.add(key)
+        quote = m.sentence
+        if len(quote) > 260:
+            quote = quote[:257].rstrip() + "..."
+        out.append(
+            ExtractedClause(
+                clause=m.rule,
+                page=m.page,
+                quote=quote,
+                risk=m.risk,
+                flag=m.flag,
+                detail=m.detail,
+            )
+        )
+    return out
+def document_risk(clauses: list[ExtractedClause]) -> RiskLevel:
+    """Aggregate per-document risk from its clauses."""
+    if not clauses:
+        return RiskLevel.LOW
+    if any(c.risk == RiskLevel.HIGH for c in clauses):
+        return RiskLevel.HIGH
+第 17 页 / 共 60 页contract-extract V1.0
+    if any(c.risk == RiskLevel.MEDIUM for c in clauses):
+        return RiskLevel.MEDIUM
+    return RiskLevel.LOW
+//============== 源程序 src/contract_extract/parsers/__init__.py ==============
+"""Text extraction from PDF and DOCX.  PDF is parsed locally with pypdf and
+pdfplumber (fallback on legacy/complex files); DOCX with python-docx.
+"""
+from __future__ import annotations
+import re
+import zipfile
+from dataclasses import dataclass, field
+from pathlib import Path
+from contract_extract.errors import UnsupportedFormatError
+@dataclass
+class Page:
+    """One page of extracted text and its file page number."""
+    text: str
+    page_index: int  # 0-based
+    page_number: int  # 1-based
+    def __post_init__(self) -> None:
+        self.text = re.sub(r"[ \t]+", " ", self.text).strip()
+@dataclass
+class Document:
+    """Extracted text of a document, page-aware."""
+    source: str
+    format: str  # 'pdf' | 'docx'
+    pages: list[Page]
+    nonempty_pages: int = 0
+    warnings: list[str] = field(default_factory=list)
+    def __post_init__(self) -> None:
+        self.nonempty_pages = sum(1 for p in self.pages if p.text.strip())
+    @property
+    def text(self) -> str:
+        return "\n".join(p.text for p in self.pages)
+    def page_number_of(self, text: str) -> int | None:
+        """Return the 1-based page number of the first page containing `text`.""
+        for page in self.pages:
+            if text in page.text:
+                return page.page_number
+        return None
+    def page_of(self, text: str) -> Page | None:
+        for page in self.pages:
+            if text in page.text:
+                return page
+        return None
+def _restore_hyphenation(text: str) -> str:
+    """Join 'con-\nstraint' style hyphen breaks minus the '-'.
+    Also joins plain continuing lines when a line ends with a hyphen and the
+    word continues on the next line.
+    """
+第 18 页 / 共 60 页contract-extract V1.0
+    text = re.sub(r"(?<=\w)-\n(?=\w)", "", text)
+    return text
+def _join_paragraph_breaks(text: str) -> str:
+    """Re-join lines that were broken mid-paragraph in the source.
+    We must not join across a real blank line: hard line breaks (blank line)
+    are trusted as paragraph boundaries in the fixture corpus.  Soft breaks
+    (paragraph continues on the very next line) are joined so multi-word
+    quoted snippets in DOCX data pieces survive intact.
+    """
+    lines = text.splitlines()
+    joined: list[str] = []
+    for line in lines:
+        s = line.strip()
+        if not s:  # blank line -> paragraph boundary
+            joined.append("")
+            continue
+        if len(joined) > 0 and joined[-1] and not _ends_sentenceish(joined[-1]):
+            joined[-1] += " " + s
+        else:
+            joined.append(s)
+    return "\n".join(joined)
+_SENTENCE_END = re.compile(r"[.!?:。！？；;」』）)]\s*$")
+def _ends_sentenceish(s: str) -> bool:
+    return bool(_SENTENCE_END.search(s))
+def _normalise_text(doc_text: str) -> str:
+    """Stage 1: DOCX/PdfPlumber text clean-up.
+    - hyphenation across line breaks,
+    - collapse multiple spaces,
+    - re-join soft line breaks,
+    - normalise CRLF.
+    """
+    text = doc_text.replace("\r\n", "\n").replace("\r", "\n")
+    text = _restore_hyphenation(text)
+    text = re.sub(r"[ \t]+", " ", text)
+    text = _join_paragraph_breaks(text)
+    text = re.sub(r"[ \t]+\n", "\n", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+def extract_pdf(path: str | Path, progress: callable | None = None) -> Document:
+    """Locally extract text from a PDF with pypdf + pdfplumber.
+    pdfplumber is primary (best layout).  Fall back to pypdf when pdfplumber
+    cannot coalesce the layout (e.g. some scanned or table-heavy files).
+    """
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(path)
+    if not path.is_file():
+        raise IsADirectoryError(path)
+    warnings: list[str] = []
+    pages: list[Page] = []
+第 19 页 / 共 60 页contract-extract V1.0
+    try:
+        import pypdf
+        reader = pypdf.PdfReader(str(path))
+        py_texts = [(p.extract_text() or "") for p in reader.pages]
+    except FileNotFoundError:
+        raise
+    except Exception as exc:  # malformed PDF
+        raise UnsupportedFormatError(f"pypdf could not read {path}: {exc!r}") fr
+    plumb_texts: list[str] | None = None
+    try:
+        import pdfplumber
+        with pdfplumber.open(str(path)) as pdf:
+            _buf: list[str] = []
+            for i, pg in enumerate(pdf.pages):
+                _buf.append(pg.extract_text() or "")
+            plumb_texts = _buf
+    except Exception as exc:  # not a valid PDF
+        if plumb_texts is None:
+            plumb_texts = py_texts
+        warnings.append(f"pdfplumber pass failed ({exc!r}); used pypdf text.")
+    n = max(len(py_texts), len(plumb_texts or []))
+    for i in range(n):
+        plumb = plumb_texts[i] if plumb_texts and i < len(plumb_texts) else ""
+        pyp = py_texts[i] if i < len(py_texts) else ""
+        text = plumb if len(plumb) >= len(pyp) else pyp
+        pages.append(Page(_normalise_text(text), i, i + 1))
+    return Document(str(path), "pdf", pages, warnings=warnings)
+def extract_docx(path: str | Path) -> Document:
+    """Extract text and per-paragraph page heuristics from a DOCX file.
+    DOCX has no native page numbers.  We guess the page of every paragraph
+    from the line height of the document and report a conservative estimate.
+    """
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(path)
+    if not path.is_file():
+        raise IsADirectoryError(path)
+    try:
+        import docx
+    except ImportError as exc:  # pragma: no cover
+        raise RuntimeError("python-docx is required for DOCX input.") from exc
+    try:
+        document = docx.Document(str(path))
+    except Exception as exc:
+        raise UnsupportedFormatError(f"Not a valid DOCX file {path}: {exc!r}") f
+    paras: list[str] = [p.text for p in document.paragraphs]
+    paras = [p for p in paras if p.strip()]
+    lines_per_page = 44
+    pages: list[Page] = []
+    current_text: list[str] = []
+第 20 页 / 共 60 页contract-extract V1.0
+    page_number = 1
+    def _flush() -> None:
+        nonlocal current_text, page_number
+        if current_text:
+            pages.append(Page(_normalise_text("\n".join(current_text)), page_num
+        current_text = []
+    line_count = 0
+    for para in paras:
+        n_lines = max(1, len(para) // 80 + 1)
+        if line_count + n_lines > lines_per_page:
+            _flush()
+            page_number += 1
+            line_count = 0
+        current_text.append(para)
+        line_count += n_lines
+    _flush()
+    warnings: list[str] = []
+    try:
+        with zipfile.ZipFile(str(path)) as zf:
+            if "docProps/core.xml" in zf.namelist():
+                core = zf.read("docProps/core.xml").decode("utf-8", "replace")
+    except Exception:
+        pass  # core properties absent: not a problem.
+    return Document(str(path), "docx", pages, warnings=warnings)
+def load_document(path: str | Path, progress: callable | None = None) -> Documen
+    """Load any supported document (pdf/docx)."""
+    path = Path(path)
+    ext = path.suffix.lower()
+    if ext == ".pdf":
+        return extract_pdf(path, progress=progress)
+    if ext in (".docx", ".doc"):
+        return extract_docx(path)
+    raise UnsupportedFormatError(f"Unsupported extension {path.suffix!r} (expect
+//============== 源程序 src/contract_extract/pipeline.py ==============
+"""End-to-end extraction pipeline for a single document.
+load -> (rules + optional LLM) -> DocumentResult.  LLM is opt-in and falls
+back to the rule layer when offline (LLM_OFFLINE=1 or no API keys).
+"""
+from __future__ import annotations
+import os
+from datetime import date
+from contract_extract.errors import OfflineModeError
+from contract_extract.llm.provider import LLMProvider, NoopLLM
+from contract_extract.parsers import load_document
+from contract_extract.rules.engine import document_risk, run_rules
+from contract_extract.schema import DocumentResult, ExtractedClause
+_ENABLED = {
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+}
+第 21 页 / 共 60 页contract-extract V1.0
+def is_llm_available() -> bool:
+    """LLM is on only when not forced offline and a key is configured."""
+    if os.environ.get("LLM_OFFLINE", "0") in ("1", "true", "yes", "on"):
+        return False
+    return any(os.environ.get(k) for k in _ENABLED)
+def get_provider() -> LLMProvider:
+    if not is_llm_available():
+        return NoopLLM()
+    if os.environ.get("ANTHROPIC_API_KEY") and not os.environ.get("OPENAI_API_KE
+        from contract_extract.llm.anthropic_provider import AnthropicProvider
+        return AnthropicProvider()
+    from contract_extract.llm.openai_provider import OpenAIProvider
+    return OpenAIProvider()
+def extract_document(
+    path: str,
+    source_format: str | None = None,
+    use_llm: bool = False,
+    title: str | None = None,
+    progress: callable | None = None,
+) -> DocumentResult:
+    """Extract clauses from a single pdf/docx file.
+    `use_llm=True` asks the optional enhancement layer to also run; it is a
+    no-op (and never required) when offline.
+    """
+    doc = load_document(path, progress=progress)
+    clauses = run_rules(doc)
+    engine = "rules"
+    if use_llm:
+        provider = get_provider()
+        if provider is None or not provider.active():
+            pass
+        else:
+            try:
+                extra = provider.enhance(doc, clauses)
+                if extra:
+                    clauses = _merge_clauses(clauses, extra)
+                    engine = "rules+llm"
+            except OfflineModeError:
+                raise
+            except Exception:
+                pass  # If the LLM call fails we keep the rule results.
+    result = DocumentResult(
+        source=path,
+        format=source_format or doc.format,
+        title=title,
+        pages=doc.nonempty_pages,
+        risk=document_risk(clauses),
+        clauses=clauses,
+        engine=engine,
+        generated_at=date.today(),
+第 22 页 / 共 60 页contract-extract V1.0
+        warnings=list(doc.warnings),
+    )
+    return result
+def _merge_clauses(base: list[ExtractedClause], extra: list[ExtractedClause]) ->
+    seen = {(c.clause) for c in base}
+    merged = list(base)
+    for c in extra:
+        if c.clause in seen:
+            continue  # rules already found this field
+        seen.add(c.clause)
+        merged.append(c)
+    return merged
+//============== 源程序 src/contract_extract/batch.py ==============
+"""Streaming batch processor: no loading of 100 results into memory.
+Each document is processed and its JSON line flushed to the NDJSON output
+stream immediately (per-document streaming).  Only one document's text and
+clauses are in memory at a time.  Memory stays flat on 100+ files.
+"""
+from __future__ import annotations
+import json
+import os
+import sys
+from pathlib import Path
+from contract_extract.pipeline import extract_document
+from contract_extract.schema import DocumentResult
+def iter_documents(paths: list[Path]) -> list[Path]:
+    """Expand directories into sorted pdf/docx file paths."""
+    out: list[Path] = []
+    for p in paths:
+        p = Path(p)
+        if p.is_dir():
+            files = sorted(
+                [f for f in p.rglob("*") if f.suffix.lower() in (".pdf", ".docx"
+                key=lambda f: str(f).lower(),
+            )
+            out.extend(files)
+        elif p.suffix.lower() in (".pdf", ".docx"):
+            out.append(p)
+        else:
+            print(f"skip: unsupported {p}", file=sys.stderr)
+    return out
+def run_batch(
+    paths: list[Path],
+    out_stream,
+    use_llm: bool = False,
+    progress: callable | None = None,
+    include_clauses: bool = True,
+) -> dict:
+    """Process documents and stream NDJSON lines to `out_stream`.
+    Returns a small summary dict (not the results themselves, which are
+第 23 页 / 共 60 页contract-extract V1.0
+    streamed, avoiding memory blowup).
+    """
+    docs = iter_documents(paths)
+    total = len(docs)
+    processed = 0
+    failed: list[tuple[str, str]] = []
+    for idx, path in enumerate(docs):
+        try:
+            result: DocumentResult = extract_document(str(path), use_llm=use_llm
+        except Exception as exc:
+            failed.append((str(path), repr(exc)))
+            continue
+        if progress:
+            progress(idx + 1, total, str(path))
+        payload = result.model_dump(mode="json")
+        if not include_clauses:
+            payload.pop("clauses", None)
+        out_stream.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        processed += 1
+    return {"documents": processed, "failed": failed, "total": total}
+def write_pretty_json(path: str, results: list[DocumentResult]) -> None:
+    """Write a single consolidated pretty JSON file (used by tests/demo)."""
+    data = [r.model_dump(mode="json") for r in results]
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump({"documents": data}, fh, ensure_ascii=False, indent=2)
+//============== 源程序 src/contract_extract/checklist.py ==============
+"""Generate a human-readable Markdown review checklist from a DocumentResult."""
+from __future__ import annotations
+from contract_extract.schema import DocumentResult, RiskLevel
+FIELD_LABELS = {
+    "duration": "期限 / Term",
+    "quantity": "数量 / Quantity",
+    "price": "价格 / Price",
+    "delivery": "交付 / Delivery",
+    "acceptance": "验收 / Acceptance",
+    "payment": "付款 / Payment",
+    "penalty": "违约金 / Penalty",
+    "liability_cap": "责任上限 / Liability cap",
+    "confidentiality": "保密 / Confidentiality",
+    "ip": "知识产权 / IP",
+    "renewal": "续约 / Renewal",
+    "termination": "终止 / Termination",
+    "exclusivity": "排他 / Exclusivity",
+    "data_protection": "数据保护 / Data protection",
+    "insurance": "保险 / Insurance",
+}
+RISK_ICONS = {
+    RiskLevel.HIGH: ":red_circle: HIGH",
+    RiskLevel.MEDIUM: ":yellow_circle: MEDIUM",
+    RiskLevel.LOW: ":green_circle: LOW",
+第 24 页 / 共 60 页contract-extract V1.0
+}
+def _all_risk(groups: list[RiskLevel]) -> RiskLevel:
+    if any(r == RiskLevel.HIGH for r in groups):
+        return RiskLevel.HIGH
+    if any(r == RiskLevel.MEDIUM for r in groups):
+        return RiskLevel.MEDIUM
+    return RiskLevel.LOW
+def build_checklist(
+    result: DocumentResult,
+) -> str:
+    """Render a Markdown checklist.  Also used by the web demo."""
+    lines: list[str] = []
+    lines.append(f"# Contract Review Checklist")
+    lines.append("")
+    lines.append(f"- **Source:** `{result.source}`")
+    lines.append(f"- **Format:** {result.format}  ·  **Pages:** {result.pages}  
+                 f"**Engine:** {result.engine}")
+    lines.append(f"- **Overall risk:** {RISK_ICONS.get(result.risk, result.risk)
+    lines.append("")
+    if result.warnings:
+        lines.append("> ⚠️  " + "; ".join(result.warnings))
+        lines.append("")
+    grouped: dict[str, list] = {}
+    for c in result.clauses:
+        grouped.setdefault(c.clause, []).append(c)
+    if not grouped:
+        lines.append("No risk-relevant clauses detected by the rule layer. "
+                     "This may indicate a very simple document or OCR failure.")
+        return "\n".join(lines)
+    lines.append("## Clauses by field")
+    lines.append("")
+    lines.append("| Field | Risk | Flag / detail |")
+    lines.append("|---|---|---|")
+    for field in sorted(grouped):
+        label = FIELD_LABELS.get(field, field)
+        for c in grouped[field]:
+            flag = c.flag or c.detail or "—"
+            lines.append(f"| **{label}** | {RISK_ICONS.get(c.risk, c.risk)} | {f
+        lines.append("")
+    lines.append("## Quotes with page references")
+    lines.append("")
+    for field in sorted(grouped):
+        label = FIELD_LABELS.get(field, field)
+        lines.append(f"### {label}")
+        for c in grouped[field]:
+            lines.append(f"- **p.{c.page}** `{c.quote}`")
+            if c.flag:
+                lines.append(f"  - flag: {c.flag}")
+        lines.append("")
+    lines.append("## Check items")
+第 25 页 / 共 60 页contract-extract V1.0
+    lines.append("")
+    lines.append("- [ ] Review each HIGH/MEDIUM-flagged clause. "
+                 "Discuss with counsel where the flag is a hard give-away (IP as
+                 "automatic renewal).")
+    lines.append("- [ ] Verify page references match the executed signature copy
+    lines.append("- [ ] Consider negotiation asks for the flags above (e.g. cap 
+                 "restrict IP grant-back, remove auto-renewal).")
+    lines.append("")
+    lines.append("---")
+    lines.append("_Generated by 06-contract-extract. Machine review assists, not
+    return "\n".join(lines)
+def write_checklist(result: DocumentResult, md_path: str) -> None:
+    text = build_checklist(result)
+    with open(md_path, "w", encoding="utf-8") as fh:
+        fh.write(text)
+//============== 源程序 src/contract_extract/cli.py ==============
+"""CLI entry point: single file, batch directory, markdown checklist,
+JSON-Schema dump, run tests on fixtures, and offline verification."""
+from __future__ import annotations
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from contract_extract.batch import run_batch
+from contract_extract.checklist import FIELD_LABELS, build_checklist
+from contract_extract.pipeline import extract_document, is_llm_available
+from contract_extract.schema import DocumentResult
+from contract_extract.__init__ import __version__
+def parse_args(argv=None):
+    p = argparse.ArgumentParser(
+        prog="contract-extract",
+        description="Extract risk clauses from contracts / bids (PDF/DOCX).",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    p.add_argument("paths", nargs="*", help="Files or directories to process.")
+    p.add_argument("--llm", action="store_true", help="Enable optional LLM enhan
+    p.add_argument("--llm-embed", dest="llm_embed", action="store_true", help="A
+    p.add_argument("--checklist", action="store_true", help="Also write a Markdo
+    p.add_argument("--schema", action="store_true", help="Print JSON-Schema to s
+    p.add_argument("--version", action="store_true", help="Print version and exi
+    p.add_argument("--output", "-o", default=None, help="Write NDJSON to FILE in
+    p.add_argument("--fixtures", action="store_true", help="Run the fixture corp
+    return p.parse_args(argv)
+def _schema_text() -> str:
+    from contract_extract.schema import DocumentResult
+    return json.dumps(
+        {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+第 26 页 / 共 60 页contract-extract V1.0
+            "title": "DocumentResult",
+            "description": "Contract risk-clause extraction output for one docum
+            **_nested(DocumentResult),
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+def _nested(model):
+    return model.model_json_schema()
+def main(argv=None) -> int:
+    args = parse_args(argv)
+    if args.version:
+        print(f"contract-extract {__version__}")
+        return 0
+    if args.schema:
+        print(_schema_text())
+        return 0
+    if args.fixtures:
+        from contract_extract.eval_fixtures import run_fixture_suite
+        run_fixture_suite(sys.stdout)
+        return 0
+    if not args.paths:
+        print("error: provide at least one file/directory", file=sys.stderr)
+        return 2
+    out_stream = sys.stdout
+    close_out = False
+    if args.output:
+        out_stream = open(args.output, "w", encoding="utf-8")
+        close_out = True
+    if args.llm and not is_llm_available():
+        print(
+            "note: LLM enhancement requested but the environment is offline "
+            "(LLM_OFFLINE=1 or no API key). Falling back to the rule layer.",
+            file=sys.stderr,
+        )
+    try:
+        summary = run_batch(
+            [Path(p) for p in args.paths],
+            out_stream,
+            use_llm=bool(args.llm or args.llm_embed),
+        )
+        if args.checklist:
+            if args.output:
+                out_stream.flush()
+                _write_checklists_from_ndjson(args.output)
+            else:
+                print(
+                    "note: --checklist needs --output FILE to write .md next to 
+                    file=sys.stderr,
+                )
+第 27 页 / 共 60 页contract-extract V1.0
+        if summary["failed"]:
+            for p, e in summary["failed"]:
+                print(f"failed: {p}: {e}", file=sys.stderr)
+        print(
+            f"processed {summary['documents']}/{summary['total']} documents",
+            file=sys.stderr,
+        )
+        return 1 if summary["failed"] else 0
+    finally:
+        if close_out:
+            out_stream.close()
+def _write_checklists_from_ndjson(path: str) -> None:
+    ndjson = Path(path)
+    docs_dir = ndjson.parent / (ndjson.stem + "_checklists")
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    for line in ndjson.read_text(encoding="utf-8").splitlines():
+        try:
+            data = json.loads(line)
+        except Exception:
+            continue
+        r = DocumentResult.model_validate(data)
+        md = docs_dir / (Path(data["source"]).stem + ".md")
+        md.write_text(build_checklist(r), encoding="utf-8")
+        print(f"  checklist -> {md}")
+if __name__ == "__main__":
+    sys.exit(main())
+//============== 源程序 src/contract_extract/web.py ==============
+"""Minimal stdlib-only web demo.
+Serves a small HTML page (upload a PDF/DOCX, see clauses + review checklist.
+No external web framework is required: `python -m contract_extract.web` starts
+the demo on http://127.0.0.1:8000/ (override with PORT).
+Security notes:
+- Uploads are written to a temporary directory and deleted after processing.
+- The demo is bound to 127.0.0.1 by default (edit HOST to expose it).
+"""
+from __future__ import annotations
+import html
+import json
+import os
+import re
+import sys
+import tempfile
+from email.parser import BytesParser
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from contract_extract.checklist import build_checklist  # noqa: E402
+from contract_extract.pipeline import extract_document  # noqa: E402
+from contract_extract.schema import DocumentResult  # noqa: E402
+HOST = os.environ.get("HOST", "127.0.0.1")
+第 28 页 / 共 60 页contract-extract V1.0
+PORT = int(os.environ.get("PORT", "8000"))
+MAX_UPLOAD = 20 * 1024 * 1024  # 20 MiB
+def _render_result(result: DocumentResult) -> str:
+    checklist = build_checklist(result)
+    rows = [f"<tr><td>{html.escape(c.clause)}</td><td>{c.risk.value}</td>"
+            f"<td>p.{c.page}</td><td>{html.escape(c.flag or '')}</td>"
+            f"<td>{html.escape(c.quote[:140])}</td></tr>"
+            for c in result.clauses]
+    return f"""<h2>Result</h2>
+<p><strong>{html.escape(result.source)}</strong> —
+  format={result.format} pages={result.pages} engine={result.engine}
+  overall risk=<span class="risk-{result.risk.value.lower()}">{result.risk.value
+</p>
+<table>
+<tr><th>field</th><th>risk</th><th>page</th><th>flag</th><th>quote</th></tr>
+{''.join(rows) or '<tr><td colspan=5>No clauses found</td></tr>'}
+</table>
+<pre class="checklist">{html.escape(checklist)}</pre>
+<h3>JSON</h3>
+<pre>{html.escape(json.dumps(result.model_dump(mode="json"), indent=2, ensure_as
+"""
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):  # noqa: N802
+        if self.path not in ("/", "/favicon.ico"):
+            self.send_response(404)
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(_PAGE.encode("utf-8"))
+    def _do_upload(self):
+        content_type = self.headers.get("Content-Type", "")
+        m = re.search(r'boundary=(?:"([^"]+)"|([^;]+))', content_type)
+        if m is None:
+            return "<h2>Bad request</h2><p>Missing multipart boundary.</p>"
+        boundary = (m.group(1) or m.group(2)).strip()
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            length = 0
+        if length <= 0:
+            return "<h2>Bad request</h2><p>Missing Content-Length.</p>"
+        if length > MAX_UPLOAD:
+            return "<h2>File too large</h2><p>Max 20 MiB.</p>"
+        raw = self.rfile.read(length)
+        if len(raw) > MAX_UPLOAD:
+            return "<h2>File too large</h2><p>Max 20 MiB.</p>"
+        message = BytesParser().parsebytes(
+            b"Content-Type: multipart/form-data; boundary=" + boundary.encode() 
+第 29 页 / 共 60 页contract-extract V1.0
+        )
+        item = None
+        for part in message.walk():
+            if part.get_content_disposition() is None:
+                continue
+            params = part.get_param("name", header="content-disposition", unquot
+            if params == "file":
+                item = part
+                break
+        if item is None:
+            return "<h2>No file uploaded</h2><p><a href='/'>back</a></p>"
+        disposition = item.get("Content-Disposition") or item.get_content_dispos
+        fname_m = re.search(r'filename="?([^";]+)"?', disposition)
+        filename = Path(fname_m.group(1) if fname_m else "upload.bin").name
+        if Path(filename).suffix.lower() not in (".pdf", ".docx"):
+            return "<h2>Unsupported format</h2><p>Please upload a .pdf or .docx 
+        payload = item.get_payload(decode=True)
+        if payload is None:
+            return "<h2>Empty upload</h2><p>The uploaded file was empty.</p>"
+        with tempfile.TemporaryDirectory(prefix="contract_extract_") as tmp:
+            dest = Path(tmp) / filename
+            dest.write_bytes(payload)
+            try:
+                result = extract_document(str(dest))
+            except Exception as exc:
+                return f"<h2>Processing failed</h2><p>{html.escape(repr(exc))}</
+        return _render_result(result)
+    def do_POST(self):  # noqa: N802
+        try:
+            body = self._do_upload()
+        except Exception as exc:  # pragma: no cover - defensive
+            body = f"<h2>Error</h2><p>{html.escape(repr(exc))}</p>"
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(body.encode("utf-8"))
+    def log_message(self, fmt, *args):  # quieter access log
+        sys.stderr.write("%s - %s\n" % (self.address_string(), fmt % args))
+_PAGE = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Contract Extractor — Web demo</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:900px;margin:2rem auto;padding:0
+table{border-collapse:collapse;width:100%;margin:1rem 0}
+td,th{border:1px solid #ccc;padding:.4rem .6rem;text-align:left;font-size:.9rem}
+td{vertical-align:top}
+.risk-high{color:#c00;font-weight:700}.risk-medium{color:#c60;font-weight:700}.r
+pre{background:#f5f5f5;padding:.8rem;overflow:auto;font-size:.85rem;white-space:
+</style></head><body>
+<h1>Contract / Bid risk extractor</h1>
+第 30 页 / 共 60 页contract-extract V1.0
+<form action="/" method="post" enctype="multipart/form-data">
+  <input type="file" name="file" required accept=".pdf,.docx">
+  <button type="submit">Extract</button>
+</form>
+<p>Local rule-based extraction — no document leaves this machine.</p>
+</body></html>
+"""
+def main() -> None:
+    server = ThreadingHTTPServer((HOST, PORT), Handler)
+    print(f"contract-extract web demo on http://{HOST}:{PORT}/")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+if __name__ == "__main__":
+    main()
+//============== 源程序 src/contract_extract/llm/provider.py ==============
+"""LLM provider interface + offline no-op implementation."""
+from __future__ import annotations
+from abc import ABC, abstractmethod
+from contract_extract.rules.engine import document_risk
+from contract_extract.rules.library import rule_duration, RULES  # noqa: F401  (
+from contract_extract.schema import ExtractedClause
+from contract_extract.schema import RiskLevel
+class LLMProvider(ABC):
+    """Base class for pay-per-use LLM enhancement providers."""
+    @abstractmethod
+    def enhance(self, doc, clauses) -> list[ExtractedClause] | None:
+        """Extract clauses that rules could not.  Return None when nothing new."
+        ...
+    @abstractmethod
+    def active(self) -> bool:
+        """Whether the provider can actually call the API right now."""
+        ...
+class NoopLLM(LLMProvider):
+    """Always-off provider.  `enhance` re-runs the rule layer (a template
+    fallback) so the pipeline remains structurally complete offline."""
+    def enhance(self, doc, clauses):
+        from contract_extract.rules.engine import run_rules
+        base = run_rules(doc)
+        seen = {c.clause for c in clauses}
+        new = [c for c in base if c.clause not in seen]
+        return new or None
+    def active(self) -> bool:
+        return False
+//============== 源程序 src/contract_extract/llm/openai_provider.py ==============
+"""Optional OpenAI-compatible enhancement layer (pay-per-use).
+Used only when the caller explicitly opts in AND an API key is present AND
+第 31 页 / 共 60 页contract-extract V1.0
+LLM_OFFLINE != 1.  Falls back to the template/rule layer on any error.
+"""
+from __future__ import annotations
+import json
+import os
+from contract_extract.llm.provider import LLMProvider
+from contract_extract.schema import ExtractedClause, RiskLevel
+class OpenAIProvider(LLMProvider):
+    def __init__(self, model: str | None = None, api_key: str | None = None):
+        self.model = model or os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+        self.api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
+    def active(self) -> bool:
+        offline = os.environ.get("LLM_OFFLINE", "0") in ("1", "true", "yes", "on
+        return bool(self.api_key) and not offline
+    def enhance(self, doc, clauses) -> list[ExtractedClause] | None:
+        if not self.active():
+            return None
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=self.api_key)
+            prompt = self._build_prompt(doc, clauses)
+            resp = client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You extract risk clauses from
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0,
+                response_format={"type": "json_object"},
+                max_tokens=1500,
+            )
+            raw = resp.choices[0].message.content
+            return self._parse(json.loads(raw), clauses)
+        except Exception:
+            return None
+    def _build_prompt(self, doc, clauses) -> str:
+        snippet = "\n".join(p.text[:900] for p in doc.pages[:3])
+        known = [c.clause for c in clauses]
+        return (
+            "JSON with keys clauses: [ {clause, page, quote, risk, flag} ]. "
+            "Only include clauses NOT already listed in known_clauses. "
+            f"known_clauses={known}\nDOCUMENT:\n{snippet}"
+        )
+    def _parse(self, data: dict, existing) -> list[ExtractedClause]:
+        out: list[ExtractedClause] = []
+        for item in data.get("clauses", []):
+            try:
+                c = ExtractedClause(
+                    clause=str(item.get("clause", "")),
+                    page=int(item.get("page", 1) or 1),
+第 32 页 / 共 60 页contract-extract V1.0
+                    quote=str(item.get("quote", "")),
+                    risk=RiskLevel(str(item.get("risk", "LOW")).upper()),
+                    flag=item.get("flag"),
+                )
+                if c.clause and len(c.quote) > 5:
+                    out.append(c)
+            except Exception:
+                continue
+        return out
+//============== 源程序 src/contract_extract/llm/anthropic_provider.py ==============
+"""Optional Anthropic enhancement layer (mirrors OpenAI provider)."""
+from __future__ import annotations
+import json
+import os
+from contract_extract.llm.provider import LLMProvider
+from contract_extract.schema import ExtractedClause, RiskLevel
+class AnthropicProvider(LLMProvider):
+    def __init__(self, model: str | None = None, api_key: str | None = None):
+        self.model = model or os.environ.get("ANTHROPIC_MODEL", "claude-3-haiku-
+        self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
+    def active(self) -> bool:
+        offline = os.environ.get("LLM_OFFLINE", "0") in ("1", "true", "yes", "on
+        return bool(self.api_key) and not offline
+    def enhance(self, doc, clauses) -> list[ExtractedClause] | None:
+        if not self.active():
+            return None
+        try:
+            import anthropic
+            client = anthropic.Anthropic(api_key=self.api_key)
+            prompt = self._build_prompt(doc, clauses)
+            resp = client.messages.create(
+                model=self.model,
+                max_tokens=1500,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            raw = resp.content[0].text
+            return self._parse(json.loads(raw), clauses)
+        except Exception:
+            return None
+    def _build_prompt(self, doc, clauses) -> str:
+        snippet = "\n".join(p.text[:900] for p in doc.pages[:3])
+        known = [c.clause for c in clauses]
+        return (
+            "Return strict JSON with key clauses: [ {clause, page, quote, risk, 
+            "Only include clauses NOT already in known_clauses. "
+            f"known_clauses={known}\nDOCUMENT:\n{snippet}"
+        )
+    def _parse(self, data: dict, existing) -> list[ExtractedClause]:
+        out: list[ExtractedClause] = []
+        for item in data.get("clauses", []):
+第 33 页 / 共 60 页contract-extract V1.0
+            try:
+                c = ExtractedClause(
+                    clause=str(item.get("clause", "")),
+                    page=int(item.get("page", 1) or 1),
+                    quote=str(item.get("quote", "")),
+                    risk=RiskLevel(str(item.get("risk", "LOW")).upper()),
+                    flag=item.get("flag"),
+                )
+                if c.clause and len(c.quote) > 5:
+                    out.append(c)
+            except Exception:
+                continue
+        return out
+//============== 源程序 src/contract_extract/__main__.py ==============
+"""`python -m contract_extract` entry point."""
+import sys
+from contract_extract.cli import main
+if __name__ == "__main__":
+    sys.exit(main())
+//============== 代表代码接续 rules/engine.py ==============
+"""Rule-based extraction engine.
+The engine walks a loaded document sentence by sentence (page-aware),
+applies every clause rule in the library, dedupes and returns
+`ExtractedClause` objects.  This layer always works — LLM is optional.
+"""
+from __future__ import annotations
+import re
+from contract_extract.parsers import Document
+from contract_extract.rules.match import Match
+from contract_extract.schema import ExtractedClause, RiskLevel
+from contract_extract.rules import library
+_SENTENCE_SPLIT = re.compile(
+    r"(?<=[.!?\u3002\uff01\uff1f\uff1b])\s+(?=[0-9A-Z\u4e00-\u9fff\"'\u2018\u201
+    r";\s+(?=[A-Z0-9\u4e00-\u9fff])"
+)
+def iter_sentences(doc: Document):
+    """Yield (page_number, sentence_text) for every page of a document."""
+    for page in doc.pages:
+        for paragraph in re.split(r"\n\s*\n", page.text):
+            for sentence in _SENTENCE_SPLIT.split(paragraph):
+                sentence = sentence.strip()
+                if not sentence:
+                    continue
+                if not re.search(r"[0-9A-Za-z\u4e00-\u9fff]", sentence):
+                    continue
+                if re.fullmatch(r"[0-9A-Za-z.]{1,4}", sentence):
+                    continue  # bare numbering / fragments
+                yield page.page_number, sentence
+def run_rules(doc: Document) -> list[ExtractedClause]:
+    """Run every clause rule over a loaded document."""
+第 34 页 / 共 60 页contract-extract V1.0
+    sentences = list(iter_sentences(doc))
+    matches: list[Match] = []
+    for rule_name, rule_fn in sorted(library.RULES.items()):
+        try:
+            matches.extend(rule_fn(doc, sentences))
+        except Exception:
+            continue
+    return _dedupe(matches)
+def _dedupe(matches: list[Match]) -> list[ExtractedClause]:
+    seen: set[tuple[str, int, str]] = set()
+    out: list[ExtractedClause] = []
+    for m in matches:
+        key = (m.rule, m.page, m.sentence[:80])
+        if key in seen:
+            continue
+        seen.add(key)
+        quote = m.sentence
+        if len(quote) > 260:
+            quote = quote[:257].rstrip() + "..."
+        out.append(
+            ExtractedClause(
+                clause=m.rule,
+                page=m.page,
+                quote=quote,
+                risk=m.risk,
+                flag=m.flag,
+                detail=m.detail,
+            )
+        )
+    return out
+def document_risk(clauses: list[ExtractedClause]) -> RiskLevel:
+    """Aggregate per-document risk from its clauses."""
+    if not clauses:
+        return RiskLevel.LOW
+    if any(c.risk == RiskLevel.HIGH for c in clauses):
+        return RiskLevel.HIGH
+    if any(c.risk == RiskLevel.MEDIUM for c in clauses):
+        return RiskLevel.MEDIUM
+    return RiskLevel.LOW
+//============== 代表代码接续 rules/library.py ==============
+"""Clause rule library.
+Each rule is a callable (doc, sentences) -> list[Match].  Rules are pure
+string-pattern based so the offline layer needs no models.  A `Match` carries
+rule name, page (1-based), sentence, risk (LOW/MEDIUM/HIGH) and a flag.
+Design notes:
+- Every rule must avoid firing on *negated* statements (e.g. "No confidentiality
+  obligation applies", "non-exclusive").  Negation probes are explicit per rule.
+- Amounts/dates are extracted with currency-aware patterns so bare numbers
+  ("90", "12") are never treated as financial amounts.
+"""
+第 35 页 / 共 60 页contract-extract V1.0
+from __future__ import annotations
+import re
+from contract_extract.rules.match import Match
+from contract_extract.rules import utils
+from contract_extract.schema import RiskLevel
+_CURR = r"(?:US\$|USD|EUR|GBP|AUD|CAD|CNY|RMB|SGD|HKD|JPY|\$|€|£|¥|元)"
+_NUMTOKEN = r"(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
+AMOUNT = (
+    rf"{_CURR}\s*{_NUMTOKEN}"
+    rf"|{_NUMTOKEN}\s*(?:US\$|USD|EUR|GBP|AUD|CAD|CNY|RMB|SGD|HKD|JPY|元|人民币|doll
+)
+_AMOUNT_RE = re.compile(rf"\b(?:{AMOUNT})\b(?!\s*%)")
+_DURATION_UNIT = r"(?:year|month|week|day|quarter|annual|yearly|monthly|weekly)"
+_DURATION_RE = re.compile(
+    rf"(?P<num>{_NUMTOKEN})\s*\-?\s*(?P<unit>{_DURATION_UNIT})s?\b",
+    re.IGNORECASE,
+)
+_DUR_PAT1 = re.compile(
+    rf"\b(?:initial\s+)?(?:term|duration|period|lease|sponsorship|employment|loa
+    rf"(?:of|is|shall\s+be|will\s+be|commences?)?\s*"
+    rf"(?:for\s+|a\s+period\s+of\s+)?(?P<num>{_NUMTOKEN})\s*(?P<unit>{_DURATION_
+    re.IGNORECASE,
+)
+_DUR_PAT4 = re.compile(
+    rf"\bfor\s+(?:a\s+period\s+of\s+)?(?:the\s+)?(?:initial\s+|first\s+)?"
+    rf"(?P<num>{_NUMTOKEN})\s*(?P<unit>{_DURATION_UNIT})s?\b",
+    re.IGNORECASE,
+)
+_DUR_PAT5 = re.compile(
+    rf"\b(?:term|duration|period)\s+of\s+(?:the\s+)?[a-z\u4e00-\u9fff]+(?:\s+[a-
+    rf"\s+(?:is|shall\s+be|will\s+be)\s+(?P<num>{_NUMTOKEN})\s*(?P<unit>{_DURATI
+    re.IGNORECASE,
+)
+_DUR_CONTEXT = (
+    "term",
+    "duration",
+    "period",
+    "agreement",
+    "contract",
+    "lease",
+    "engagement",
+    "joint venture",
+    "venture",
+    "sponsorship",
+    "employment",
+    "appointment",
+    "license",
+    "licence",
+    "subscription",
+    "loan",
+第 36 页 / 共 60 页contract-extract V1.0
+    "arrangement",
+    "facility",
+)
+_DUR_SURVIVAL = ("surviv", "after termination", "following termination", "post-t
+                 "after the termination", "non-compete", "not compete", "followi
+_MONTHS = r"(?:January|February|March|April|May|June|July|August|September|Octob
+_DATE_RE = re.compile(
+    rf"\b(?:{_MONTHS}\s+\d{{1,2}}(?:st|nd|rd|th)?[\s,]+\d{{4}}"
+    rf"|\d{{1,2}}(?:st|nd|rd|th)?\s+(?:of\s+)?(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug
+    rf"|\d{{1,2}}/\d{{1,2}}/\d{{2,4}}"
+    rf"|\d{{1,2}}-\d{{1,2}}-\d{{4}}"
+    rf"|\d{{4}}-\d{{1,2}}-\d{{1,2}})\b",
+    re.IGNORECASE,
+)
+_PERCENT_RE = re.compile(r"(?P<pct>\d+(?:\.\d+)?)\s*%")
+_UNIT_TO_YEARS = {
+    "year": 1, "annual": 1, "yearly": 1,
+    "month": 1 / 12, "monthly": 1 / 12,
+    "week": 1 / 52, "weekly": 1 / 52,
+    "quarter": 1 / 4, "day": 1 / 365,
+}
+def _page_of(doc, sentence: str) -> int:
+    for page in doc.pages:
+        if sentence in page.text:
+            return page.page_number
+    best, best_sc = 1, -1
+    words = sentence.split()
+    for page in doc.pages:
+        n = sum(1 for w in words if w in page.text)
+        if n > best_sc:
+            best, best_sc = page.page_number, n
+    return best
+def _agg(risk: RiskLevel) -> RiskLevel:
+    return risk
+def rule_duration(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if any(k in lower for k in _DUR_SURVIVAL):
+            continue
+        m = _DUR_PAT1.search(sentence) or _DUR_PAT4.search(sentence) or _DUR_PAT
+        if not m:
+            continue
+        if not (_DUR_PAT1.search(sentence) or _DUR_PAT5.search(sentence)):
+            if not any(k in lower for k in _DUR_CONTEXT):
+                continue
+        n = float(m.group("num"))
+        unit = m.group("unit").lower()
+        years = n * _UNIT_TO_YEARS.get(unit, 1)
+        flag = f"term {m.group('num')} {m.group('unit')}(s)"
+第 37 页 / 共 60 页contract-extract V1.0
+        risk = RiskLevel.LOW
+        if years > 5:
+            risk = RiskLevel.HIGH
+            flag += " (long fix-term >5y)"
+        elif years >= 2:
+            risk = RiskLevel.MEDIUM
+        out.append(Match("duration", page, sentence, risk, flag, None))
+    return out
+def rule_quantity(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not any(k in lower for k in ("total of", "quantity", "quantities of",
+                                        " equal to ", "consists of", " units",
+                                        " units ", " items", " copies ", " event
+                                        " pages", " documents", " sets of")):
+            continue
+        m = re.search(
+            rf"\b(?:a\s+)?total\s+of\s+{_NUMTOKEN}\b"
+            rf"|\b{_NUMTOKEN}\s+units?\b"
+            rf"|\b{_NUMTOKEN}\s+items?\b"
+            rf"|\b{_NUMTOKEN}\s+copies?\b"
+            rf"|\b{_NUMTOKEN}\s+events?\b"
+            rf"|\b{_NUMTOKEN}\s+pages?\b",
+            sentence,
+            re.IGNORECASE,
+        )
+        if not m:
+            continue
+        detail = m.group(0)
+        out.append(Match("quantity", page, sentence, RiskLevel.LOW, f"quantity {
+    return out
+def rule_price(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not any(k in lower for k in (
+            "price", "fee", "fees", "rent ", "retainer", "capital contribution",
+            "loan", "lend", "borrow", "consideration", "contract sum", "budget",
+            "salary", "reimburse", "quote", "to pay", "payable",
+        )):
+            continue
+        if any(k in lower for k in ("liquidated damages", "penalty", "penalties"
+            continue
+        amounts = _AMOUNT_RE.findall(sentence)
+        pct = _PERCENT_RE.search(sentence)
+        risk = RiskLevel.LOW
+        detail = None
+        if amounts:
+            detail = ", ".join(a.strip() for a in amounts[:3])
+第 38 页 / 共 60 页contract-extract V1.0
+        elif pct and ("price" in lower or "fee" in lower or "rent" in lower or "
+            if not re.search(rf"{_PERCENT_RE.pattern}\s*of\s+the\s+.*\b(price|va
+                detail = pct.group(0)
+        if not detail:
+            continue
+        flag = f"price: {detail}"
+        if any(k in lower for k in ("in advance", "advance payment", "upon execu
+                                    "upfront", "payable in advance", "non-refund
+            risk = RiskLevel.MEDIUM
+            flag += " (upfront payment)"
+        out.append(Match("price", page, sentence, risk, flag, detail))
+    return out
+_DELIVER_VERB = re.compile(
+    r"\b(?:shall\s+deliver|deliver\s+(?:the|all)|delivery\s+(?:of|shall|date|dea
+    r"delivered\s+within|delivered\s+by|must\s+be\s+delivered|shipment|ship\s+wi
+    r"delivery\s+of\s+the\s+licensed|deliver\s+services|conform\s+to)",
+    re.IGNORECASE,
+)
+_DATE_KW = re.compile(r"\b\d{1,2}/\d{1,2}/\d{2,4}\b|\b\d{4}-\d{1,2}-\d{1,2}\b|\b
+def rule_delivery(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not _DELIVER_VERB.search(lower):
+            continue
+        m = re.search(
+            rf"\bwithin\s+({_NUMTOKEN})\s*(?:business|working|calendar)?\s*(day|
+            rf"|\bat\s+least\s+({_NUMTOKEN})\s+days?\s+before\b"
+            rf"|\bup\s+to\s+({_NUMTOKEN})\s+days?\b"
+            rf"|\bby\s+{_DATE_RE.pattern}",
+            sentence,
+            re.IGNORECASE,
+        )
+        date_kw = _DATE_KW.search(sentence)
+        deadline = None
+        detail = None
+        if m:
+            num = m.group(1)
+            unit = (m.group(2) or "day").lower()
+            if num:
+                deadline = f"within {num} {unit}s"
+                detail = f"{num} {unit}s"
+            elif m.group(3):
+                deadline = f"at least {m.group(3)} days before"
+                detail = f"{m.group(3)} days notice"
+            elif m.group(4):
+                deadline = f"up to {m.group(4)} days"
+                detail = f"{m.group(4)} days"
+            else:
+                deadline = f"by {date_kw.group(0) if date_kw else 'date'}"
+第 39 页 / 共 60 页contract-extract V1.0
+                detail = date_kw.group(0) if date_kw else None
+        elif date_kw:
+            deadline = f"by {date_kw.group(0)}"
+            detail = date_kw.group(0)
+        if deadline is None:
+            continue
+        if m and m.group(1):
+            dnum = float(m.group(1))
+            unit = (m.group(2) or "day").lower()
+            days = {"day": 1, "week": 7, "month": 30}.get(unit, 1) * dnum
+        elif m and m.group(3):
+            days = float(m.group(3))
+        elif m and m.group(4):
+            days = float(m.group(4))
+        else:
+            days = None
+        risk = RiskLevel.LOW
+        if days is not None and days > 60:
+            risk = RiskLevel.MEDIUM
+            deadline += " (long)"
+        elif days is not None and days <= 7:
+            risk = RiskLevel.MEDIUM
+            deadline += " (aggressive)"
+        if any(k in lower for k in ("penalty", "liquidated damages", "liable for
+            risk = RiskLevel.MEDIUM
+        out.append(Match("delivery", page, sentence, risk, f"delivery deadline: 
+    return out
+def rule_acceptance(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not any(k in lower for k in ("inspection", "acceptance", "accept the"
+                                        "acceptance inspection", "acceptance tes
+                                        "to inspect", "to accept", "inspect and"
+            continue
+        within = re.search(r"\bwithin\s+(\d+)\s*(?:working|business)?\s*days?\b"
+        window = re.search(r"\b(\d+)\s*(?:business|working)?\s*days?\s+(?:to|in\
+        risk = RiskLevel.LOW
+        detail = None
+        flag = "acceptance clause present"
+        if within or window:
+            days = int((within or window).group(1))
+            risk = RiskLevel.MEDIUM
+            detail = f"acceptance window: {days} days"
+            flag = detail
+        out.append(Match("acceptance", page, sentence, risk, flag, detail))
+    return out
+def rule_payment(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+第 40 页 / 共 60 页contract-extract V1.0
+        lower = sentence.lower()
+        if not any(k in lower for k in (
+            "payment", "payable", "invoice", "net 30", "net 45", "net 60", "net 
+            "installment", "instalment", "advance payment", "prepay", "to pay",
+            "deposit", "retainer", "recurring", "credit card",
+        )):
+            continue
+        if any(k in lower for k in ("penalty", "liquidated damages", "breach fee
+            continue
+        pct = _PERCENT_RE.search(sentence)
+        amount = _AMOUNT_RE.search(sentence)
+        net = re.search(r"\bnet\s+(\d+)\s+days?\b", lower)
+        within = re.search(r"\bwithin\s+(\d+)\s+days?\b", lower)
+        risk = RiskLevel.LOW
+        detail_parts: list[str] = []
+        flag_parts: list[str] = []
+        if net:
+            if int(net.group(1)) > 45:
+                risk = RiskLevel.MEDIUM
+            detail_parts.append(f"net {net.group(1)} days")
+            flag_parts.append(net.group(0))
+        if within:
+            if int(within.group(1)) > 45:
+                risk = RiskLevel.MEDIUM
+            detail_parts.append(f"within {within.group(1)} days")
+        if amount:
+            detail_parts.append(amount.group(0).strip())
+            flag_parts.append(amount.group(0).strip())
+        if pct and any(k in lower for k in ("payment", "payable", "instalment", 
+            if float(pct.group("pct")) >= 30:
+                risk = RiskLevel.MEDIUM
+            detail_parts.append(f"{pct.group('pct')}% tranche")
+            flag_parts.append(f"{pct.group('pct')}%")
+        if re.search(r"\b\d{1,4}\s+(?:monthly|weekly|quarterly|annual)?\s*instal
+            detail_parts.append("instalment schedule")
+            flag_parts.append("instalments")
+        if any(k in lower for k in ("advance", "in advance", "prepay", "upfront"
+            risk = RiskLevel.MEDIUM
+            detail_parts.append("advance payment")
+        if "recurring" in lower or "credit card" in lower:
+            risk = RiskLevel.MEDIUM
+            detail_parts.append("automatic recurring billing")
+        if "retention" in lower:
+            risk = RiskLevel.MEDIUM
+            detail_parts.append("retention money")
+        if not (detail_parts or net or within or flag_parts):
+            continue
+        flag = "payment terms: " + "|".join(filter(None, flag_parts)) if flag_pa
+        detail = "; ".join(detail_parts) if detail_parts else None
+        out.append(Match("payment", page, sentence, risk, flag, detail))
+第 41 页 / 共 60 页contract-extract V1.0
+    return out
+def rule_penalty(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not any(k in lower for k in (
+            "penalty", "penalties", "liquidated damages", "default damages",
+            "breach fee", "late payment", "late fee", "interest of", "interest r
+            "delay damages", "damages for delay",
+        )):
+            continue
+        pct = _PERCENT_RE.search(sentence)
+        amount = _AMOUNT_RE.search(sentence)
+        risk = RiskLevel.MEDIUM
+        flag = "penalty clause present"
+        detail = None
+        is_interest = re.search(r"\b(interest|default interest)\b", lower) is no
+        is_penalty = re.search(r"\b(penalty|penalties|liquidated damages|delay d
+        if pct:
+            p = float(pct.group("pct"))
+            if is_interest and not is_penalty:
+                continue
+            if p >= 10:
+                risk = RiskLevel.HIGH
+                flag = f"penalty {pct.group(0)} (onerous)"
+            elif any(u in lower for u in ("per month", "per week", "per day", "/
+                risk = RiskLevel.MEDIUM
+                flag = f"penalty {pct.group(0)} per period"
+            else:
+                risk = RiskLevel.MEDIUM
+                flag = f"penalty {pct.group(0)}"
+            detail = pct.group(0)
+        elif amount:
+            flag = f"penalty amount {amount.group(0)}"
+            risk = RiskLevel.MEDIUM
+            detail = amount.group(0).strip()
+        if re.search(r"\b(cap|limited|maximum|ceiling)\b", lower):
+            flag += " (capped)"
+            risk = RiskLevel.LOW if risk != RiskLevel.HIGH else risk
+        out.append(Match("penalty", page, sentence, risk, flag, detail))
+    return out
+_CAP_MARK = re.compile(
+    r"\b(?:cap|capped|caps|limit|limited|maximum|ceiling|not\s+exceed|up\s+to|sh
+    re.IGNORECASE,
+)
+_BROAD_DISCLAIM = re.compile(
+    r"(?:disclaims?\s+all\s+warranties|without\s+limitation|not\s+be\s+liable\s+
+    r"no\s+liability\s+whatsoever|shall\s+not\s+be\s+liable\s+for\s+any|disclaim
+    r"not\s+be\s+liable\s+for\s+any)",
+    re.IGNORECASE,
+第 42 页 / 共 60 页contract-extract V1.0
+)
+_EXCLUSION_ONLY = re.compile(
+    r"(?:indirect|incidental|consequential|special|punitive|loss\s+of\s+profit)\
+    re.IGNORECASE,
+)
+def rule_liability(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not any(k in lower for k in (
+            "liability", "aggregate liability", "maximum liability", "indemn", "
+            "not be liable for", "be liable for", "disclaims all", "no liability
+        )):
+            continue
+        amount = _AMOUNT_RE.search(sentence)
+        pct = _PERCENT_RE.search(sentence)
+        if amount and _CAP_MARK.search(sentence):
+            risk = RiskLevel.MEDIUM if not re.search(r"\bup to\b", lower) else R
+            flag = f"liability cap {amount.group(0).strip()}"
+            detail = f"liability capped at {utils.compact(amount.group(0))}"
+        elif pct and _CAP_MARK.search(sentence):
+            risk = RiskLevel.MEDIUM
+            flag = f"liability tied to {pct.group(0)} of contract price"
+            detail = pct.group(0)
+        elif _CAP_MARK.search(sentence):
+            if "contract price" in lower or "purchase price" in lower or "subcon
+                risk = RiskLevel.MEDIUM
+                flag = "liability capped at contract price"
+            elif "fees" in lower or "amounts paid" in lower or "amount actually 
+                    or "paid by" in lower or "paid under" in lower or "months fe
+                risk = RiskLevel.MEDIUM
+                flag = "liability capped at fees/amounts paid"
+            elif "up to" in lower:
+                risk = RiskLevel.LOW
+                flag = "financial cap (up to) present"
+            else:
+                risk = RiskLevel.MEDIUM
+                flag = "liability cap present (detail unspecified)"
+            detail = flag
+        elif _BROAD_DISCLAIM.search(lower):
+            risk = RiskLevel.HIGH
+            flag = "party disclaims liability (broad)"
+            detail = "disclaimer / no-liability"
+        elif _EXCLUSION_ONLY.search(lower):
+            risk = RiskLevel.LOW
+            flag = "exclusion of indirect/consequential damages"
+            detail = flag
+        elif amount:
+            risk = RiskLevel.MEDIUM
+            flag = f"liability exposure {amount.group(0).strip()}"
+第 43 页 / 共 60 页contract-extract V1.0
+            detail = amount.group(0).strip()
+        else:
+            risk = RiskLevel.MEDIUM
+            flag = "indemnification / liability clause present"
+            detail = flag
+        out.append(Match("liability_cap", page, sentence, risk, flag, detail))
+    return out
+def rule_confidentiality(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not any(k in lower for k in ("confidential", "non-disclosure", "priva
+            continue
+        if re.search(r"\b(no|nothing|not)\s+confidential", lower) or "does not a
+            continue
+        dur = _DURATION_RE.search(sentence)
+        risk = RiskLevel.LOW
+        flag = "confidentiality clause"
+        detail = None
+        if dur:
+            detail = f"for {dur.group(0)}"
+            if dur.group("unit").lower() in ("year",) and float(dur.group("num")
+                risk = RiskLevel.MEDIUM
+                flag += f" long survival (> {dur.group('num')}y)"
+        if re.search(r"\bsurvive\b.*\btermination\b|\bsurvives?\s+termination", 
+            risk = RiskLevel.MEDIUM
+            flag += " (survives termination)"
+        out.append(Match("confidentiality", page, sentence, risk, flag, detail))
+    return out
+def rule_ip(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not any(k in lower for k in (
+            "intellectual property", "ip rights", "ownership", "assignment", "as
+            "assigns", "copyright", "patent rights", "work product", "works made
+            "inventions", "trademark", "license to", "licences", "licence grant"
+            "licensed", "grants .* license", "granted .* license", "exclusive li
+            "rights in its own", "vest",
+        )):
+            continue
+        if re.search(r"(nothing\s+.*\s+grants\s+any\s+right|no\s+.*\s+license\b|
+            continue
+        if re.match(r"^(this\s+)?(software\s+|end[- ]user\s+)?license\w*\s+(agre
+            continue
+        risk = RiskLevel.LOW
+        flag = None
+        detail = None
+        if re.search(r"\b(work[- ]for[- ]hire|works made|shall vest in|vested in
+            conditional = re.search(r"\b(upon\s+(?:full\s+)?payment|upon\s+recei
+第 44 页 / 共 60 页contract-extract V1.0
+            if conditional:
+                risk = RiskLevel.MEDIUM
+                flag = "IP assigned to other party (upon payment)"
+            else:
+                risk = RiskLevel.HIGH
+                flag = "IP assigned to other party (one-way)"
+            detail = "ownership transfers out"
+        elif re.search(r"\bretain(s|ing)?\s+(all\s+)?(ownership|title|rights)\b|
+            risk = RiskLevel.LOW
+            flag = "each party retains ownership"
+        elif re.search(r"\b(licens|licenc)", lower):
+            risk = RiskLevel.MEDIUM
+            flag = "IP licence granted"
+            detail = "licence terms"
+        else:
+            flag = "IP clause present"
+            risk = RiskLevel.LOW
+        out.append(Match("ip", page, sentence, risk, flag, detail))
+    return out
+def rule_renewal(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not any(k in lower for k in ("renewal", "renew", "renewable", "auto-r
+                                        "auto renews", "renews")):
+            continue
+        if re.search(r"\b(no|not|shall\s+not|without)\s+(?:automatic\s+)?(?:rene
+            continue
+        risk = RiskLevel.LOW
+        flag = "renewal clause"
+        if re.search(r"automatic|auto-renew|auto\s+renew|renews\s+automatically|
+            risk = RiskLevel.MEDIUM
+            flag = "automatic renewal (auto-renew)"
+            rr = _DURATION_RE.search(sentence)
+            if rr:
+                flag += f" for {rr.group(0)}"
+        rr = _DURATION_RE.search(sentence)
+        if rr and "automatic" not in flag:
+            flag += f" renews for {rr.group(0)}"
+            if rr.group("unit").lower() in ("year",) and float(rr.group("num")) 
+                risk = RiskLevel.MEDIUM
+        if "notice" in lower and "day" in lower:
+            flag += " (notice required)"
+        out.append(Match("renewal", page, sentence, risk, flag))
+    return out
+_TERM_CONTEXT = re.compile(
+    r"\b(either party|party may|may be terminated|right to terminate|shall termi
+    r"will terminate|terminates this|terminate this|termination of this|this agr
+    r"the agreement|the contract|the lease|for convenience|for cause|without cau
+    r"upon default|immediately|notice)\b",
+第 45 页 / 共 60 页contract-extract V1.0
+    re.IGNORECASE,
+)
+def rule_termination(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not re.search(r"\b(termination|terminate|terminates|terminated|withdr
+            continue
+        if not _TERM_CONTEXT.search(sentence):
+            continue
+        if re.search(r"\b(no termination|may not terminate|shall not terminate|c
+            continue
+        risk = RiskLevel.LOW
+        flag = "termination clause"
+        if "withdraw" in lower and "for convenience" in lower:
+            risk = RiskLevel.MEDIUM if "either party" not in lower else RiskLeve
+            flag = "withdrawal / termination for convenience"
+        elif "for convenience" in lower:
+            if "either party" in lower or "mutual" in lower or "by seller" in lo
+                risk = RiskLevel.LOW
+                flag = "termination for convenience (either party)"
+            else:
+                risk = RiskLevel.MEDIUM
+                flag = "termination for convenience (one-sided)"
+        elif "without cause" in lower:
+            risk = RiskLevel.MEDIUM
+            flag = "termination without cause"
+        elif "immediately" in lower and "default" in lower:
+            risk = RiskLevel.MEDIUM
+            flag = "termination immediately upon default"
+        elif "for cause" in lower or "material breach" in lower:
+            risk = RiskLevel.LOW
+            flag = "termination for cause"
+        if "notice" in lower and "day" in lower:
+            flag += " (notice period)"
+        out.append(Match("termination", page, sentence, risk, flag))
+    return out
+def rule_exclusivity(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not any(k in lower for k in (
+            "exclusive", "exclusivity", "sole supplier", "sole provider", "sole 
+            "sole seller", "sole agent", "non-compete", "not compete", "not to c
+            "not provide services", "not to provide",
+        )):
+            continue
+        if re.search(r"\b(no exclusivity|non-exclusive|not exclusive|without exc
+            continue
+        risk = RiskLevel.MEDIUM
+第 46 页 / 共 60 页contract-extract V1.0
+        flag = "exclusivity clause"
+        dur = _DURATION_RE.search(sentence)
+        if dur:
+            unit = dur.group("unit").lower()
+            n = float(dur.group("num"))
+            years = n * _UNIT_TO_YEARS.get(unit, 1)
+            flag += f" for {dur.group(0)}"
+            if years >= 3:
+                risk = RiskLevel.HIGH
+        if "sole" in lower and not dur:
+            risk = RiskLevel.HIGH
+            flag += " (sole supplier/distributor)"
+        if re.search(r"\b(not\s+to\s+provide|not\s+provide)\s+services\b", lower
+            risk = RiskLevel.MEDIUM
+            flag += " (no-compete services)"
+        if re.search(r"\b(territory|market|region|country)\b", lower) and "sole"
+            risk = RiskLevel.HIGH
+        out.append(Match("exclusivity", page, sentence, risk, flag))
+    return out
+def rule_data_protection(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if not any(k in lower for k in (
+            "data protection", "gdpr", "personal data", "privacy policy", "priva
+            "data processing", "dpa", "standard contractual clauses", "customer 
+            "data subject", "processing of personal", "transfer", "transferred",
+        )):
+            continue
+        risk = RiskLevel.LOW
+        flag = "data protection clause"
+        detail = None
+        if re.search(r"\b(transfer outside|transferred outside|outside the (?:ee
+            risk = RiskLevel.MEDIUM
+            flag = "cross-border data transfer (needs adequacy)"
+        if re.search(r"\b(breach|security incident)\b.*\b(notify|notification)\b
+            risk = RiskLevel.MEDIUM
+            flag = "breach notification obligation"
+        if "gdpr" in lower:
+            risk = RiskLevel.LOW
+            flag = "GDPR compliance mentioned"
+        out.append(Match("data_protection", page, sentence, risk, flag, detail))
+    return out
+def rule_insurance(doc, sentences):
+    out = []
+    for page, sentence in sentences:
+        lower = sentence.lower()
+        if "insurance" in lower:
+            flag = "insurance requirement"
+            risk = RiskLevel.LOW
+第 47 页 / 共 60 页contract-extract V1.0
+            if "professional indemnity" in lower or "errors and omissions" in lo
+                flag += " professional liability"
+                risk = RiskLevel.MEDIUM
+            out.append(Match("insurance", page, sentence, risk, flag))
+    return out
+RULES = {
+    "duration": rule_duration,
+    "quantity": rule_quantity,
+    "price": rule_price,
+    "delivery": rule_delivery,
+    "acceptance": rule_acceptance,
+    "payment": rule_payment,
+    "penalty": rule_penalty,
+    "liability_cap": rule_liability,
+    "confidentiality": rule_confidentiality,
+    "ip": rule_ip,
+    "renewal": rule_renewal,
+    "termination": rule_termination,
+    "exclusivity": rule_exclusivity,
+    "data_protection": rule_data_protection,
+    "insurance": rule_insurance,
+}
+//============== 代表代码接续 pipeline.py ==============
+"""End-to-end extraction pipeline for a single document.
+load -> (rules + optional LLM) -> DocumentResult.  LLM is opt-in and falls
+back to the rule layer when offline (LLM_OFFLINE=1 or no API keys).
+"""
+from __future__ import annotations
+import os
+from datetime import date
+from contract_extract.errors import OfflineModeError
+from contract_extract.llm.provider import LLMProvider, NoopLLM
+from contract_extract.parsers import load_document
+from contract_extract.rules.engine import document_risk, run_rules
+from contract_extract.schema import DocumentResult, ExtractedClause
+_ENABLED = {
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+}
+def is_llm_available() -> bool:
+    """LLM is on only when not forced offline and a key is configured."""
+    if os.environ.get("LLM_OFFLINE", "0") in ("1", "true", "yes", "on"):
+        return False
+    return any(os.environ.get(k) for k in _ENABLED)
+def get_provider() -> LLMProvider:
+    if not is_llm_available():
+        return NoopLLM()
+    if os.environ.get("ANTHROPIC_API_KEY") and not os.environ.get("OPENAI_API_KE
+        from contract_extract.llm.anthropic_provider import AnthropicProvider
+        return AnthropicProvider()
+第 48 页 / 共 60 页contract-extract V1.0
+    from contract_extract.llm.openai_provider import OpenAIProvider
+    return OpenAIProvider()
+def extract_document(
+    path: str,
+    source_format: str | None = None,
+    use_llm: bool = False,
+    title: str | None = None,
+    progress: callable | None = None,
+) -> DocumentResult:
+    """Extract clauses from a single pdf/docx file.
+    `use_llm=True` asks the optional enhancement layer to also run; it is a
+    no-op (and never required) when offline.
+    """
+    doc = load_document(path, progress=progress)
+    clauses = run_rules(doc)
+    engine = "rules"
+    if use_llm:
+        provider = get_provider()
+        if provider is None or not provider.active():
+            pass
+        else:
+            try:
+                extra = provider.enhance(doc, clauses)
+                if extra:
+                    clauses = _merge_clauses(clauses, extra)
+                    engine = "rules+llm"
+            except OfflineModeError:
+                raise
+            except Exception:
+                pass  # If the LLM call fails we keep the rule results.
+    result = DocumentResult(
+        source=path,
+        format=source_format or doc.format,
+        title=title,
+        pages=doc.nonempty_pages,
+        risk=document_risk(clauses),
+        clauses=clauses,
+        engine=engine,
+        generated_at=date.today(),
+        warnings=list(doc.warnings),
+    )
+    return result
+def _merge_clauses(base: list[ExtractedClause], extra: list[ExtractedClause]) ->
+    seen = {(c.clause) for c in base}
+    merged = list(base)
+    for c in extra:
+        if c.clause in seen:
+            continue  # rules already found this field
+        seen.add(c.clause)
+        merged.append(c)
+第 49 页 / 共 60 页contract-extract V1.0
+    return merged
+//============== 代表代码接续 parsers/__init__.py ==============
+"""Text extraction from PDF and DOCX.  PDF is parsed locally with pypdf and
+pdfplumber (fallback on legacy/complex files); DOCX with python-docx.
+"""
+from __future__ import annotations
+import re
+import zipfile
+from dataclasses import dataclass, field
+from pathlib import Path
+from contract_extract.errors import UnsupportedFormatError
+@dataclass
+class Page:
+    """One page of extracted text and its file page number."""
+    text: str
+    page_index: int  # 0-based
+    page_number: int  # 1-based
+    def __post_init__(self) -> None:
+        self.text = re.sub(r"[ \t]+", " ", self.text).strip()
+@dataclass
+class Document:
+    """Extracted text of a document, page-aware."""
+    source: str
+    format: str  # 'pdf' | 'docx'
+    pages: list[Page]
+    nonempty_pages: int = 0
+    warnings: list[str] = field(default_factory=list)
+    def __post_init__(self) -> None:
+        self.nonempty_pages = sum(1 for p in self.pages if p.text.strip())
+    @property
+    def text(self) -> str:
+        return "\n".join(p.text for p in self.pages)
+    def page_number_of(self, text: str) -> int | None:
+        """Return the 1-based page number of the first page containing `text`.""
+        for page in self.pages:
+            if text in page.text:
+                return page.page_number
+        return None
+    def page_of(self, text: str) -> Page | None:
+        for page in self.pages:
+            if text in page.text:
+                return page
+        return None
+def _restore_hyphenation(text: str) -> str:
+    """Join 'con-\nstraint' style hyphen breaks minus the '-'.
+    Also joins plain continuing lines when a line ends with a hyphen and the
+    word continues on the next line.
+    """
+    text = re.sub(r"(?<=\w)-\n(?=\w)", "", text)
+    return text
+第 50 页 / 共 60 页contract-extract V1.0
+def _join_paragraph_breaks(text: str) -> str:
+    """Re-join lines that were broken mid-paragraph in the source.
+    We must not join across a real blank line: hard line breaks (blank line)
+    are trusted as paragraph boundaries in the fixture corpus.  Soft breaks
+    (paragraph continues on the very next line) are joined so multi-word
+    quoted snippets in DOCX data pieces survive intact.
+    """
+    lines = text.splitlines()
+    joined: list[str] = []
+    for line in lines:
+        s = line.strip()
+        if not s:  # blank line -> paragraph boundary
+            joined.append("")
+            continue
+        if len(joined) > 0 and joined[-1] and not _ends_sentenceish(joined[-1]):
+            joined[-1] += " " + s
+        else:
+            joined.append(s)
+    return "\n".join(joined)
+_SENTENCE_END = re.compile(r"[.!?:。！？；;」』）)]\s*$")
+def _ends_sentenceish(s: str) -> bool:
+    return bool(_SENTENCE_END.search(s))
+def _normalise_text(doc_text: str) -> str:
+    """Stage 1: DOCX/PdfPlumber text clean-up.
+    - hyphenation across line breaks,
+    - collapse multiple spaces,
+    - re-join soft line breaks,
+    - normalise CRLF.
+    """
+    text = doc_text.replace("\r\n", "\n").replace("\r", "\n")
+    text = _restore_hyphenation(text)
+    text = re.sub(r"[ \t]+", " ", text)
+    text = _join_paragraph_breaks(text)
+    text = re.sub(r"[ \t]+\n", "\n", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+def extract_pdf(path: str | Path, progress: callable | None = None) -> Document:
+    """Locally extract text from a PDF with pypdf + pdfplumber.
+    pdfplumber is primary (best layout).  Fall back to pypdf when pdfplumber
+    cannot coalesce the layout (e.g. some scanned or table-heavy files).
+    """
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(path)
+    if not path.is_file():
+        raise IsADirectoryError(path)
+    warnings: list[str] = []
+    pages: list[Page] = []
+    try:
+        import pypdf
+第 51 页 / 共 60 页contract-extract V1.0
+        reader = pypdf.PdfReader(str(path))
+        py_texts = [(p.extract_text() or "") for p in reader.pages]
+    except FileNotFoundError:
+        raise
+    except Exception as exc:  # malformed PDF
+        raise UnsupportedFormatError(f"pypdf could not read {path}: {exc!r}") fr
+    plumb_texts: list[str] | None = None
+    try:
+        import pdfplumber
+        with pdfplumber.open(str(path)) as pdf:
+            _buf: list[str] = []
+            for i, pg in enumerate(pdf.pages):
+                _buf.append(pg.extract_text() or "")
+            plumb_texts = _buf
+    except Exception as exc:  # not a valid PDF
+        if plumb_texts is None:
+            plumb_texts = py_texts
+        warnings.append(f"pdfplumber pass failed ({exc!r}); used pypdf text.")
+    n = max(len(py_texts), len(plumb_texts or []))
+    for i in range(n):
+        plumb = plumb_texts[i] if plumb_texts and i < len(plumb_texts) else ""
+        pyp = py_texts[i] if i < len(py_texts) else ""
+        text = plumb if len(plumb) >= len(pyp) else pyp
+        pages.append(Page(_normalise_text(text), i, i + 1))
+    return Document(str(path), "pdf", pages, warnings=warnings)
+def extract_docx(path: str | Path) -> Document:
+    """Extract text and per-paragraph page heuristics from a DOCX file.
+    DOCX has no native page numbers.  We guess the page of every paragraph
+    from the line height of the document and report a conservative estimate.
+    """
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(path)
+    if not path.is_file():
+        raise IsADirectoryError(path)
+    try:
+        import docx
+    except ImportError as exc:  # pragma: no cover
+        raise RuntimeError("python-docx is required for DOCX input.") from exc
+    try:
+        document = docx.Document(str(path))
+    except Exception as exc:
+        raise UnsupportedFormatError(f"Not a valid DOCX file {path}: {exc!r}") f
+    paras: list[str] = [p.text for p in document.paragraphs]
+    paras = [p for p in paras if p.strip()]
+    lines_per_page = 44
+    pages: list[Page] = []
+    current_text: list[str] = []
+    page_number = 1
+    def _flush() -> None:
+第 52 页 / 共 60 页contract-extract V1.0
+        nonlocal current_text, page_number
+        if current_text:
+            pages.append(Page(_normalise_text("\n".join(current_text)), page_num
+        current_text = []
+    line_count = 0
+    for para in paras:
+        n_lines = max(1, len(para) // 80 + 1)
+        if line_count + n_lines > lines_per_page:
+            _flush()
+            page_number += 1
+            line_count = 0
+        current_text.append(para)
+        line_count += n_lines
+    _flush()
+    warnings: list[str] = []
+    try:
+        with zipfile.ZipFile(str(path)) as zf:
+            if "docProps/core.xml" in zf.namelist():
+                core = zf.read("docProps/core.xml").decode("utf-8", "replace")
+    except Exception:
+        pass  # core properties absent: not a problem.
+    return Document(str(path), "docx", pages, warnings=warnings)
+def load_document(path: str | Path, progress: callable | None = None) -> Documen
+    """Load any supported document (pdf/docx)."""
+    path = Path(path)
+    ext = path.suffix.lower()
+    if ext == ".pdf":
+        return extract_pdf(path, progress=progress)
+    if ext in (".docx", ".doc"):
+        return extract_docx(path)
+    raise UnsupportedFormatError(f"Unsupported extension {path.suffix!r} (expect
+//============== 代表代码接续 rules/utils.py ==============
+"""Rule utilities: regex-based matches, numbering, dedupe, risk levels."""
+from __future__ import annotations
+import re
+from collections.abc import Iterable
+from typing import TYPE_CHECKING
+from contract_extract.schema import RiskLevel
+if TYPE_CHECKING:
+    from contract_extract.rules.match import Match
+def strip_quotes(s: str) -> str:
+    s = s.strip()
+    if len(s) >= 2 and s[0] in '"\u201c\u201d' and s[-1] in '"\u201c\u201d':
+        s = s[1:-1]
+    return s.strip()
+LEADING_MARKER_RE = re.compile(r"^\s*(?:\(\d+\)|\d+\.?|[ivxlcdm]+\.?|[A-Z]\)?)?\
+def clean_marker(text: str) -> str:
+    """Remove leading clause/hard numbered markers for tidier flags/quotes."""
+    return LEADING_MARKER_RE.sub("", text).strip()
+def has_negation(text: str) -> bool:
+第 53 页 / 共 60 页contract-extract V1.0
+    """Hedges that weaken a hard dollar/date/percent statement."""
+    return any(
+        w in text.lower()
+        for w in (
+            "not apply",
+            "no limit",
+            "not limit",
+            "unlimited",
+            "uncapped",
+            "no cap",
+            "no monetary",
+            "without limitation",
+        )
+    )
+def is_negative_sentence(text: str, words: Iterable[str]) -> bool:
+    """True when the sentence already contains a negation about `words`."""
+    lower = text.lower()
+    return any(m in lower for m in ("no", "not", "never", "without", "exclu", "d
+def compact(text: str) -> str:
+    """Compact whitespace for tests/audit output."""
+    return " ".join(text.split())
+TOPPED = ("cap", "limit", "maximum", "max of", "up to", "at most", "ceiling", "n
+BOTTOM = ("minimum", "min of", "at least", "floor", "lowest", "starting from", "
+def contains_top(words: list[str]) -> bool:
+    return any(w in words for w in TOPPED)
+def contains_bottom(words: list[str]) -> bool:
+    return any(w in words for w in BOTTOM)
+def risk_mix(clauses: Iterable[Match]) -> RiskLevel:
+    """Aggregate risk over a list of clauses."""
+    levels = [c.risk for c in clauses]
+    if not levels:
+        return RiskLevel.LOW
+    if RiskLevel.HIGH in levels:
+        return RiskLevel.HIGH
+    if RiskLevel.MEDIUM in levels:
+        return RiskLevel.MEDIUM
+    return RiskLevel.LOW
+//============== 代表代码接续 schema.py ==============
+"""Pydantic output models: the JSON-Schema contract of the extractor.
+One JSON file per input document (one JSON *object* per document):
+DocumentResult. Batch mode emits a JSON *array* of DocumentResult, one per
+input document.  Use `DocumentResult.model_json_schema()` to obtain the JSON
+Schema (also written to `schema/documented_result.schema.json` and exposed by
+the CLI with `--schema`).
+"""
+from __future__ import annotations
+import enum
+from datetime import date
+from typing import Optional
+from pydantic import BaseModel, Field
+第 54 页 / 共 60 页contract-extract V1.0
+class RiskLevel(str, enum.Enum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+class ExtractedClause(BaseModel):
+    """One extracted risk clause."""
+    clause: str = Field(..., description="Clause name, e.g. 'termination'.")
+    page: int = Field(..., description="1-based page number where found.")
+    quote: str = Field(..., description="Original text snippet.")
+    risk: RiskLevel = Field(..., description="Risk flag: LOW/MEDIUM/HIGH.")
+    flag: Optional[str] = Field(
+        None, description="Optional human-readable risk flag, e.g. 'no cap on li
+    )
+    detail: Optional[str] = Field(None, description="Optional normalised detail.
+class DocumentResult(BaseModel):
+    """The output for a single document."""
+    source: str = Field(..., description="Input file path.")
+    format: str = Field(..., description="Input format: pdf or docx.")
+    title: Optional[str] = Field(None, description="Document title if known.")
+    pages: int = Field(..., description="Number of pages.")
+    risk: RiskLevel = Field(
+        ..., description="Document-level overall risk flag (LOW/MEDIUM/HIGH)."
+    )
+    clauses: list[ExtractedClause] = Field(
+        default_factory=list, description="Extracted clauses (rules + optional L
+    )
+    engine: str = Field(
+        ..., description="Extraction engine used: 'rules' or 'rules+llm'."
+    )
+    generated_at: date = Field(..., description="Extraction date (YYYY-MM-DD).")
+    warnings: list[str] = Field(
+        default_factory=list, description="Non-fatal processing warnings."
+    )
+class BatchResult(BaseModel):
+    """The output for a batch of documents."""
+    documents: list[DocumentResult] = Field(
+        default_factory=list, description="Per-document results."
+    )
+//============== 代表代码接续 rules/match.py ==============
+"""Shared match object between the rule library and the engine."""
+from __future__ import annotations
+from dataclasses import dataclass
+from contract_extract.schema import RiskLevel
+@dataclass
+class Match:
+    """One rule-based hit.  The engine converts these to ExtractedClause."""
+    rule: str
+    page: int
+    sentence: str
+    risk: RiskLevel
+第 55 页 / 共 60 页contract-extract V1.0
+    flag: str | None = None
+    detail: str | None = None
+//============== 代表代码接续 batch.py ==============
+"""Streaming batch processor: no loading of 100 results into memory.
+Each document is processed and its JSON line flushed to the NDJSON output
+stream immediately (per-document streaming).  Only one document's text and
+clauses are in memory at a time.  Memory stays flat on 100+ files.
+"""
+from __future__ import annotations
+import json
+import os
+import sys
+from pathlib import Path
+from contract_extract.pipeline import extract_document
+from contract_extract.schema import DocumentResult
+def iter_documents(paths: list[Path]) -> list[Path]:
+    """Expand directories into sorted pdf/docx file paths."""
+    out: list[Path] = []
+    for p in paths:
+        p = Path(p)
+        if p.is_dir():
+            files = sorted(
+                [f for f in p.rglob("*") if f.suffix.lower() in (".pdf", ".docx"
+                key=lambda f: str(f).lower(),
+            )
+            out.extend(files)
+        elif p.suffix.lower() in (".pdf", ".docx"):
+            out.append(p)
+        else:
+            print(f"skip: unsupported {p}", file=sys.stderr)
+    return out
+def run_batch(
+    paths: list[Path],
+    out_stream,
+    use_llm: bool = False,
+    progress: callable | None = None,
+    include_clauses: bool = True,
+) -> dict:
+    """Process documents and stream NDJSON lines to `out_stream`.
+    Returns a small summary dict (not the results themselves, which are
+    streamed, avoiding memory blowup).
+    """
+    docs = iter_documents(paths)
+    total = len(docs)
+    processed = 0
+    failed: list[tuple[str, str]] = []
+    for idx, path in enumerate(docs):
+        try:
+            result: DocumentResult = extract_document(str(path), use_llm=use_llm
+        except Exception as exc:
+第 56 页 / 共 60 页contract-extract V1.0
+            failed.append((str(path), repr(exc)))
+            continue
+        if progress:
+            progress(idx + 1, total, str(path))
+        payload = result.model_dump(mode="json")
+        if not include_clauses:
+            payload.pop("clauses", None)
+        out_stream.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        processed += 1
+    return {"documents": processed, "failed": failed, "total": total}
+def write_pretty_json(path: str, results: list[DocumentResult]) -> None:
+    """Write a single consolidated pretty JSON file (used by tests/demo)."""
+    data = [r.model_dump(mode="json") for r in results]
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump({"documents": data}, fh, ensure_ascii=False, indent=2)
+//============== 代表代码接续 cli.py ==============
+"""CLI entry point: single file, batch directory, markdown checklist,
+JSON-Schema dump, run tests on fixtures, and offline verification."""
+from __future__ import annotations
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from contract_extract.batch import run_batch
+from contract_extract.checklist import FIELD_LABELS, build_checklist
+from contract_extract.pipeline import extract_document, is_llm_available
+from contract_extract.schema import DocumentResult
+from contract_extract.__init__ import __version__
+def parse_args(argv=None):
+    p = argparse.ArgumentParser(
+        prog="contract-extract",
+        description="Extract risk clauses from contracts / bids (PDF/DOCX).",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    p.add_argument("paths", nargs="*", help="Files or directories to process.")
+    p.add_argument("--llm", action="store_true", help="Enable optional LLM enhan
+    p.add_argument("--llm-embed", dest="llm_embed", action="store_true", help="A
+    p.add_argument("--checklist", action="store_true", help="Also write a Markdo
+    p.add_argument("--schema", action="store_true", help="Print JSON-Schema to s
+    p.add_argument("--version", action="store_true", help="Print version and exi
+    p.add_argument("--output", "-o", default=None, help="Write NDJSON to FILE in
+    p.add_argument("--fixtures", action="store_true", help="Run the fixture corp
+    return p.parse_args(argv)
+def _schema_text() -> str:
+    from contract_extract.schema import DocumentResult
+    return json.dumps(
+        {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+第 57 页 / 共 60 页contract-extract V1.0
+            "title": "DocumentResult",
+            "description": "Contract risk-clause extraction output for one docum
+            **_nested(DocumentResult),
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+def _nested(model):
+    return model.model_json_schema()
+def main(argv=None) -> int:
+    args = parse_args(argv)
+    if args.version:
+        print(f"contract-extract {__version__}")
+        return 0
+    if args.schema:
+        print(_schema_text())
+        return 0
+    if args.fixtures:
+        from contract_extract.eval_fixtures import run_fixture_suite
+        run_fixture_suite(sys.stdout)
+        return 0
+    if not args.paths:
+        print("error: provide at least one file/directory", file=sys.stderr)
+        return 2
+    out_stream = sys.stdout
+    close_out = False
+    if args.output:
+        out_stream = open(args.output, "w", encoding="utf-8")
+        close_out = True
+    if args.llm and not is_llm_available():
+        print(
+            "note: LLM enhancement requested but the environment is offline "
+            "(LLM_OFFLINE=1 or no API key). Falling back to the rule layer.",
+            file=sys.stderr,
+        )
+    try:
+        summary = run_batch(
+            [Path(p) for p in args.paths],
+            out_stream,
+            use_llm=bool(args.llm or args.llm_embed),
+        )
+        if args.checklist:
+            if args.output:
+                out_stream.flush()
+                _write_checklists_from_ndjson(args.output)
+            else:
+                print(
+                    "note: --checklist needs --output FILE to write .md next to 
+                    file=sys.stderr,
+                )
+第 58 页 / 共 60 页contract-extract V1.0
+        if summary["failed"]:
+            for p, e in summary["failed"]:
+                print(f"failed: {p}: {e}", file=sys.stderr)
+        print(
+            f"processed {summary['documents']}/{summary['total']} documents",
+            file=sys.stderr,
+        )
+        return 1 if summary["failed"] else 0
+    finally:
+        if close_out:
+            out_stream.close()
+def _write_checklists_from_ndjson(path: str) -> None:
+    ndjson = Path(path)
+    docs_dir = ndjson.parent / (ndjson.stem + "_checklists")
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    for line in ndjson.read_text(encoding="utf-8").splitlines():
+        try:
+            data = json.loads(line)
+        except Exception:
+            continue
+        r = DocumentResult.model_validate(data)
+        md = docs_dir / (Path(data["source"]).stem + ".md")
+        md.write_text(build_checklist(r), encoding="utf-8")
+        print(f"  checklist -> {md}")
+if __name__ == "__main__":
+    sys.exit(main())
+//============== 代表代码接续 checklist.py ==============
+"""Generate a human-readable Markdown review checklist from a DocumentResult."""
+from __future__ import annotations
+from contract_extract.schema import DocumentResult, RiskLevel
+FIELD_LABELS = {
+    "duration": "期限 / Term",
+    "quantity": "数量 / Quantity",
+    "price": "价格 / Price",
+    "delivery": "交付 / Delivery",
+    "acceptance": "验收 / Acceptance",
+    "payment": "付款 / Payment",
+    "penalty": "违约金 / Penalty",
+    "liability_cap": "责任上限 / Liability cap",
+    "confidentiality": "保密 / Confidentiality",
+    "ip": "知识产权 / IP",
+    "renewal": "续约 / Renewal",
+    "termination": "终止 / Termination",
+    "exclusivity": "排他 / Exclusivity",
+    "data_protection": "数据保护 / Data protection",
+    "insurance": "保险 / Insurance",
+}
+RISK_ICONS = {
+    RiskLevel.HIGH: ":red_circle: HIGH",
+    RiskLevel.MEDIUM: ":yellow_circle: MEDIUM",
+第 59 页 / 共 60 页contract-extract V1.0
+    RiskLevel.LOW: ":green_circle: LOW",
+}
+def _all_risk(groups: list[RiskLevel]) -> RiskLevel:
+    if any(r == RiskLevel.HIGH for r in groups):
+        return RiskLevel.HIGH
+    if any(r == RiskLevel.MEDIUM for r in groups):
+        return RiskLevel.MEDIUM
+    return RiskLevel.LOW
+def build_checklist(
+    result: DocumentResult,
+) -> str:
+    """Render a Markdown checklist.  Also used by the web demo."""
+    lines: list[str] = []
+    lines.append(f"# Contract Review Checklist")
+    lines.append("")
+    lines.append(f"- **Source:** `{result.source}`")
+    lines.append(f"- **Format:** {result.format}  ·  **Pages:** {result.pages}  
+                 f"**Engine:** {result.engine}")
+    lines.append(f"- **Overall risk:** {RISK_ICONS.get(result.risk, result.risk)
+    lines.append("")
+    if result.warnings:
+        lines.append("> ⚠️  " + "; ".join(result.warnings))
+        lines.append("")
+    grouped: dict[str, list] = {}
+    for c in result.clauses:
+        grouped.setdefault(c.clause, []).append(c)
+    if not grouped:
+        lines.append("No risk-relevant clauses detected by the rule layer. "
+                     "This may indicate a very simple document or OCR failure.")
+        return "\n".join(lines)
+    lines.append("## Clauses by field")
+    lines.append("")
+    lines.append("| Field | Risk | Flag / detail |")
+    lines.append("|---|---|---|")
+    for field in sorted(grouped):
+        label = FIELD_LABELS.get(field, field)
+        for c in grouped[field]:
+            flag = c.flag or c.detail or "—"
+            lines.append(f"| **{label}** | {RISK_ICONS.get(c.risk, c.risk)} | {f
+        lines.append("")
+    lines.append("## Quotes with page references")
+    lines.append("")
+    for field in sorted(grouped):
+        label = FIELD_LABELS.get(field, field)
+        lines.append(f"### {label}")
+        for c in grouped[field]:
+            lines.append(f"- **p.{c.page}** `{c.quote}`")
+            if c.flag:
+                lines.append(f"  - flag: {c.flag}")
+        lines.append("")
+第 60 页 / 共 60 页
