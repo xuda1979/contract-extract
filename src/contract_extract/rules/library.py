@@ -98,6 +98,17 @@ _DATE_RE = re.compile(
 
 _PERCENT_RE = re.compile(r"(?P<pct>\d+(?:\.\d+)?)\s*%")
 
+# Bare "N% of <money kind>" (fees / invoices / sales / price / ...) is a share
+# of money — a cap, buy-back rate, retention or late-payment rate — not the
+# price itself, so the price rule must not fire on it.  A genuine price
+# percent ("30% off the list price", "price drops by 10%") never puts "of"
+# right after the number.
+_PCT_OF_MONEY_RE = re.compile(
+    rf"{_PERCENT_RE.pattern}\s*of\s+(?:the\s+)?[a-z\s]{{0,24}}?"
+    rf"\b(?:fees?|invoices?|sales|revenue|consideration|costs?|prices?|values?|amounts?)\b",
+    re.IGNORECASE,
+)
+
 _UNIT_TO_YEARS = {
     "year": 1, "annual": 1, "yearly": 1,
     "month": 1 / 12, "monthly": 1 / 12,
@@ -215,9 +226,10 @@ def rule_price(doc, sentences):
         if amounts:
             detail = ", ".join(a.strip() for a in amounts[:3])
         elif pct and ("price" in lower or "fee" in lower or "rent" in lower or "capital contribution" in lower):
-            # A bare "N% of the <...> price" is a share of a price (e.g. cap or
-            # buy-back rate), not the price itself — skip the bare-% route.
-            if not re.search(rf"{_PERCENT_RE.pattern}\s*of\s+the\s+.*\b(price|value|amount)\b", sentence, re.IGNORECASE):
+            # A bare "N% of <money kind>" (fees / invoices / prices / ...) is a
+            # share or rate of money (cap, buy-back, retention, late fee), not
+            # the price itself — skip the bare-% route.
+            if not _PCT_OF_MONEY_RE.search(sentence):
                 detail = pct.group(0)
         if not detail:
             continue

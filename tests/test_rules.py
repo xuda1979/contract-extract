@@ -139,6 +139,15 @@ def test_penalty_cap_not_treated_as_negation():
     assert clauses and clauses[0].risk.value == "MEDIUM"
 
 
+def test_percent_of_fees_not_a_price():
+    # A bare "N% of <money kind>" is a rate/share (late-payment rate, retention,
+    # commission), not the price itself — the price rule must not fire.
+    clauses = [c for c in _clauses(
+        ["Liability for late payment is 5% of the annual fees."]
+    ) if c.clause == "price"]
+    assert clauses == []
+
+
 def test_exclusive_5_years_is_high():
     clauses = [c for c in _clauses(
         ["This Agreement includes an exclusive license grant to Licensee for a period of 6 years."]
