@@ -478,3 +478,23 @@ def test_banking_acceptance_not_a_deliverables_clause():
         ["The Buyer shall have 10 days to inspect and accept each deliverable."]
     ) if c.clause == "acceptance"]
     assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_statutory_or_regulatory_penalty_not_a_contract_penalty():
+    # "subject to prosecution and penalties under applicable law" and
+    # "disciplinary penalties for breach of policy" are statutory or
+    # authority-imposed sanctions, not contractual default penalties.
+    for sentence in [
+        "Any false claim is subject to prosecution and penalties under applicable law.",
+        "The Employee shall be subject to disciplinary penalties for breach of policy.",
+        "Fines imposed by the regulator shall be borne by the party at fault.",
+        "A penalty may be imposed by the authority for late filing of the return.",
+        "Conviction of fraud carries statutory penalties under the Commercial Code.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "penalty"]
+        assert clauses == [], sentence
+    # A genuine contractual default penalty still fires.
+    clauses = [c for c in _clauses(
+        ["In the event of breach, the defaulting party shall pay a penalty of 1.5% per month of the invoice amount."]
+    ) if c.clause == "penalty"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"

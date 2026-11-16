@@ -517,6 +517,24 @@ def rule_penalty(doc, sentences):
             lower,
         ):
             continue
+        # "subject to prosecution and penalties under applicable law" and
+        # "disciplinary penalties for breach of policy" are statutory or
+        # disciplinary sanctions imposed by an authority — not contractual
+        # default penalties for a breach.
+        if re.search(
+            r"\b(?:prosecution|criminal|fraud"
+            r"|indictment|offen[cs]e(?:s)?|misrepresent\w*)\b[^.]{0,60}\bpenalt"
+            r"|\b(?:statutory|regulatory|regulator|administrative|civil|"
+            r"disciplinary|government(?:al)?|sanction(?:s|ed)?)\b[^.]{0,40}"
+            r"\b(?:penalt(?:y|ies)?|fines?)\b"
+            r"|\b(?:penalty|penalties)\b[^.]{0,50}"
+            r"\b(?:under\s+(?:applicable|statutory|relevant)\s+law\b"
+            r"|as\s+(?:so\s+)?provided\s+by\s+law\b"
+            r"|imposed\s+by\s+(?:a\s+|the\s+|the\s+relevant\s+)?"
+            r"(?:court|tribunal|regulator|authority|government|commission|agency)\b)",
+            lower,
+        ):
+            continue
         pct = _PERCENT_RE.search(sentence)
         amount = _AMOUNT_RE.search(sentence)
         risk = RiskLevel.MEDIUM
