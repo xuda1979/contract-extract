@@ -149,6 +149,16 @@ def rule_duration(doc, sentences):
             # "For example, a period of 3 weeks may be reasonable" is
             # illustrating, not a binding term.
             continue
+        # "The term of the court order / the duration of the injunction" is a
+        # legal instrument's effective period, not a commercial contract term.
+        if re.search(
+            r"\b(?:term|duration|period)\s+of\s+(?:the\s+)?"
+            r"(?:court\s+order|injunction|judg\w+|award|subpoena|warrant|ruling|decree|"
+            r"statute|legislation|regulation|ordinance|directive|senten\w+|probation|ban\b|"
+            r"restraining\s+order|protective\s+order|litigation|arbitration)\b",
+            lower,
+        ):
+            continue
         m = _DUR_PAT1.search(sentence) or _DUR_PAT4.search(sentence) or _DUR_PAT5.search(sentence)
         if not m:
             continue
@@ -758,6 +768,16 @@ def rule_renewal(doc, sentences):
         # non-renewal, not a renewal risk.
         if re.search(r"\b(?:no|not|without)\b[^.]{0,30}\bright\s+to\s+renew\b", lower) \
                 or re.search(r"\bshall\s+not\s+have\s+(?:the\s+)?right\s+to\s+renew\b", lower):
+            continue
+        # "apply for renewal of the licence/permit/visa" is an administrative
+        # re-issuance of a credential, not a contract renewal provision.
+        if re.search(
+            r"\bapply(?:\s+for\s+(?:a\s+|the\s+)?|ing\s+for\s+(?:a\s+|the\s+)?)"
+            r"(?:renewal|a\s+renewal|the\s+renewal)\s+of\b"
+            r"|\b(?:renewal|a\s+renewal|the\s+renewal)\s+of\s+(?:the\s+|this\s+)?"
+            r"(?:licen[cs]e|licens\w+|permit|registration|visa|passport|endorsement|patent|trademark)\b",
+            lower,
+        ):
             continue
         risk = RiskLevel.LOW
         flag = "renewal clause"

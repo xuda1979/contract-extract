@@ -427,3 +427,35 @@ def test_negated_insurance_requirement_not_fired():
         ["Provider shall carry professional indemnity insurance throughout the term."]
     ) if c.clause == "insurance"]
     assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_permit_or_licence_renewal_not_a_contract_renewal():
+    # "apply for renewal of the licence/permit/visa" is an administrative
+    # re-issuance of a credential, not a contract renewal provision.
+    for sentence in [
+        "The holder may apply for renewal of the licence by submitting a fee.",
+        "The applicant may apply for renewal of the permit annually.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "renewal"]
+        assert clauses == [], sentence
+    # A genuine automatic-renewal provision still fires.
+    clauses = [c for c in _clauses(
+        ["This Agreement shall automatically renew for successive 1 year terms."]
+    ) if c.clause == "renewal"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_court_order_term_not_a_contract_duration():
+    # "the term of the court order / the duration of the injunction" is a legal
+    # instrument's effective period, not a commercial contract term.
+    for sentence in [
+        "The term of the court order is 3 years.",
+        "The duration of the injunction is 2 years.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "duration"]
+        assert clauses == [], sentence
+    # A genuine agreement term still fires.
+    clauses = [c for c in _clauses(
+        ["The term of this Agreement shall be for a period of 2 years, effective from January 1, 2024."]
+    ) if c.clause == "duration"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
