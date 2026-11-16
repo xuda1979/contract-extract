@@ -652,3 +652,42 @@ def test_confidentiality_not_apply_carveout_suppressed():
         ["Confidential information shall remain confidential for 3 years after termination."]
     ) if c.clause == "confidentiality"]
     assert clauses and clauses[0].risk.value == "LOW"
+
+
+def test_data_protection_generic_compliance_and_dpo_contact_suppressed():
+    # "comply with all applicable data protection laws" is a generic legal
+    # promise with no processing / transfer / breach obligation, and a
+    # "data protection officer contact details:" line is a label — neither
+    # is a working data-protection clause.
+    for sentence in [
+        "The parties agree to comply with all applicable data protection laws.",
+        "The data protection officer contact details are as follows: privacy@example.com.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "data_protection"]
+        assert clauses == [], sentence
+    # Genuine data-protection obligations still fire.
+    for sentence, risk in [
+        ("Any data transferred outside the EEA requires appropriate safeguards.", "MEDIUM"),
+        ("Under GDPR, subcontractor shall act as a data processor.", "LOW"),
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "data_protection"]
+        assert clauses and clauses[0].risk.value == risk, sentence
+
+
+def test_warranty_and_standstill_period_not_a_term():
+    # A warranty-coverage window ("warranty period is 12 months from
+    # delivery") and a procedural standstill ("standstill period of 60 days")
+    # are not the agreement's term.
+    for sentence in [
+        "The warranty period is 12 months from the date of delivery.",
+        "The standstill period of 60 days shall not be shortened.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "duration"]
+        assert clauses == [], sentence
+    # Genuine agreement terms still fire.
+    for sentence, risk in [
+        ("The term of this Agreement shall be for a period of 2 years, effective from January 1, 2024.", "MEDIUM"),
+        ("The sponsorship period is 12 months from January 1, 2025.", "LOW"),
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "duration"]
+        assert clauses and clauses[0].risk.value == risk, sentence

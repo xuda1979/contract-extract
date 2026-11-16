@@ -159,6 +159,14 @@ def rule_duration(doc, sentences):
             lower,
         ):
             continue
+        # "The warranty period is 12 months from delivery", "the standstill
+        # period of 60 days" are coverage or procedural windows, not
+        # agreement terms.  Zero fixture files use these phrases (checked
+        # against fixtures/generate_fixtures.py).  A "transition / notice /
+        # limitation period" can itself be a substantive term, so the guard
+        # stays narrow to the two validated families.
+        if re.search(r"\b(?:warranty|standstill)\s+period\b", lower):
+            continue
         m = _DUR_PAT1.search(sentence) or _DUR_PAT4.search(sentence) or _DUR_PAT5.search(sentence)
         if not m:
             continue
@@ -1016,6 +1024,15 @@ def rule_data_protection(doc, sentences):
             r"\b(?:rights?|ownership|title)\b",
             lower,
         ):
+            continue
+        # "comply with all applicable data protection laws" is a generic legal
+        # promise with no processing, transfer or breach obligation — and a
+        # "data protection officer contact details:" line is a label, not a
+        # clause.  Statements about personal data, processed/transferred data
+        # or GDPR obligations still fire.
+        if re.search(r"\bcomply\w*\s+with\b[^.]{0,60}\b(?:laws?|regulations?|legislation)\b", lower):
+            continue
+        if re.search(r"\bdata\s+protection\s+officer\b[^.]{0,30}\b(?:contact|e-?mail)\b", lower):
             continue
         risk = RiskLevel.LOW
         flag = "data protection clause"
