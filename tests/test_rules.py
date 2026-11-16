@@ -603,3 +603,52 @@ def test_rate_less_loan_interest_not_a_penalty():
         ["Interest shall accrue on all late payments."]
     ) if c.clause == "penalty"]
     assert positive and positive[0].risk.value == "MEDIUM"
+
+
+def test_survival_provision_not_a_termination_clause():
+    # "confidentiality obligations survive the termination of this Agreement"
+    # states what outlives the agreement — not a party's right to terminate it.
+    for sentence in [
+        "Confidentiality obligations survive the termination of this Agreement.",
+        "Confidential obligations shall survive for 5 years following termination.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "termination"]
+        assert clauses == [], sentence
+    # Genuine termination rights still fire.
+    clauses = [c for c in _clauses(
+        ["Either party may terminate this Agreement for convenience upon 90 days written notice."]
+    ) if c.clause == "termination"]
+    assert clauses and clauses[0].risk.value == "LOW"
+
+
+def test_insurance_as_required_by_law_not_a_requirement():
+    # "insurance as required by applicable law" re-states a statutory duty
+    # without a negotiated coverage type — boilerplate, not a coverage
+    # obligation.
+    for sentence in [
+        "Each party shall maintain insurance coverage as required by applicable law.",
+        "The parties shall carry liability insurance as required by law.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "insurance"]
+        assert clauses == [], sentence
+    # A genuine coverage obligation still fires.
+    clauses = [c for c in _clauses(
+        ["Provider shall carry professional indemnity insurance throughout the term."]
+    ) if c.clause == "insurance"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_confidentiality_not_apply_carveout_suppressed():
+    # "confidentiality shall not apply to publicly available information" is
+    # a carve-out stating what is excluded — not a confidentiality obligation.
+    for sentence in [
+        "Confidentiality shall not apply to information that is publicly available.",
+        "The confidentiality obligations shall not apply to information already in the public domain.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "confidentiality"]
+        assert clauses == [], sentence
+    # Genuine confidentiality obligations still fire.
+    clauses = [c for c in _clauses(
+        ["Confidential information shall remain confidential for 3 years after termination."]
+    ) if c.clause == "confidentiality"]
+    assert clauses and clauses[0].risk.value == "LOW"

@@ -700,7 +700,9 @@ def rule_confidentiality(doc, sentences):
         lower = sentence.lower()
         if not any(k in lower for k in ("confidential", "non-disclosure", "privacy of data")):
             continue
-        if re.search(r"\b(no|nothing|not)\s+confidential", lower) or "does not apply" in lower:
+        if re.search(r"\b(no|nothing|not)\s+confidential", lower) or re.search(
+            r"\b(?:does|do|shall|will)\s+not\s+apply\b", lower
+        ):
             continue
         dur = _DURATION_RE.search(sentence)
         risk = RiskLevel.LOW
@@ -892,6 +894,15 @@ def rule_termination(doc, sentences):
         # agreement-specific context in _TERM_CONTEXT.
         if re.search(r"\bthis\s+(?:clause|section|provision|warranty|covenant|obligation|sublause|condition)\b[^.]{0,40}\bterminat", lower):
             continue
+        # A survival provision ("confidentiality obligations survive the
+        # termination of this Agreement") states what outlives the agreement —
+        # not a party's right to terminate it.
+        if re.search(
+            r"\bterminat\w*\b[^.]{0,50}\bsurviv\w*\b"
+            r"|\bsurviv\w*\b[^.]{0,50}\bterminat\w*\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.LOW
         flag = "termination clause"
         if "withdraw" in lower and "for convenience" in lower:
@@ -1052,6 +1063,22 @@ def rule_insurance(doc, sentences):
                 r"\b(?:renew\w*|expir\w*|terminat\w*)\b[^.]{0,40}\binsurance\s+policy\b"
                 r"|\binsurance\s+policy\b[^.]{0,40}\b(?:renew\w*|expir\w*|terminat\w*)\b"
                 r"|\brenewal\s+of\s+(?:the\s+|a\s+|this\s+)?insurance\s+policy\b",
+                lower,
+            ):
+                continue
+            # "insurance as required by applicable law" re-states a statutory
+            # duty without a negotiated coverage type — boilerplate, not a
+            # coverage obligation.  Obligations naming a coverage type
+            # (professional indemnity, public liability, ...) still fire.
+            if re.search(
+                r"\brequir\w*\s+by\s+(?:the\s+|applicable\s+|relevant\s+|"
+                r"statutory\s+)?law\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:professional\s+indemnity|errors?\s+and\s+omissions|"
+                r"public\s+liability|general\s+liability|property\s+damage|"
+                r"bodily\s+injury|vehicle\w*|work(?:er|ers)?['\u2019s]?s?\s+"
+                r"comp(?:ensation)?)\b",
                 lower,
             ):
                 continue
