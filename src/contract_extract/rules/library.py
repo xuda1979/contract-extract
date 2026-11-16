@@ -77,6 +77,14 @@ _DUR_CONTEXT = (
 )
 _DUR_SURVIVAL = ("surviv", "after termination", "following termination", "post-termination",
                  "after the termination", "non-compete", "not compete", "following the termination")
+# Illustrative/hypothetical lead-ins: "for example, a period of 3 weeks may
+# be reasonable" is not a contract term.  Zero fixture files use these
+# phrases (checked against fixtures/generate_fixtures.py), so the guard is
+# safe against the AC1/AC2 recall baseline.
+_DUR_ILLUSTRATIVE_RE = re.compile(
+    r"\b(?:for\s+example|for\s+instance|such\s+as|by\s+way\s+of\s+example|e\.g\.|i\.e\.)\b",
+    re.IGNORECASE,
+)
 
 _MONTHS = r"(?:January|February|March|April|May|June|July|August|September|October|November|December)"
 _DATE_RE = re.compile(
@@ -125,6 +133,10 @@ def rule_duration(doc, sentences):
     for page, sentence in sentences:
         lower = sentence.lower()
         if any(k in lower for k in _DUR_SURVIVAL):
+            continue
+        if _DUR_ILLUSTRATIVE_RE.search(sentence):
+            # "For example, a period of 3 weeks may be reasonable" is
+            # illustrating, not a binding term.
             continue
         m = _DUR_PAT1.search(sentence) or _DUR_PAT4.search(sentence) or _DUR_PAT5.search(sentence)
         if not m:

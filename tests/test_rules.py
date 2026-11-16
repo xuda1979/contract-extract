@@ -58,6 +58,15 @@ def test_automatic_renewal_is_medium():
     assert all(c.risk.value == "MEDIUM" for c in clauses)
 
 
+def test_illustrative_duration_not_fired():
+    # "For example, a period of 3 weeks may be reasonable" is illustrative,
+    # not a binding term.
+    clauses = [c for c in _clauses(
+        ["For example, a period of 3 weeks may be reasonable under the circumstances."]
+    ) if c.clause == "duration"]
+    assert clauses == []
+
+
 def test_one_way_ip_assignment_is_high():
     clauses = [c for c in _clauses(
         ["All works made for hire and related intellectual property shall vest in Licensor."]
