@@ -1789,3 +1789,183 @@ def test_probe_r22_clean_families_stay_silent():
     for rule, sentence in expects:
         clauses = [c for c in _clauses(sentence) if c.clause == rule]
         assert clauses == [], (rule, sentence)
+
+
+def test_acceptance_certificate_issuance_not_acceptance_window():
+    # "The Acceptance Certificate shall be issued upon completion of the
+    # Works" is construction / works paperwork, not a deliverables acceptance
+    # window.  A certificate deadline with a numeric window still fires.
+    for sentence in [
+        "The Acceptance Certificate shall be issued upon the completion of the Works.",
+        "An acceptance certificate shall be delivered once the installation is complete.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "acceptance"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The inspection and acceptance of the Deliverables shall occur within 10 days after delivery."]
+    ) if c.clause == "acceptance"]
+    assert clauses, "numeric acceptance window must keep firing"
+
+
+def test_discretionary_advance_payment_not_a_payment_term():
+    # "Payments may be made in advance at the Buyer's discretion" is an
+    # optional early-payment allowance, not a primary payment obligation.
+    # A committed advance payment still fires.
+    for sentence in [
+        "Payments may be made in advance of delivery at the Buyer's discretion.",
+        "At the Buyer's discretion, advances on the fees may be paid early.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "payment"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Buyer shall pay an advance payment of 30% of the contract price upon signature."]
+    ) if c.clause == "payment"]
+    assert clauses, "committed advance payment must keep firing"
+
+
+def test_employee_disciplinary_penalty_not_a_contract_penalty():
+    # "An employee who violates the safety policy shall incur a penalty of
+    # one day's unpaid leave" is an HR disciplinary measure, not a contractual
+    # default penalty.  A genuine late-payment / liquidated-damages penalty
+    # still fires.
+    for sentence in [
+        "An employee who violates the safety policy shall incur a penalty of one day's unpaid leave.",
+        "Workers who breach the code of conduct shall be subject to a suspension as a penalty.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "penalty"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["A late payment penalty of 1.5% per month shall apply to any overdue invoice."]
+    ) if c.clause == "penalty"]
+    assert clauses, "late-payment penalty must keep firing"
+
+
+def test_charter_commitment_renewal_not_term_renewal():
+    # "The Board shall renew its commitment to the Diversity Charter" is a
+    # corporate pledge reaffirmation, not a renewal of the agreement's term.
+    # A genuine term renewal still fires.
+    for sentence in [
+        "The Board shall renew its commitment to the Diversity Charter on an annual basis.",
+        "The parties shall renew their pledge to the declaration of principles each year.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "renewal"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Agreement shall be renewed automatically for successive one-year terms."]
+    ) if c.clause == "renewal"]
+    assert clauses, "term auto-renewal must keep firing"
+
+
+def test_policy_deductible_not_insurance_obligation():
+    # "The insurance policy shall contain a deductible of USD 1,000 per claim"
+    # is policy mechanics, not an inter-party coverage obligation.  A coverage
+    # obligation still fires.
+    for sentence in [
+        "The insurance policy shall contain a deductible of USD 1,000 per claim.",
+        "A deductible of EUR 500 shall apply under the insurance arrangements.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "insurance"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Supplier shall maintain professional indemnity insurance during the Term."]
+    ) if c.clause == "insurance"]
+    assert clauses, "coverage obligation must keep firing"
+
+
+def test_non_compete_restrictions_sunset_not_termination_right():
+    # "The non-compete restrictions shall terminate upon the expiry of the
+    # Restricted Period" is a covenant sunset, not a party's right to
+    # terminate the agreement.  A genuine termination right still fires.
+    for sentence in [
+        "The non-compete restrictions shall terminate upon the expiry of the Restricted Period.",
+        "Upon the expiry of the Restricted Period, the non-compete restrictions shall terminate.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "termination"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Either party may terminate this Agreement without cause upon 60 days' written notice."]
+    ) if c.clause == "termination"]
+    assert clauses, "party termination right must keep firing"
+    # Fixture line 200: "This Agreement shall terminate on the expiry of the
+    # sponsorship period." — the Agreement itself is the subject, so this
+    # genuine termination must keep firing.
+    clauses = [c for c in _clauses(
+        ["This Agreement shall terminate on the expiry of the sponsorship period."]
+    ) if c.clause == "termination"]
+    assert clauses, "agreement termination on expiry must keep firing"
+
+
+def test_non_compete_sunset_not_exclusivity_grant():
+    # "The non-compete restrictions shall terminate upon the expiry of the
+    # Restricted Period" is a covenant sunset, not a market-exclusivity
+    # grant.  A genuine market grant still fires.
+    for sentence in [
+        "The non-compete restrictions shall terminate upon the expiry of the Restricted Period.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "exclusivity"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Seller shall have the exclusive right to sell the Products in the Territory."]
+    ) if c.clause == "exclusivity"]
+    assert clauses, "market exclusivity grant must keep firing"
+
+
+def test_platform_exclusive_basis_not_market_exclusivity():
+    # "The Platform shall operate on an exclusive basis within the Programme"
+    # describes an operating mode, not a market-exclusivity grant.  Genuine
+    # market grants still fire.
+    for sentence in [
+        "The Platform shall operate on an exclusive basis within the Programme for the Term.",
+        "The programme shall be made available on an exclusive basis to Platform participants.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "exclusivity"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Seller shall have the exclusive right to sell the Products in the Territory."]
+    ) if c.clause == "exclusivity"]
+    assert clauses, "market exclusivity grant must keep firing"
+
+
+def test_no_rights_assigned_or_transferred_not_ip_or_data():
+    # "No rights in the Mark shall be assigned or transferred to the Licensee"
+    # is an IP negation (no rights pass) — not an IP assignment and not a
+    # personal-data transfer.  Both IP and data_protection stay silent.
+    sentence = "No rights in the Mark shall be assigned or transferred to the Licensee."
+    for rule in ("ip", "data_protection"):
+        clauses = [c for c in _clauses(sentence) if c.clause == rule]
+        assert clauses == [], (rule, sentence)
+    # Genuine positive controls still fire for both rules.
+    clauses = [c for c in _clauses(
+        ["All inventions created during employment are assigned to the employer."]
+    ) if c.clause == "ip"]
+    assert clauses, "IP assignment must keep firing"
+    clauses = [c for c in _clauses(
+        ["The Controller shall transfer the personal data to the Processor under the DPA."]
+    ) if c.clause == "data_protection"]
+    assert clauses, "data transfer must keep firing"
+
+
+def test_wire_transfer_not_data_transfer():
+    # "The purchase price of the Shares shall be paid by wire transfer" names
+    # a payment mechanism, not a personal-data transfer.
+    sentence = "The purchase price of the Shares shall be paid by wire transfer."
+    clauses = [c for c in _clauses(sentence) if c.clause == "data_protection"]
+    assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Controller shall transfer the personal data to the Processor under the DPA."]
+    ) if c.clause == "data_protection"]
+    assert clauses, "data transfer must keep firing"
+
+
+def test_probe_r23_genuine_keeps_still_fire():
+    # The two Round 23 candidates that are GENUINE clauses must keep firing:
+    # the confidentiality care-standard duty and the insurance own-coverage
+    # allocation.
+    clauses = [c for c in _clauses(
+        ["The Recipient shall protect the Confidential Information with the same degree of care as its own information of a similar nature."]
+    ) if c.clause == "confidentiality"]
+    assert clauses, "care-standard duty must keep firing"
+    clauses = [c for c in _clauses(
+        ["Each party shall maintain its own insurance coverage for its employees and property."]
+    ) if c.clause == "insurance"]
+    assert clauses, "own-coverage allocation must keep firing"

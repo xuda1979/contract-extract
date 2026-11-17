@@ -511,6 +511,24 @@ def rule_acceptance(doc, sentences):
             lower,
         ):
             continue
+        # "The Acceptance Certificate shall be issued upon the completion of
+        # the Works" is construction / works paperwork (a certificate
+        # evidencing completion), not a deliverables acceptance window.  A
+        # certificate deadline ("an acceptance certificate shall be issued
+        # within 10 days after delivery") is still a genuine acceptance
+        # timeline and keeps firing via the numeric-window patterns.
+        if re.search(
+            r"\bacceptance\s+certificate\b[^.]{0,60}"
+            r"\b(?:issu\w*|deliver\w*|certif\w*|present\w*)\b"
+            r"|\b(?:issu\w*|deliver\w*|certif\w*|present\w*)\b[^.]{0,60}"
+            r"\bacceptance\s+certificate\b",
+            lower,
+        ) and not re.search(
+            r"\bwithin\s+\d+\s*(?:working|business)?\s*days?\b"
+            r"|\b(?:inspect|to\s+inspect|to\s+accept|inspect\s+and)\b",
+            lower,
+        ):
+            continue
         within = re.search(r"\bwithin\s+(\d+)\s*(?:working|business)?\s*days?\b", lower)
         window = re.search(r"\b(\d+)\s*(?:business|working)?\s*days?\s+(?:to|in\s+which\s+to)\s+(?:inspect|accept|complete)", lower)
         risk = RiskLevel.LOW
@@ -575,6 +593,20 @@ def rule_payment(doc, sentences):
             r"|\b(?:loan\w*|fixtures?|facilit\w*|debt\w*|borrow\w*|mortgage\w*|"
             r"credit\s+line\b|advance\s+facilit\w*|bond\w*)\b[^.]{0,45}"
             r"\b(?:prepay(?:s|ed|ing)?\b|prepayments?|pre[- ]?paid)\b",
+            lower,
+        ):
+            continue
+        # "Payments may be made in advance of delivery at the Buyer's
+        # discretion" is a discretionary / optional early-payment allowance —
+        # no primary payment obligation for goods or services is created.
+        # Genuine payment terms ("buyer shall make an advance payment of 30%")
+        # still fire (the gate's "advance payment" noun phrase requires a
+        # committed amount or obligation).
+        if re.search(
+            r"\b(?:payment|payments|instalments?|installments?|fees?)\b"
+            r"[^.]{0,50}\badvance\b[^.]{0,50}\bdiscretion\b"
+            r"|\bdiscretion\b[^.]{0,50}\badvance\b[^.]{0,50}"
+            r"\b(?:payment|payments|instalments?|installments?|fees?)\b",
             lower,
         ):
             continue
@@ -792,6 +824,25 @@ def rule_penalty(doc, sentences):
         ) and re.search(
             r"\b(?:licen[cs]e|permit|registration|parking|traffic|driver|"
             r"speeding|offen[cs]e|violation|conviction|endorsement\w*)\b",
+            lower,
+        ):
+            continue
+        # "An employee who violates the safety policy shall incur a penalty
+        # of one day's unpaid leave" is an employment / HR disciplinary
+        # measure (internal policy enforcement), not a contractual default
+        # penalty for a goods/services breach.  The guard needs BOTH an
+        # internal work-context subject AND an internal-policy discipline
+        # signal, so a genuine "penalty of 1.5% per month on overdue
+        # invoices" or a named late-payment penalty stays untouched.
+        if re.search(
+            r"\b(?:employee\w*|staff\b|worker\w*|personnel\b)\b[^.]{0,80}"
+            r"\bpenalt\w*\b"
+            r"|\bpenalt\w*\b[^.]{0,80}"
+            r"\b(?:employee\w*|staff\b|worker\w*|personnel\b)\b",
+            lower,
+        ) and re.search(
+            r"\b(?:violat\w*|safety\s+policy|code\s+of\s+conduct|workplace\b|"
+            r"unpaid\s+leave|suspension|discipline\w*)\b",
             lower,
         ):
             continue
@@ -1129,8 +1180,8 @@ def rule_ip(doc, sentences):
             r"(nothing\s+.*\s+grants\s+any\b|does\s+not\s+grant\s+(?:any\s+|the\s+)?|"
             r"grants\s+no\s+)\b[^.]{0,35}\b(?:ip\s+rights?|intellectual\s+property|rights?)\b"
             r"|\bno\s+.*\s+licen[cs]e\b"
-            r"|\b(?:no|not)\b[^.]{0,40}\b(?:rights?|ownership|title)\b[^.]{0,30}"
-            r"\btransfer(?:s|red)?\b",
+            r"|\b(?:no|not)\b[^.]{0,40}\b(?:rights?|ownership|title)\b[^.]{0,60}"
+            r"\b(?:transfer(?:s|red)?|assign(?:s|ed|ing)?)\b",
             lower,
         ):
             continue
@@ -1364,6 +1415,24 @@ def rule_renewal(doc, sentences):
             lower,
         ):
             continue
+        # "The Board shall renew its commitment to the Diversity Charter" is
+        # a corporate / policy pledge renewal (reaffirming a charter or
+        # initiative), not a renewal of the agreement's term.  The guard
+        # requires the pledge noun ("commitment" or "pledge") tied to a
+        # charter / initiative-class object, so a genuine "renew the
+        # commitment/joint-venture arrangement for a further term" with no
+        # charter object stays untouched.
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,45}\b(?:commitment\w*|pledge\w*)\b"
+            r"[^.]{0,30}\b(?:charter\w*|initiative\w*|manifesto\w*|diversity|"
+            r"declaration\w*|commitment\s+statement|principles?)\b"
+            r"|\b(?:charter\w*|initiative\w*|manifesto\w*|diversity|"
+            r"declaration\w*|commitment\s+statement|principles?)\b[^.]{0,30}"
+            r"\b(?:commitment\w*|pledge\w*)\b[^.]{0,45}"
+            r"\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.LOW
         flag = "renewal clause"
         if re.search(r"automatic|auto-renew|auto\s+renew|renews\s+automatically|renew\s+automatically|quarterly|automatically\s+renew", lower):
@@ -1401,6 +1470,22 @@ def rule_termination(doc, sentences):
         if not _TERM_CONTEXT.search(sentence):
             continue
         if re.search(r"\b(no termination|may not terminate|shall not terminate|cannot terminate)\b", lower):
+            continue
+        # "The non-compete restrictions shall terminate upon the expiry of the
+        # Restricted Period" is a covenant sunset (the restriction itself ends
+        # on a schedule), not a party's right to terminate the agreement.
+        # "This Agreement shall terminate on the expiry of the sponsorship
+        # period" (fixture line 200) still fires — the subject there is the
+        # Agreement itself, not a restriction/covenant.
+        if re.search(
+            r"\b(?:non[- ]?compete|restriction\w*)\b[^.]{0,45}\bterminat\w*\b"
+            r"[^.]{0,45}\b(?:expiry|expiration)\b"
+            r"|\b(?:expiry|expiration)\b[^.]{0,55}\b(?:non[- ]?compete|"
+            r"restriction\w*)\b[^.]{0,35}\bterminat\w*\b"
+            r"|\b(?:expiry|expiration)\b[^.]{0,45}\bterminat\w*\b[^.]{0,45}"
+            r"\b(?:non[- ]?compete|restriction\w*)\b",
+            lower,
+        ):
             continue
         # A sub-provision sunset ("this clause shall terminate upon expiry of
         # the warranty") is a schedule detail, not a party's right to terminate
@@ -1528,6 +1613,16 @@ def rule_exclusivity(doc, sentences):
             continue
         if re.search(r"\b(no exclusivity|non-exclusive|not exclusive|without exclusivity|no exclusive)\b", lower):
             continue
+        # "The non-compete restrictions shall terminate upon the expiry of the
+        # Restricted Period" is a covenant sunset (the restriction ends on a
+        # schedule), not a grant of market exclusivity.  A genuine restrictive
+        # covenant ("not to compete for 12 months") still fires.
+        if re.search(
+            r"\bnon[- ]?compete\b[^.]{0,45}\b(?:terminat\w*|expir\w*|lapse\w*)\b"
+            r"|\b(?:terminat\w*|expir\w*|lapse\w*)\b[^.]{0,45}\bnon[- ]?compete\b",
+            lower,
+        ):
+            continue
         # "exclusive of tax" / "exclusive of VAT" means "excluding", not an
         # exclusivity grant; "exclusive jurisdiction" is a forum-selection
         # clause, not a market-exclusivity term.
@@ -1584,6 +1679,22 @@ def rule_exclusivity(doc, sentences):
         ) and re.search(
             r"\b(?:property|real\s+estate|estate|premises|listing|broker|agency|"
             r"commissioned?\s+sale|candidate)\b",
+            lower,
+        ):
+            continue
+        # "The Platform shall operate on an exclusive basis within the
+        # Programme for the Term" describes an operating / participation mode
+        # (a platform running under a programme), not a market-exclusivity
+        # grant to sell, license or distribute.  Both word orders are covered;
+        # "exclusive right to sell" / "sole distributor" still fire.
+        if re.search(
+            r"\b(?:platform|programme|program)\b[^.]{0,45}\bexclusive\s+basis\b"
+            r"|\bexclusive\s+basis\b[^.]{0,45}\b(?:platform|programme|program)\b"
+            r"|\b(?:platform|programme|program)\b[^.]{0,35}\boperat\w*\b"
+            r"\b(?:exclusive(?:ly)?|basis)?\b",
+            lower,
+        ) and re.search(
+            r"\b(?:operat\w*|mode\b|basis\b|within|programme\w*|program\w*)",
             lower,
         ):
             continue
@@ -1699,15 +1810,26 @@ def rule_data_protection(doc, sentences):
         ):
             continue
         # "no rights are transferred / nothing transfers any rights" is an IP
-        # ownership statement, not a personal-data transfer.
+        # ownership statement, not a personal-data transfer.  "No rights in
+        # the Mark shall be assigned or transferred to the Licensee" is
+        # likewise an IP negation (no rights pass), so the verb family covers
+        # both transfer and assign.
         if re.search(
             r"\b(?:no|not|nothing|neither)\b[^.]{0,40}"
-            r"\b(?:rights?|ownership|title)\b[^.]{0,30}\btransfer(?:s|red)?\b"
-            r"|\btransfer(?:s|red)?\b[^.]{0,30}\b(?:no|not)\b[^.]{0,30}\b(?:rights?|ownership|title)\b"
-            r"|\b(?:no|not|nothing|neither)\b[^.]{0,40}\btransfer(?:s|red)?\b[^.]{0,40}"
+            r"\b(?:rights?|ownership|title)\b[^.]{0,60}"
+            r"\b(?:transfer(?:s|red)?|assign(?:s|ed|ing)?)\b"
+            r"|\b(?:transfer(?:s|red)?|assign(?:s|ed|ing)?)\b[^.]{0,60}"
+            r"\b(?:no|not)\b[^.]{0,40}\b(?:rights?|ownership|title)\b"
+            r"|\b(?:no|not|nothing|neither)\b[^.]{0,40}"
+            r"\b(?:transfer(?:s|red)?|assign(?:s|ed|ing)?)\b[^.]{0,60}"
             r"\b(?:rights?|ownership|title)\b",
             lower,
         ):
+            continue
+        # "The purchase price of the Shares shall be paid by wire transfer"
+        # names a payment mechanism (bank transfer of funds), not a
+        # personal-data transfer.
+        if re.search(r"\bwire\s+transfer(?:s|red)?\b", lower):
             continue
         # "transfer / assign this Agreement" is a contract-assignment or
         # novation right, not a personal-data transfer ("the Agreement" /
@@ -1967,6 +2089,21 @@ def rule_insurance(doc, sentences):
                 r"transmit\w*|submit\w*)\b[^.]{0,60}"
                 r"\b(?:certificate|certificates|cover\s+(?:note|notes))\b"
                 r"[^.]{0,40}\binsured\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|carry|obtain\w*)\b[^.]{0,40}"
+                r"\binsurance\b",
+                lower,
+            ):
+                continue
+            # "the insurance policy shall contain a deductible of USD 1,000 per
+            # claim" describes policy mechanics (the amount the insured bears
+            # per claim), not an inter-party coverage obligation.  Genuine
+            # coverage obligations ("shall maintain professional indemnity
+            # insurance") still fire.
+            if re.search(
+                r"\binsurance\w*\b[^.]{0,45}\bdeductible\w*\b"
+                r"|\bdeductible\w*\b[^.]{0,45}\binsurance\w*\b",
                 lower,
             ) and not re.search(
                 r"\b(?:maintain\w*|procure\w*|carry|obtain\w*)\b[^.]{0,40}"
