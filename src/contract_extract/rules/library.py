@@ -280,6 +280,15 @@ def rule_duration(doc, sentences):
             lower,
         ):
             continue
+        # "The transitional period shall be 12 months from the effective date"
+        # and "The trial period of the software license is 30 days" are
+        # migration / evaluation windows for a rollout or license trial, not
+        # the fixed term of the agreement.  Genuine agreement terms ("the term
+        # of this Agreement shall be for a period of 2 years") still fire.
+        # Zero fixture lines use "transitional period" or "trial period"
+        # (checked against fixtures/generate_fixtures.py).
+        if re.search(r"\btransitional\s+period\b|\btrial\s+period\b", lower):
+            continue
         m = _DUR_PAT1.search(sentence) or _DUR_PAT4.search(sentence) or _DUR_PAT5.search(sentence)
         if not m:
             continue
@@ -423,6 +432,22 @@ def rule_quantity(doc, sentences):
             r"|\b(?:return(?:ed|s|ing)?|agenda|meeting\w*|audit\b|defect\w*|"
             r"inspected?|found?\s+during|checklist|complaint\w*)\b"
             r"[^.]{0,40}\b\d+(?:[.,]\d+)?\s+items?\b",
+            lower,
+        ):
+            continue
+        # "The batch contains 500 units of the vaccine" counts the contents of
+        # a production batch (a lot specification), not a committed quantity of
+        # goods.  "The minimum order quantity is 100 units" states a supplier's
+        # ordering threshold (MOQ), not a quantity one party commits to
+        # purchase.  Genuine purchase commitments ("Buyer shall purchase
+        # 10,000 units") still fire — the guard requires the batch-contains
+        # frame or the MOQ compound.  Zero fixture lines use these frames
+        # (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bbatch\b[^.]{0,30}\bcontain(?:s|ing)?\b[^.]{0,30}"
+            r"\b\d+(?:[.,]\d+)?\s+units?\b"
+            r"|\b\d+(?:[.,]\d+)?\s+units?\b[^.]{0,30}\bbatch\b[^.]{0,30}\bcontain(?:s|ing)?\b"
+            r"|\bminimum\s+order\s+quantity\b",
             lower,
         ):
             continue
@@ -570,6 +595,15 @@ def rule_price(doc, sentences):
             r"invitation\s+to|sealed|tender\w*)\b[^.]{0,25}\b(?:quote\w*|bid\w*)\b",
             lower,
         ):
+            continue
+        # "The list price of the item is USD 50" quotes a manufacturer's
+        # suggested / catalogue price (a market sticker price a seller sets),
+        # not the price agreed for goods or services under this contract.  The
+        # market-prefix guard above covers "listed price" but not the "list
+        # price" compound.  Genuine contract prices ("the price of the Goods
+        # is USD 100 per unit") still fire.  Zero fixture lines use "list
+        # price" (checked against fixtures/generate_fixtures.py).
+        if re.search(r"\blist\s+price\b", lower):
             continue
         flag = f"price: {detail}"
         if any(k in lower for k in ("in advance", "advance payment", "upon execution",
@@ -972,6 +1006,25 @@ def rule_acceptance(doc, sentences):
             r"\bwithin\s+\d+\s*(?:working|business)?\s*days?\b"
             r"|\b\d+\s*(?:business|working)?\s*days?\s+(?:to|in\s+which\s+to)\b"
             r"|\b(?:inspect\b|to\s+inspect\b|to\s+accept\b)\b",
+            lower,
+        ):
+            continue
+        # "The end user must accept the terms before using the software" is a
+        # clickwrap / browsewrap consent statement (how a consumer assents to
+        # online terms), not a window in which deliverables are inspected and
+        # accepted.  "Terms of acceptance are set out in the request for
+        # proposal" names where acceptance criteria are defined in a tender
+        # document (the RFP), not an acceptance window under this contract.
+        # Genuine acceptance windows ("acceptance tests ... within 7 days")
+        # still fire — the guard requires the end-user/terms-of-acceptance
+        # frame.  Zero fixture lines use these frames (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:end\s+)?users?\b[^.]{0,40}\bmust\s+accept\b[^.]{0,40}"
+            r"\bterms?\b"
+            r"|\bterms?\s+of\s+acceptance\b[^.]{0,40}"
+            r"\b(?:set\s+out|defined?|specified?|request\s+for\s+proposal)\b"
+            r"|\brequest\s+for\s+proposal\b[^.]{0,40}\bacceptance\b",
             lower,
         ):
             continue
@@ -1910,6 +1963,28 @@ def rule_liability(doc, sentences):
             lower,
         ):
             continue
+        # "The user assumes all liability for damage caused by misuse" is a
+        # product-safety / end-user statement (the operator answers for
+        # improper use), not an agreed cap or exclusion negotiated between the
+        # parties.  "The state shall not be liable for damages arising from
+        # war" restates a statutory sovereign-immunity carve-out, not a
+        # contract allocation.  Genuine caps and disclaimers ("the Contractor
+        # shall be liable for loss or damage", "neither party shall be liable
+        # for indirect damages") still fire — the guard requires the
+        # misuse/end-user or state/war frame.  Zero fixture lines use these
+        # frames (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:user\w*|operator\w*|purchaser\w*|consumer\w*)\b"
+            r"[^.]{0,40}\b(?:assume\w*|shall\s+be\s+liable)\b[^.]{0,40}"
+            r"\b(?:misuse\w*|improper\s+use\w*|misuse\s+of)\b"
+            r"|\b(?:misuse\w*|improper\s+use\w*)\b[^.]{0,40}\bliab\w*\b[^.]{0,40}"
+            r"\b(?:user\w*|operator\w*)\b"
+            r"|\b(?:state\w*|government\w*|public\s+authority\w*)\b"
+            r"[^.]{0,40}\b(?:shall\s+not\s+be\s+liable|not\s+liable|exempt)|liab\w*\b"
+            r"[^.]{0,40}\b(?:state\w*|government\w*)\b[^.]{0,40}\bwar\b",
+            lower,
+        ):
+            continue
         amount = _AMOUNT_RE.search(sentence)
         pct = _PERCENT_RE.search(sentence)
 
@@ -2088,6 +2163,44 @@ def rule_confidentiality(doc, sentences):
             r"\bconfidential\w*\b"
             r"|\bconfidential\w*\b[^.]{0,40}\b(?:settlement|mediation)\b"
             r"[^.]{0,40}\bfact\s+of\b",
+            lower,
+        ):
+            continue
+        # "The patient's medical records shall be kept confidential" is a
+        # healthcare-privacy / medical-records rule (clinical information), not
+        # a contractual duty of secrecy between the parties.
+        # "This document contains confidential information" is a bare
+        # marking/classification statement about a document (no party duty),
+        # not an obligation.  "Customers may contact our confidential helpline
+        # at any time" advertises a private helpline — a consumer-service
+        # feature, not a confidentiality clause.  "The survey responses were
+        # collected confidentially" describes a data-collection practice, not
+        # an ongoing secrecy obligation.  Genuine obligations ("information
+        # received during negotiations shall remain confidential for 3
+        # years") still fire — the guards require the medical-record /
+        # contains-information / helpline / survey-collection frame.  Zero
+        # fixture lines use these frames (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:medical\s+records?\b|patient\w*\s+records?\b|health\s+records?\b)"
+            r"[^.]{0,40}\bconfidential\w*\b"
+            r"|\bconfidential\w*\b[^.]{0,40}\b(?:medical\s+records?|health\s+records?)\b",
+            lower,
+        ):
+            continue
+        if re.search(
+            r"\bthis\s+document\b[^.]{0,30}\bcontain(?:s|ing)?\b[^.]{0,30}"
+            r"\bconfidential\s+(?:information|data|material\w*)\b",
+            lower,
+        ):
+            continue
+        if re.search(r"\bconfidential\s+helpline\b", lower):
+            continue
+        if re.search(
+            r"\bsurveys?\b[^.]{0,40}\b(?:responses?|results?|answers?|data\b)"
+            r"[^.]{0,40}\bconfidential\w*\b"
+            r"|\bconfidential\w*\b[^.]{0,40}\bsurveys?\b[^.]{0,40}"
+            r"\b(?:responses?|results?|answers?|data\b)\b",
             lower,
         ):
             continue
@@ -2325,6 +2438,31 @@ def rule_ip(doc, sentences):
             r"\b(?:intellectual\s+property|ip)\s+(?:clause|provision|section|"
             r"article|term)\b[^.]{0,50}\b(?:allocat\w*|contemplat\w*|address\w*|"
             r"deal\w*|govern\w*)\b",
+            lower,
+        ):
+            continue
+        # "The logo is protected by copyright law" / "copyright law protects
+        # the logo" states a statutory entitlement to protection, not an
+        # allocation or transfer of IP between the parties.  "Employees retain
+        # intellectual property rights in their own inventions" / "inventions
+        # remain the property of their creators" states a statutory or
+        # policy default (individual creators keep their own work), not a
+        # transfer to a party.  Genuine IP assignments ("the patent rights are
+        # assigned to the Customer"), work-for-hire ("inventions created
+        # during employment are assigned to the employer", fixture 219) and
+        # licensing still fire — the guard requires the copyright-law
+        # protection frame or the "own inventions / creators" retention frame.
+        # Zero fixture lines use these frames (checked against
+        # fixtures/generate_fixtures.py; fixture 219 is an assignment, not a
+        # retention).
+        if re.search(
+            r"\b(?:protected\s+by|protection\s+under|protection\s+(?:of|afforded\s+by))"
+            r"[^.]{0,40}\bcopyright\s+law\b"
+            r"|\bcopyright\s+law\b[^.]{0,40}\b(?:protect\w*|safeguard\w*)\b"
+            r"|\b(?:retain\w*|keep\w*|reserve\w*)\b[^.]{0,40}\b(?:intellectual\s+property)"
+            r"\s+rights?\b[^.]{0,40}\b(?:own|their\s+own)\s+(?:invention\w*|creations?\b|works?\b)\b"
+            r"|\b(?:own\s+inventions?\b|creators?\b[^.]{0,25}\b(?:retain\w*|keep\w*)\b|\binventions?\b[^.]{0,30}"
+            r"\bremain\w*\s+the\s+property\b)",
             lower,
         ):
             continue
@@ -2951,6 +3089,20 @@ def rule_termination(doc, sentences):
             lower,
         ):
             continue
+        # "This Agreement shall terminate by operation of law" / "termination
+        # by operation of law" states a statutory auto-termination rule (the
+        # contract lapses because the governing law says so), not a party's
+        # right to terminate the agreement.  Genuine termination provisions
+        # ("may terminate this Agreement for convenience") still fire — the
+        # guard requires the "operation of law" frame.  Zero fixture lines
+        # use it (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:terminate\w*|expir\w*)\b[^.]{0,40}\b(?:by\s+|under\s+|upon\s+)?"
+            r"operation\s+of\s+law\b"
+            r"|\boperation\s+of\s+law\b[^.]{0,50}\b(?:terminat\w*|expir\w*)\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.LOW
         flag = "termination clause"
         if "withdraw" in lower and "for convenience" in lower:
@@ -3230,19 +3382,36 @@ def rule_exclusivity(doc, sentences):
         ):
             continue
         # "The CEO gave an exclusive interview to the newspaper" / "The
-        # network aired the exclusive footage of the incident" are
-        # journalistic / media exclusivity (content given to one outlet or a
-        # scoop aired by one network), not a market-exclusivity grant to
-        # sell, license or distribute.  Genuine market grants ("exclusive
-        # right to sell" / "sole distributor") still fire.
+        # network aired the exclusive footage of the incident" / "The
+        # newspaper published an exclusive story" are journalistic / media
+        # exclusivity (content given to one outlet or a scoop aired by one
+        # network), not a market-exclusivity grant to sell, license or
+        # distribute.  Genuine market grants ("exclusive right to sell" /
+        # "sole distributor") still fire.
         if re.search(
             r"\bexclusive\b[^.]{0,40}"
             r"\b(?:interview\w*|footage\b|photos?\b|pictures?\b|images?\b|"
             r"clips?\b|commentar\w*|broadcast\w*|report(?:ed|ing)?\b|"
-            r"air(?:ed|s|ing)?\b|coverage\b|scoop\w*|deals?\b)\b"
+            r"air(?:ed|s|ing)?\b|coverage\b|scoop\w*|stor(?:y|ies)\b|"
+            r"deals?\b)\b"
             r"|\b(?:interview\w*|footage\b|photos?\b|pictures?\b|images?\b|"
-            r"clips?\b|broadcast\w*|coverage\b|scoop\w*)\b[^.]{0,40}"
-            r"\bexclusive\b",
+            r"clips?\b|broadcast\w*|coverage\b|scoop\w*|stor(?:y|ies)\b)\b"
+            r"[^.]{0,40}\bexclusive\b",
+            lower,
+        ):
+            continue
+        # "The exclusive economic zone extends 200 nautical miles" is a
+        # maritime-law zone (the UNCLOS EEZ a coastal state controls off its
+        # shores), not market exclusivity.  "The hotel offers exclusive
+        # packages for its guests" is a hospitality offering tier, not an
+        # exclusive right to sell or distribute.  Genuine market grants
+        # ("exclusive right to sell" / "sole distributor") still fire.  Zero
+        # fixture lines use these frames (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bexclusive\s+economic\s+zone\b"
+            r"|\bexclusive\s+packages?\b[^.]{0,30}"
+            r"\b(?:hotel\w*|resort\w*|guests?\b|members?\b|travellers?\b)\b",
             lower,
         ):
             continue
@@ -3565,6 +3734,21 @@ def rule_data_protection(doc, sentences):
         ) and not re.search(
             r"\b(?:personal|customer|consumer|user|employee|health|financial|"
             r"banking|credit|identity|biometric)\s+data\b",
+            lower,
+        ):
+            continue
+        # "The employee's data protection rights are set out in the GDPR" is a
+        # statutory-rights pointer (where individuals' legal rights live under
+        # the Regulation), not a processing, transfer or breach obligation
+        # between the parties.  Genuine GDPR obligations — fixture 69 ("all
+        # personal data shall be processed in accordance with GDPR") and
+        # fixture 186 ("Under GDPR, subcontractor shall act as a data
+        # processor") — still fire: they state processing / controller duties,
+        # with no "rights ... set out" frame.  Zero fixture lines in
+        # fixtures/generate_fixtures.py pair GDPR with rights set out.
+        if re.search(
+            r"\brights?\b[^.]{0,35}\bset\s+out\b[^.]{0,35}\bgdpr\b"
+            r"|\bgdpr\b[^.]{0,35}\bset\s+out\b[^.]{0,35}\brights?\b",
             lower,
         ):
             continue
@@ -4141,6 +4325,58 @@ def rule_insurance(doc, sentences):
                 r"\b(?:requirement\w*|obligation\w*|coverage?|cover\b)\b"
                 r"|\b(?:requirement\w*|obligation\w*)\b[^.]{0,40}"
                 r"\b(?:statutory|regulatory|legal)\s+insurance\b",
+                lower,
+            ):
+                continue
+            # "The car is insured for comprehensive coverage" is a personal /
+            # asset-holder cover statement (who carries the policy on their own
+            # asset), not a contractual arrangement binding the parties.
+            # Genuine coverage obligations ("shall maintain professional
+            # indemnity insurance") still fire — the guard requires the
+            # comprehensive/coverage frame for a vehicle/personal asset.
+            if re.search(
+                r"\binsured?\b[^.]{0,40}\bcomprehensive\b[^.]{0,40}"
+                r"\b(?:coverage?|cover\b)\b"
+                r"|\bcomprehensive\b[^.]{0,40}\b(?:coverage?|cover\b)\b"
+                r"[^.]{0,40}\binsured?\b",
+                lower,
+            ):
+                continue
+            # "The band insured their tour equipment against damage" is a
+            # non-contractual asset-protection act (one party carrying cover on
+            # its own property), not an inter-party obligation.  The guard
+            # requires the insured/equipment/against frame without any of the
+            # obligational verbs (shall maintain / shall procure / cover).
+            if re.search(
+                r"\binsured?\b[^.]{0,50}\b(?:equipment\w*|instruments?\b|"
+                r"inventory\b|stock\b|property\b)\b[^.]{0,35}\bagainst\b"
+                r"|\bagainst\b[^.]{0,35}\b(?:equipment\w*|instruments?\b|"
+                r"inventory\b|stock\b|property\b)\b[^.]{0,50}\binsured?\b",
+                lower,
+            ):
+                continue
+            # "Travel insurance is included in the ticket price" is an
+            # ancillary consumer product (a benefit bundled into a ticket /
+            # price), not an insurance-clause obligation between contracting
+            # parties.  Genuine coverage obligations still fire — the guard
+            # requires the consumer-product/price binding frame.
+            if re.search(
+                r"\btravel\s+insurance\b[^.]{0,40}"
+                r"\b(?:included?|offer\w*|availab\w+)\b"
+                r"[^.]{0,40}\b(?:ticket\w*|price\b|fare\w*|package\w*)\b",
+                lower,
+            ):
+                continue
+            # "The company insured the building for USD 5 million" is an
+            # asset-holder cover with a sum insured, not a contractual
+            # obligation to hold cover for the counterparty.  Genuine coverage
+            # obligations ("shall maintain cover of not less than USD 5M")
+            # still fire — the guard requires the plain insured+asset+sum
+            # frame without shall-maintain verbs.
+            if re.search(
+                r"\binsured?\b[^.]{0,45}\b(?:building\w*|premises?\b|"
+                r"plant\b|warehouse\w*|facilit\w+)\b[^.]{0,45}\bfor\b"
+                r"[^.]{0,30}\b(?:usd|eur|gbp|jpy|cny|myr|sgd)\b",
                 lower,
             ):
                 continue

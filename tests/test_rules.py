@@ -3824,3 +3824,173 @@ def test_consumer_and_statutory_insurance_not_insurance_requirement():
         ["The Seller shall maintain professional indemnity insurance."]
     ) if c.clause == "insurance"]
     assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_transitional_trial_period_not_duration():
+    # HR/statutory staging periods are not the contract's own term.
+    for sentence in [
+        "The transitional period shall be 12 months from the effective date.",
+        "The trial period of the software license is 30 days.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "duration"]
+        assert clauses == [], sentence
+    # A genuine contract term still fires.
+    clauses = [c for c in _clauses(
+        ["This Agreement shall remain in force for a period of 3 years."]
+    ) if c.clause == "duration"]
+    assert clauses
+
+
+def test_batch_moq_not_quantity():
+    # Production batch contents and minimum order requirements are not
+    # deliverable quantity figures.
+    for sentence in [
+        "The batch contains 500 units of the vaccine.",
+        "The minimum order quantity is 100 units.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "quantity"]
+        assert clauses == [], sentence
+    # A genuine deliverable quantity still fires.
+    clauses = [c for c in _clauses(
+        ["The Seller shall deliver 1,000 units of the goods."]
+    ) if c.clause == "quantity"]
+    assert clauses
+
+
+def test_list_price_not_contract_price():
+    # Published list prices are catalogue values, not agreed purchase prices.
+    clauses = [c for c in _clauses(
+        "The list price of the item is USD 50."
+    ) if c.clause == "price"]
+    assert clauses == []
+    clauses = [c for c in _clauses(
+        ["The price of the goods shall be USD 50 per unit."]
+    ) if c.clause == "price"]
+    assert clauses
+
+
+def test_clickwrap_and_rfp_acceptance_not_acceptance_window():
+    # Consumer clickwrap consent and RFP award criteria are not contractual
+    # acceptance/testing windows for delivered goods or works.
+    for sentence in [
+        "The end user must accept the terms before using the software.",
+        "Terms of acceptance are set out in the request for proposal.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "acceptance"]
+        assert clauses == [], sentence
+    # A genuine acceptance procedure still fires.
+    clauses = [c for c in _clauses(
+        ["The Buyer shall accept the Goods within 14 days of delivery."]
+    ) if c.clause == "acceptance"]
+    assert clauses
+
+
+def test_misuse_and_state_war_liability_not_liability_cap():
+    # End-user misuse duties and state war-exemption rules are not agreed
+    # liability caps/exclusions between contracting parties.
+    for sentence in [
+        "The user assumes all liability for damage caused by misuse.",
+        "The state shall not be liable for damages arising from war.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "liability_cap"]
+        assert clauses == [], sentence
+    # A genuine exclusion/cap still fires.
+    clauses = [c for c in _clauses(
+        ["The aggregate liability of the Seller shall not exceed USD 1,000,000."]
+    ) if c.clause == "liability_cap"]
+    assert clauses
+
+
+def test_medical_document_helpline_survey_not_confidentiality():
+    # Privacy-flavoured statements about records, document markings,
+    # helplines and survey data are not mutual confidentiality clauses.
+    for sentence in [
+        "The patient's medical records shall be kept confidential.",
+        "This document contains confidential information.",
+        "Customers may contact our confidential helpline at any time.",
+        "The survey responses were collected confidentially.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "confidentiality"]
+        assert clauses == [], sentence
+    # A genuine confidentiality obligation still fires.
+    clauses = [c for c in _clauses(
+        ["The Receiving Party shall keep the Confidential Information secret."]
+    ) if c.clause == "confidentiality"]
+    assert clauses
+
+
+def test_copyright_law_and_own_inventions_not_ip():
+    # Statements about copyright protection and retention of one's own
+    # inventions are not licence/grant clauses between the parties.
+    for sentence in [
+        "The logo is protected by copyright law.",
+        "Employees retain intellectual property rights in their own inventions.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "ip"]
+        assert clauses == [], sentence
+    # A genuine assignment of inventions still fires.
+    clauses = [c for c in _clauses(
+        ["All inventions created during employment are assigned to the employer."]
+    ) if c.clause == "ip"]
+    assert clauses
+
+
+def test_operation_of_law_termination_not_termination():
+    # Statutory or automatic expiries are not agreed termination rights.
+    clauses = [c for c in _clauses(
+        "This Agreement shall terminate by operation of law."
+    ) if c.clause == "termination"]
+    assert clauses == []
+    clauses = [c for c in _clauses(
+        ["Either party may terminate this Agreement for convenience."]
+    ) if c.clause == "termination"]
+    assert clauses
+
+
+def test_eez_hotel_exclusive_story_not_exclusivity():
+    # Maritime zones, hospitality tiers and journalistic scoops are not
+    # market-exclusivity grants.
+    for sentence in [
+        "The exclusive economic zone extends 200 nautical miles.",
+        "The hotel offers exclusive packages for its guests.",
+        "The newspaper published an exclusive story.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "exclusivity"]
+        assert clauses == [], sentence
+    # A genuine exclusive-right grant still fires.
+    clauses = [c for c in _clauses(
+        ["The Supplier shall have the exclusive right to sell the Products."]
+    ) if c.clause == "exclusivity"]
+    assert clauses
+
+
+def test_gdpr_rights_pointer_not_data_protection_obligation():
+    # A pointer to where data-subject rights live under GDPR is not a
+    # processing, transfer or breach obligation.
+    clauses = [c for c in _clauses(
+        "The employee's data protection rights are set out in the GDPR."
+    ) if c.clause == "data_protection"]
+    assert clauses == []
+    # Genuine GDPR obligations still fire.
+    clauses = [c for c in _clauses(
+        ["All personal data shall be processed in accordance with GDPR."]
+    ) if c.clause == "data_protection"]
+    assert clauses
+
+
+def test_asset_holder_insurance_not_insurance_requirement():
+    # Cover a holder places on its own assets (vehicles, equipment, buildings,
+    # bundled travel benefits) is not an inter-party coverage obligation.
+    for sentence in [
+        "The car is insured for comprehensive coverage.",
+        "The band insured their tour equipment against damage.",
+        "Travel insurance is included in the ticket price.",
+        "The company insured the building for USD 5 million.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "insurance"]
+        assert clauses == [], sentence
+    # A genuine coverage obligation still fires.
+    clauses = [c for c in _clauses(
+        ["The Seller shall maintain professional indemnity insurance."]
+    ) if c.clause == "insurance"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
