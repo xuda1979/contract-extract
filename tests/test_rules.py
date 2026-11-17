@@ -4344,3 +4344,211 @@ def test_insurance_directors_or_loan_cover_not_insurance():
         " transit."
     ) if c.clause == "insurance"]
     assert clauses
+
+
+def test_price_budget_allocation_not_price():
+    # A budgetary allocation ("budget for the project is USD 100,000") is not
+    # the price agreed for goods or services.
+    for sentence in [
+        "The budget for the project is USD 100,000.",
+        "The advertised price of the car is USD 25,000.",
+        "The fee for the membership is USD 30 per month.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "price"]
+        assert clauses == [], sentence
+    # A genuine budget cap (fixture-style "shall not exceed" price) still fires.
+    clauses = [c for c in _clauses(
+        "Media buying budget shall not exceed USD 2,000,000 in any calendar year."
+    ) if c.clause == "price"]
+    assert clauses
+
+
+def test_duration_registration_or_certificate_term_not_duration():
+    # Statutory / administrative registration and certificate lifetimes are
+    # not the term of an agreement.
+    for sentence in [
+        "The term of the trademark registration is 10 years.",
+        "The registration certificate is valid for 5 years.",
+        "The building permit expires after 3 years.",
+        "The warranty card is valid for 24 months.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "duration"]
+        assert clauses == [], sentence
+    # A genuine agreement term (fixture-style) still fires.
+    clauses = [c for c in _clauses(
+        "The term of this Agreement shall be for a period of 2 years,"
+        " effective from January 1, 2024."
+    ) if c.clause == "duration"]
+    assert clauses
+
+
+def test_acceptance_user_own_risk_not_acceptance():
+    # A consumer assumption-of-risk disclaimer ("Users accept the app at their
+    # own risk") is not an acceptance clause.
+    clauses = [c for c in _clauses(
+        "Users accept the app at their own risk."
+    ) if c.clause == "acceptance"]
+    assert clauses == []
+
+
+def test_liability_latent_defects_by_statute_not_liability():
+    # A statutory-liability pointer for latent defects is not a negotiated
+    # liability allocation.
+    clauses = [c for c in _clauses(
+        "Liability for latent defects is imposed by statute."
+    ) if c.clause == "liability_cap"]
+    assert clauses == []
+
+
+def test_renewal_subscription_discount_offer_not_renewal():
+    # A consumer subscription-offer with a discount ("renew the subscription at
+    # the discounted price") is not a renewal clause.
+    clauses = [c for c in _clauses(
+        "The customer may renew the subscription at the discounted price."
+    ) if c.clause == "renewal"]
+    assert clauses == []
+    # A genuine renewal right (fixture-style, lease, no discount) still fires.
+    clauses = [c for c in _clauses(
+        "Tenant may renew the lease for a further 12 months."
+    ) if c.clause == "renewal"]
+    assert clauses
+
+
+def test_renewal_reappointment_or_visa_extension_not_renewal():
+    # A visa extension and a re-appointment are not contract-renewal clauses.
+    for sentence in [
+        "The visa was extended for another year.",
+        "The contractor was re-appointed for a further term.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "renewal"]
+        assert clauses == [], sentence
+
+
+def test_confidentiality_minutes_not_confidentiality():
+    # Meeting minutes that shall remain confidential are not a confidentiality
+    # clause between the parties.
+    clauses = [c for c in _clauses(
+        "The minutes of the meeting shall remain confidential."
+    ) if c.clause == "confidentiality"]
+    assert clauses == []
+
+
+def test_confidentiality_whistleblower_identity_not_confidentiality():
+    # Keeping a whistleblower's identity confidential is a reporting-
+    # protection statement, not a confidentiality clause.
+    clauses = [c for c in _clauses(
+        "The identity of the whistleblower was kept confidential."
+    ) if c.clause == "confidentiality"]
+    assert clauses == []
+
+
+def test_confidentiality_trade_secrets_nature_not_confidentiality():
+    # "Trade secrets are confidential by their nature" is a definitional
+    # statement, not a confidentiality obligation.
+    clauses = [c for c in _clauses(
+        "Trade secrets are confidential by their nature."
+    ) if c.clause == "confidentiality"]
+    assert clauses == []
+
+
+def test_ip_assigned_invention_not_ip():
+    # A past-tense assignment statement ("was assigned") is a record of a
+    # completed transfer, not an IP vesting clause.
+    clauses = [c for c in _clauses(
+        "The invention was assigned to the company by the inventor."
+    ) if c.clause == "ip"]
+    assert clauses == []
+    # A genuine vesting obligation (fixture-style, present tense) still fires.
+    clauses = [c for c in _clauses(
+        "All inventions created during employment are assigned to the employer."
+    ) if c.clause == "ip"]
+    assert clauses
+
+
+def test_ip_website_copyright_not_ip():
+    # "The website is protected by copyright automatically" states the default
+    # operation of copyright law, not an IP clause.
+    clauses = [c for c in _clauses(
+        "The website is protected by copyright automatically."
+    ) if c.clause == "ip"]
+    assert clauses == []
+
+
+def test_ip_trademark_registration_not_ip():
+    # A trademark-registration matter is an IP-office administration, not an
+    # IP clause about the contract's work product.
+    clauses = [c for c in _clauses(
+        "The brand name is registered as a trademark."
+    ) if c.clause == "ip"]
+    assert clauses == []
+
+
+def test_exclusivity_club_lounge_not_exclusivity():
+    # A hotel's exclusive club lounge is a membership perk, not an exclusivity
+    # clause.
+    clauses = [c for c in _clauses(
+        "The hotel's exclusive club lounge is for premium guests."
+    ) if c.clause == "exclusivity"]
+    assert clauses == []
+    # A genuine exclusive-right grant still fires.
+    clauses = [c for c in _clauses(
+        "The exclusive licence covers the entire territory of France."
+    ) if c.clause == "exclusivity"]
+    assert clauses
+
+
+def test_exclusivity_marketing_offers_not_exclusivity():
+    # Marketing statements about exclusive offers are not exclusivity clauses.
+    for sentence in [
+        "Exclusive offers are emailed to registered customers.",
+        "Exclusive offers are emailed to subscribers.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "exclusivity"]
+        assert clauses == [], sentence
+
+
+def test_data_protection_data_subject_rights_not_obligation():
+    # A GDPR individual-rights statement ("data subject has the right to
+    # withdraw consent") is not a processing/transfer obligation.
+    clauses = [c for c in _clauses(
+        "The data subject has the right to withdraw consent at any time."
+    ) if c.clause == "data_protection"]
+    assert clauses == []
+    # A genuine processing obligation (fixture-style) still fires.
+    clauses = [c for c in _clauses(
+        "All personal data shall be processed in accordance with GDPR."
+    ) if c.clause == "data_protection"]
+    assert clauses
+
+
+def test_data_protection_dpo_appointment_not_obligation():
+    # Appointing a data protection officer is organisational compliance, not a
+    # processing/transfer obligation.
+    clauses = [c for c in _clauses(
+        "The controller shall appoint a data protection officer."
+    ) if c.clause == "data_protection"]
+    assert clauses == []
+
+
+def test_insurance_premium_in_annual_fee_not_insurance():
+    # A cost-allocation statement ("insurance premium included in the annual
+    # fee") is not an insurance-clause obligation.
+    clauses = [c for c in _clauses(
+        "The insurance premium is included in the annual fee."
+    ) if c.clause == "insurance"]
+    assert clauses == []
+    # A genuine premium-allocation statement ("payable by the tenant") still
+    # fires.
+    clauses = [c for c in _clauses(
+        "Insurance is payable by the tenant under the lease."
+    ) if c.clause == "insurance"]
+    assert clauses
+
+
+def test_insurance_coverage_commences_premium_not_insurance():
+    # A policy effective-date rule ("coverage commences upon payment of the
+    # first premium") is not an inter-party coverage obligation.
+    clauses = [c for c in _clauses(
+        "Insurance coverage commences upon payment of the first premium."
+    ) if c.clause == "insurance"]
+    assert clauses == []

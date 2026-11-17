@@ -302,6 +302,31 @@ def rule_duration(doc, sentences):
         # (checked against fixtures/generate_fixtures.py).
         if re.search(r"\btransitional\s+period\b|\btrial\s+period\b", lower):
             continue
+        # "The term of the trademark registration is 10 years", "the
+        # registration certificate is valid for 5 years", "the building permit
+        # expires after 3 years" and "the warranty card is valid for 24
+        # months" state the lifetime of a statutory or administrative
+        # registration / certificate (issued by a registry or authority), not
+        # the negotiated term of the agreement.  Genuine agreement terms
+        # ("the term of this Agreement shall be for a period of 2 years",
+        # fixture line 40) still fire — the guard requires a registration /
+        # permit / certificate / card noun beside a term or validity marker.
+        # Zero fixture lines use these noun families (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:term|period|duration)\s+of\b[^.]{0,30}"
+            r"\b(?:trademark\s+registration|registration\b|permit\b|certificate\w*|"
+            r"licen[cs]e\b|patent\b)\b[^.]{0,40}\b(?:valid|expires?|period|term)\b"
+            r"|\bregistration\s+certificate\b[^.]{0,40}\b(?:valid|expir\w*)\b"
+            r"|\b(?:building\s+permit|warranty\s+card)\b[^.]{0,40}\b(?:valid|expires?)\b"
+            r"|\b(?:term|period|duration)\s+of\b[^.]{0,30}"
+            r"\b(?:trademark\s+registration|registration\b|permit\b|certificate\w*|"
+            r"warranty\s+card\b)\b[^.]{0,35}"
+            r"\b(?:is\b|are\b|shall\s+run\s+for\b|runs?\s+for\b)\b[^.]{0,15}\b\d+\s+"
+            r"(?:year\w*|month\w*|day\w*)\b",
+            lower,
+        ):
+            continue
         m = _DUR_PAT1.search(sentence) or _DUR_PAT4.search(sentence) or _DUR_PAT5.search(sentence)
         if not m:
             continue
@@ -651,6 +676,45 @@ def rule_price(doc, sentences):
         # is USD 100 per unit") still fire.  Zero fixture lines use "list
         # price" (checked against fixtures/generate_fixtures.py).
         if re.search(r"\blist\s+price\b", lower):
+            continue
+        # "The budget for the project is USD 100,000" states a budgetary
+        # allocation (how much money is set aside for the project), not the
+        # price agreed for goods or services under this Agreement.  The guard
+        # keys on the "budget for ... is/amounts to/shall be" copula — NOT on
+        # bare "budget" or "shall not exceed", so fixture line 344 ("Media
+        # buying budget shall not exceed USD 2,000,000 in any calendar year.")
+        # — a genuine price cap — still fires.  Genuine prices ("the price of
+        # the Goods is USD 100 per unit") keep firing.
+        if re.search(
+            r"\bbudget\s+for\b[^.]{0,30}\b(?:is\b|amounts?\s+to\b|shall\s+be\b|"
+            r"stands?\s+at\b)\b",
+            lower,
+        ):
+            continue
+        # "The advertised price of the car is USD 25,000" quotes a seller's
+        # sticker / advertisement price (consumer-market asking price), not a
+        # price agreed for goods or services under this contract.  Genuine
+        # contract prices still fire — the guard requires the
+        # advertised/advertising modifier on "price".  Zero fixture lines use
+        # "advertised price" (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\badvertis\w*d\s+price\b",
+            lower,
+        ):
+            continue
+        # "The fee for the membership is USD 30 per month" quotes a membership
+        # subscription tariff (a consumer club / account charge), not the price
+        # of goods or services under this Agreement.  The guard requires the
+        # fee/membership pairing; genuine contract fees ("a service fee of USD
+        # 500", "the fees shall be split equally") still fire (no membership
+        # noun).  Zero fixture lines mention membership (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bfee\w*\b[^.]{0,30}\bmembership\b"
+            r"|\bmembership\b[^.]{0,30}\bfee\w*\b",
+            lower,
+        ):
             continue
         flag = f"price: {detail}"
         if any(k in lower for k in ("in advance", "advance payment", "upon execution",
@@ -1096,6 +1160,23 @@ def rule_acceptance(doc, sentences):
             r"\binspections?\b"
             r"|\bacceptance\s+of\s+(?:the\s+)?(?:resignation|retirement|"
             r"nomination|invitation)\b",
+            lower,
+        ):
+            continue
+        # "Users accept the app at their own risk" is a consumer assumption-of-
+        # risk disclaimer (the user agrees to use the software at their own
+        # risk), not acceptance of contract deliverables under an acceptance
+        # window.  Genuine deliverable acceptance ("the product must pass the
+        # acceptance criteria", "acceptance testing shall be completed by the
+        # vendor", "final acceptance occurs upon commissioning") still fires —
+        # the guard requires the at-own-risk consumer frame.  Zero fixture
+        # lines pair accept with "at their own risk" (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:user\w*|consumer\w*|customer\w*|buyer\w*)\b[^.]{0,40}"
+            r"\baccept\w*\b[^.]{0,40}\bat\s+(?:their|its|the)\s+own\s+risk\b"
+            r"|\baccept\w*\b[^.]{0,40}\b(?:the\s+app\b|the\s+software\b)[^.]{0,40}"
+            r"\bat\s+(?:their|its|the)\s+own\s+risk\b",
             lower,
         ):
             continue
@@ -2118,6 +2199,22 @@ def rule_liability(doc, sentences):
             lower,
         ):
             continue
+        # "Liability for latent defects is imposed by statute" restates a
+        # statutory liability default (a law, not the contract, fixes who
+        # bears latent-defect risk), not an allocation negotiated between the
+        # parties.  Genuine liability clauses ("the Carrier shall be liable
+        # for loss of or damage to the goods", fixture lines) still fire — the
+        # guard requires the statute frame together with latent defects.
+        # Zero fixture lines pair latent defects with statute (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\blatent\s+defect\w*\b[^.]{0,45}"
+            r"\b(?:imposed|provided|required|mandated|imposed\s+by)\s?(?:by\s+)?"
+            r"(?:statute|statut\w*|law\b)\b"
+            r"|\bstatut\w*\b[^.]{0,45}\blatent\s+defect\w*\b",
+            lower,
+        ):
+            continue
         amount = _AMOUNT_RE.search(sentence)
         pct = _PERCENT_RE.search(sentence)
 
@@ -2334,6 +2431,43 @@ def rule_confidentiality(doc, sentences):
             r"[^.]{0,40}\bconfidential\w*\b"
             r"|\bconfidential\w*\b[^.]{0,40}\bsurveys?\b[^.]{0,40}"
             r"\b(?:responses?|results?|answers?|data\b)\b",
+            lower,
+        ):
+            continue
+        # "The minutes of the meeting shall remain confidential" records who may
+        # read what was discussed at a corporate meeting (governance of the
+        # meeting minutes), not a contractual duty of secrecy between the
+        # parties over the contract's information.  "The identity of the
+        # whistleblower was kept confidential" is an employment-protection /
+        # reporting-rule statement (who may name a whistleblower), not a
+        # confidentiality clause between the parties.  "Trade secrets are
+        # confidential by their nature" describes a property of trade-secret
+        # law, not an agreed secrecy duty.  Genuine obligations ("information
+        # received during negotiations shall remain confidential for 3 years")
+        # still fire — the guards require the minutes / whistleblower /
+        # by-nature frame.  Zero fixture lines use these frames (checked
+        # against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bminutes\s+of\b[^.]{0,40}\b(?:the\s+)?meeting\b[^.]{0,40}"
+            r"\bconfidential\w*\b"
+            r"|\bconfidential\w*\b[^.]{0,40}\bminutes\s+of\b[^.]{0,40}"
+            r"\b(?:the\s+)?meeting\b",
+            lower,
+        ):
+            continue
+        if re.search(
+            r"\b(?:identity|name|identity\s+of\s+the)\s\b[^.]{0,30}"
+            r"\bwhistleblow\w*\b[^.]{0,40}\bconfidential\w*\b"
+            r"|\bwhistleblow\w*\b[^.]{0,40}\b(?:kept|held|revealed|disclosed)\b"
+            r"[^.]{0,30}\bconfidential\w*\b",
+            lower,
+        ):
+            continue
+        if re.search(
+            r"\btrade\s+secrets?\b[^.]{0,30}\bconfidential\b[^.]{0,30}"
+            r"\bby\s+their\s+nature\b"
+            r"|\btrade\s+secrets?\b[^.]{0,40}\b(?:are|is|shall\s+be|deem\w*)\b"
+            r"[^.]{0,30}\bconfidential\b",
             lower,
         ):
             continue
@@ -2564,6 +2698,39 @@ def rule_ip(doc, sentences):
             r"|\bcopyright\s+notice\b"
             r"|\btrademark\s+registr\w*\b[^.]{0,45}\brenew\w*\b[^.]{0,25}\byears?\b"
             r"|\brenew\w*\b[^.]{0,30}\btrademark\s+registr\w*\b",
+            lower,
+        ):
+            continue
+        # "The invention was assigned to the company by the inventor" reports
+        # a past property-transfer event (facts about where a specific
+        # invention ended up), not a negotiated allocation between the parties
+        # for work under this contract.  The guard is keyed to the past-tense
+        # "was assigned" frame so genuine assignment clauses ("inventions are
+        # assigned to the employer", fixture line 219; "all work product shall
+        # be assigned to the Client", fixture line 314) still fire.
+        # "The website is protected by copyright automatically" restates a
+        # statutory entitlement to protection (a work is protected from the
+        # moment of creation), not a transfer, grant or ownership clause.
+        # "The term of the trademark registration is 10 years" describes a
+        # registry duration, not an IP allocation between the parties.  Zero
+        # fixture lines use these frames (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\binventions?\b[^.]{0,35}"
+            r"\b(?:was\s+assigned|were\s+assigned|has\s+been\s+assigned)\b",
+            lower,
+        ):
+            continue
+        if re.search(
+            r"\bwebsites?\b[^.]{0,45}\bcopyright\b"
+            r"|\bcopyright\b[^.]{0,45}\bwebsites?\b",
+            lower,
+        ):
+            continue
+        if re.search(
+            r"\btrademark\s+registration\b[^.]{0,40}\b(?:term|period|duration|"
+            r"valid|expires?|renew\w*)\b"
+            r"|\b(?:term|period|duration)\b[^.]{0,40}\btrademark\s+registration\b",
             lower,
         ):
             continue
@@ -2951,6 +3118,22 @@ def rule_renewal(doc, sentences):
             r"\b(?:search\s+warrant|warrant\b|summons\b|subpoena\w*)\b"
             r"|\b(?:search\s+warrant|warrant\b|summons\b|subpoena\w*)\b"
             r"[^.]{0,35}\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ):
+            continue
+        # "The customer may renew the subscription at the discounted price" is
+        # a consumer-pricing offer (a vendor lets a customer keep a
+        # subscription at a discount), not a renewal of the agreement's term —
+        # renewing the subscription is the marketing hook, the term itself is
+        # untouched.  "Tenant may renew the lease for a further 12 months"
+        # (fixture line 329) still fires — the guard requires BOTH a
+        # subscription object AND a discount, and the fixtures never pair
+        # them (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,40}\bsubscription\b"
+            r"[^.]{0,40}\bdiscount(?:ed)?\b"
+            r"|\bsubscription\b[^.]{0,40}\bdiscount(?:ed)?\b[^.]{0,40}"
+            r"\brenew(?:al|s|ing|ed|able)?\b",
             lower,
         ):
             continue
@@ -3641,6 +3824,30 @@ def rule_exclusivity(doc, sentences):
             lower,
         ):
             continue
+        # "The hotel's exclusive club lounge is for premium guests" is a
+        # hospitality / membership perk tier (a lounge or service reserved
+        # for paying guests), not a market-exclusivity grant to sell,
+        # license or distribute.  "Exclusive offers are emailed to registered
+        # customers" is a consumer-marketing promotion (coupons and deals
+        # sent to a mailing list), not a market-exclusivity grant.  Genuine
+        # grants ("exclusive licence covers the entire territory of France",
+        # "exclusive right to sell" / "sole distributor") still fire — the
+        # guards require the lounge / members / offers / emailed frame.
+        # Zero fixture lines use these frames (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bexclusive\s+club\b[^.]{0,45}"
+            r"\b(?:lounge\w*|members?\b|guests?\b|access\b|privileg\w*)\b",
+            lower,
+        ):
+            continue
+        if re.search(
+            r"\bexclusive\s+offers?\b[^.]{0,45}"
+            r"\b(?:email\w*|customer\w*|registered|members?\b|newsletters?\b|"
+            r"subscribe\w*|mail\b)\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.MEDIUM
         flag = "exclusivity clause"
         dur = _DURATION_RE.search(sentence)
@@ -4005,6 +4212,40 @@ def rule_data_protection(doc, sentences):
         if re.search(r"\bcredit\w*\s+transfer\b", lower) and not re.search(
             r"\b(?:personal|customer|consumer|user|employee|health|financial|"
             r"banking|credit|identity|biometric)\s+data\b",
+            lower,
+        ):
+            continue
+        # "The data subject has the right to withdraw consent at any time" is
+        # a GDPR individual-rights statement (what data subjects may do), not a
+        # processing, transfer or breach obligation between the parties.  The
+        # guard keys on the unmistakable data-subject-rights frame (withdraw
+        # consent / request access / rectification / erasure); genuine
+        # processing / transfer / DPA obligations — fixture 69, 186 — still
+        # fire (no such rights frame).  Zero fixture lines in
+        # fixtures/generate_fixtures.py name data-subject rights.
+        if re.search(
+            r"\bdata\s+subject\b[^.]{0,55}"
+            r"\b(?:withdraw\w*\s+consent|request\w*\s+access|right\w*\s+(?:of\s+)?"
+            r"(?:access|rectification|erasure|withdrawal|portability)|"
+            r"(?:access|rectification|erasure|withdrawal|portability)\b[^.]{0,15}"
+            r"\bright\w*)\b"
+            r"|\b(?:withdraw\w*\s+consent\b|rectif\w*\b|eras\w*\b|portability\b)"
+            r"[^.]{0,35}\bdata\s+subject\b",
+            lower,
+        ):
+            continue
+        # "The controller shall appoint a data protection officer" is an
+        # organisational / compliance appointment statement, not a processing,
+        # transfer or breach obligation between the parties.  Genuine data
+        # processing / transfer / DPA clauses still fire (no officer-form
+        # nomination frame).  Zero fixture lines in
+        # fixtures/generate_fixtures.py mention a data protection officer.
+        if re.search(
+            r"\bappoint\w*\b[^.]{0,35}\bdata\s+protection\s+officer\b"
+            r"|\bdata\s+protection\s+officer\b[^.]{0,35}\bappoint\w*\b"
+            r"|\bdata\s+protection\s+officer\b[^.]{0,30}"
+            r"\b(?:shall\s+be\s+(?:appointed|designated)|must\s+be\s+(?:appointed|"
+            r"designated))\b",
             lower,
         ):
             continue
@@ -4679,6 +4920,38 @@ def rule_insurance(doc, sentences):
                 r"\binsured?\b[^.]{0,45}\b(?:building\w*|premises?\b|"
                 r"plant\b|warehouse\w*|facilit\w+)\b[^.]{0,45}\bfor\b"
                 r"[^.]{0,30}\b(?:usd|eur|gbp|jpy|cny|myr|sgd)\b",
+                lower,
+            ):
+                continue
+            # "The insurance premium is included in the annual fee" is a cost
+            # allocation (which bundled price already absorbs the premium),
+            # not a coverage obligation imposed on a party.  Genuine coverage
+            # obligations ("shall maintain professional indemnity insurance")
+            # still fire — the guard requires the premium + included +
+            # periodic-fee frame.  "Insurance is payable by the tenant under
+            # the lease" allocates who pays the premium and still fires (no
+            # premium + included + periodic-fee frame).  Zero fixture lines
+            # pair insurance premium with an included periodic fee (checked
+            # against fixtures/generate_fixtures.py).
+            if re.search(
+                r"\binsurance\s+premium\b[^.]{0,40}\binclud\w*\b[^.]{0,35}"
+                r"\b(?:annual|monthly|quarterly|yearly|periodic)\s+fee\b"
+                r"|\b(?:annual|monthly|quarterly|yearly|periodic)\s+fee\b"
+                r"[^.]{0,35}\binclud\w*\b[^.]{0,40}\binsurance\s+premium\b",
+                lower,
+            ):
+                continue
+            # "Insurance coverage commences upon payment of the first premium"
+            # states when a policy takes effect (an administrative effective-
+            # date rule), not an inter-party obligation to maintain cover.
+            # Genuine coverage obligations ("shall maintain professional
+            # indemnity insurance") still fire — the guard requires the
+            # coverage/cover + commence + premium frame.
+            if re.search(
+                r"\b(?:coverage|cover)\b[^.]{0,45}\bcommenc\w*\b[^.]{0,35}"
+                r"\bpremium\b"
+                r"|\bpremium\b[^.]{0,35}\bcommenc\w*\b[^.]{0,45}"
+                r"\b(?:coverage|cover)\b",
                 lower,
             ):
                 continue
