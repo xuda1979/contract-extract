@@ -1969,3 +1969,79 @@ def test_probe_r23_genuine_keeps_still_fire():
         ["Each party shall maintain its own insurance coverage for its employees and property."]
     ) if c.clause == "insurance"]
     assert clauses, "own-coverage allocation must keep firing"
+
+
+def test_bank_instrument_delivery_not_goods_delivery():
+    # "The bank shall deliver the Letter of Credit to the Beneficiary"
+    # is trade-finance instrument issuance (conveying a payment
+    # instrument), not a goods/services delivery obligation.
+    sentence = "The bank shall deliver the Letter of Credit to the Beneficiary within 5 business days."
+    clauses = [c for c in _clauses(sentence) if c.clause == "delivery"]
+    assert clauses == [], sentence
+    # Genuine goods-delivery obligation still fires.
+    clauses = [c for c in _clauses(
+        ["Seller shall deliver the Products within 45 working days from receipt of a purchase order."]
+    ) if c.clause == "delivery"]
+    assert clauses, "goods-delivery obligation must keep firing"
+
+
+def test_audit_right_inspect_not_acceptance_or_exclusivity():
+    # "exclusive right to inspect the Books and Records" is an audit /
+    # verification right, not an acceptance window nor a market grant.
+    sentence = "The Buyer shall have the exclusive right to inspect the Books and Records of the Seller."
+    for rule in ("acceptance", "exclusivity"):
+        clauses = [c for c in _clauses(sentence) if c.clause == rule]
+        assert clauses == [], (rule, sentence)
+    # Genuine acceptance window and market-exclusivity grant still fire.
+    clauses = [c for c in _clauses(
+        ["The Customer shall have 10 days after delivery to inspect and accept each Deliverable."]
+    ) if c.clause == "acceptance"]
+    assert clauses, "deliverables acceptance window must keep firing"
+    clauses = [c for c in _clauses(
+        ["The Seller shall have the exclusive right to sell the Products in the Territory."]
+    ) if c.clause == "exclusivity"]
+    assert clauses, "market-exclusivity grant must keep firing"
+
+
+def test_acceptance_by_conduct_of_terms_not_deliverables():
+    # Assent-by-conduct and deemed-receipt statements are contract
+    # formation / notice mechanics, not deliverables acceptance windows.
+    negatives = [
+        "The Customer's continued use of the Services constitutes acceptance of the amended terms.",
+        "Any notice given by email shall be deemed accepted upon receipt.",
+        "The Seller warrants that the signatures on the Certificate are genuine and accepted by the authorities.",
+    ]
+    for sentence in negatives:
+        clauses = [c for c in _clauses(sentence) if c.clause == "acceptance"]
+        assert clauses == [], sentence
+    # Genuine acceptance window still fires.
+    clauses = [c for c in _clauses(
+        ["The Customer shall have 10 days after delivery to inspect and accept each Deliverable."]
+    ) if c.clause == "acceptance"]
+    assert clauses, "deliverables acceptance window must keep firing"
+
+
+def test_claim_notification_not_insurance_obligation():
+    # Loss-reporting mechanics to the insurer/broker are claim
+    # administration, not a coverage obligation to maintain a policy.
+    sentence = "The insurance broker shall be notified of any claim within 30 days of the loss."
+    clauses = [c for c in _clauses(sentence) if c.clause == "insurance"]
+    assert clauses == [], sentence
+    # Genuine coverage obligation still fires.
+    clauses = [c for c in _clauses(
+        ["The Supplier shall maintain professional indemnity insurance during the Term."]
+    ) if c.clause == "insurance"]
+    assert clauses, "coverage obligation must keep firing"
+
+
+def test_probe_r24_genuine_keeps_still_fire():
+    # The Round 24 candidates that are GENUINE clauses must keep firing:
+    # quantity commitment and advance-payment obligation.
+    clauses = [c for c in _clauses(
+        ["The Buyer shall order a minimum quantity of 100 units per month."]
+    ) if c.clause == "quantity"]
+    assert clauses, "minimum-quantity commitment must keep firing"
+    clauses = [c for c in _clauses(
+        ["The Buyer shall make an advance payment of 30% of the contract price upon signature."]
+    ) if c.clause == "payment"]
+    assert clauses, "advance-payment obligation must keep firing"

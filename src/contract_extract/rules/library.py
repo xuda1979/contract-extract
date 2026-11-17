@@ -389,6 +389,23 @@ def rule_delivery(doc, sentences):
             lower,
         ):
             continue
+        # "The bank shall deliver the Letter of Credit / documentary credit
+        # to the Beneficiary within 5 business days" is trade-finance
+        # instrument issuance (the bank conveys a payment instrument), not a
+        # goods/services delivery obligation.  "deliver the goods to the
+        # buyer's warehouse" fixture lines still fire.
+        if re.search(
+            r"\bdeliver(?:s|ed|y)?\b[^.]{0,40}\b(?:letter\s+of\s+credit|"
+            r"documentary\s+credit|standby\s+letter\s+of\s+credit|"
+            r"bank(?:er)?'s?\s+(?:guarantee|draft|cheque|check)|"
+            r"bill\s+of\s+exchange|promissory\s+note)\b"
+            r"|\b(?:letter\s+of\s+credit|documentary\s+credit|"
+            r"standby\s+letter\s+of\s+credit|bank(?:er)?'s?\s+(?:guarantee|draft|"
+            r"cheque|check)|bill\s+of\s+exchange|promissory\s+note)\b"
+            r"[^.]{0,40}\b(?:shall|will|must)\s+be\s+delivered\b",
+            lower,
+        ):
+            continue
         m = re.search(
             rf"\bwithin\s+({_NUMTOKEN})\s*(?:business|working|calendar)?\s*(day|week|month)s?\b"
             rf"|\bat\s+least\s+({_NUMTOKEN})\s+days?\s+before\b"
@@ -526,6 +543,38 @@ def rule_acceptance(doc, sentences):
         ) and not re.search(
             r"\bwithin\s+\d+\s*(?:working|business)?\s*days?\b"
             r"|\b(?:inspect|to\s+inspect|to\s+accept|inspect\s+and)\b",
+            lower,
+        ):
+            continue
+        # "The Buyer shall have the exclusive right to inspect the Books and
+        # Records of the Seller" is an audit / verification right (a party may
+        # examine records), not a window in which deliverables are examined
+        # and accepted.  Genuine acceptance windows ("10 days to inspect and
+        # accept each deliverable") still fire — "inspect and ... accept"
+        # (verb chain) is untouched.  Both word orders are covered.
+        if re.search(
+            r"\bto\s+inspect\b[^.]{0,45}\b(?:books?|records?|accounts?|"
+            r"book\s+(?:s?\w*)?s?\s+(?:and|&)?|audit\b|documentation)\b"
+            r"|\b(?:books?|records?|accounts?|audit\s+right\w*|"
+            r"documentation)\b[^.]{0,45}\bto\s+inspect\b",
+            lower,
+        ):
+            continue
+        # "The Customer's continued use of the Services constitutes acceptance
+        # of the amended terms" is an acceptance-by-conduct / contract-formation
+        # statement (assent to amendments and notices), not a deliverables
+        # acceptance window.  Similarly "a notice shall be deemed accepted upon
+        # receipt" is procedural receipt mechanics.  Genuine acceptance windows
+        # ("10 days to inspect and accept each deliverable") still fire.
+        if re.search(
+            r"\bconstitut\w*\b[^.]{0,30}\bacceptance\b"
+            r"|\bacceptance\b[^.]{0,30}\bconstitut\w*\b"
+            r"|\b(?:deemed|deem|shall\s+be\s+considered)\s+accept"
+            r"(?:ed|ance)?\b"
+            r"|\bacceptance\s+of\s+(?:the\s+|these\s+|any\s+)?"
+            r"(?:amended|revised|changed|modified|new)\s+terms?\b"
+            r"|\bacceptance\s+of\s+(?:the\s+)?(?:terms?\b|agreement\b|"
+            r"amendment\w*)\b",
             lower,
         ):
             continue
@@ -1668,6 +1717,19 @@ def rule_exclusivity(doc, sentences):
             lower,
         ):
             continue
+        # "The Buyer shall have the exclusive right to inspect the Books and
+        # Records of the Seller" is an audit / verification right (a party may
+        # examine financial records), not a market-exclusivity grant to sell,
+        # license or distribute.  "exclusive right to sell" still fires.
+        # Both word orders are covered.
+        if re.search(
+            r"\bexclusive\s+right\w*\s+to\s+inspect\b[^.]{0,45}"
+            r"\b(?:books?|records?|accounts?|audit\w*|documentation)\b"
+            r"|\b(?:books?|records?|accounts?|audit\w*|documentation)\b"
+            r"[^.]{0,45}\bexclusive\s+right\w*\s+to\s+inspect\b",
+            lower,
+        ):
+            continue
         # "The property is listed on an exclusive basis for 30 days" is a
         # real-estate listing term (agency instruction), not a market
         # exclusivity grant to sell, license or distribute.  Both word orders
@@ -2145,6 +2207,31 @@ def rule_insurance(doc, sentences):
                 r"|\b(?:cost|expense|expenses|charges?)\s+of\s+(?:the\s+)?"
                 r"(?:transport\w*|shipment|shipping|freight)\b[^.]{0,30}\binsurance\b"
                 r"|\bcif\s+(?:terms?|incoterm\w*)\b",
+                lower,
+            ):
+                continue
+            # "The insurance broker shall be notified of any claim within 30
+            # days of the loss" is claim-administration mechanics (loss
+            # reporting to the insurer / broker), not a coverage obligation to
+            # maintain a policy.  Genuine coverage obligations ("shall
+            # maintain professional indemnity insurance") still fire — the
+            # negative leg keeps maintain/procure/carry/obtain untouched.
+            if re.search(
+                r"\binsurance\s+broker\b"
+                r"|\bclaim\w*\b[^.]{0,55}"
+                r"\b(?:notif\w*|report\w*|submit\w*|file\b|filed?)\b"
+                r"[^.]{0,40}\binsurance\b"
+                r"|\binsurance\b[^.]{0,40}"
+                r"\b(?:notif\w*|report\w*|submit\w*|file\b|filed?)\b"
+                r"[^.]{0,55}\bclaim\w*\b"
+                r"|\b(?:notif\w*|report\w*|submit\w*|file\b|filed?)\b"
+                r"[^.]{0,40}\binsurance\b[^.]{0,40}\bclaim\w*\b"
+                r"|\bclaim\w*\b[^.]{0,40}\binsurance\b[^.]{0,40}"
+                r"\b(?:notif\w*|report\w*|submit\w*|file\b|filed?)\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|carry|obtain\w*|cover\w*)\b[^.]{0,40}"
+                r"\binsurance\b",
                 lower,
             ):
                 continue
