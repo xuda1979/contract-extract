@@ -1050,6 +1050,31 @@ def rule_liability(doc, sentences):
             lower,
         ):
             continue
+        # "Nothing in this clause shall be construed as a limitation of
+        # liability of the parties" is a drafting instruction about how the
+        # clause is read (construed) — it is not itself an agreed cap,
+        # disclaimer or exclusion.  Genuine caps and disclaimers still fire.
+        if re.search(
+            r"\bconstru\w*\b[^.]{0,55}\blimitation\s+of\s+liability\b"
+            r"|\blimitation\s+of\s+liability\b[^.]{0,55}\bconstru\w*\b",
+            lower,
+        ):
+            continue
+        # "The parties agree not to rely on any limitation of liability in
+        # respect of fraud" is a waiver of the cap's application to a
+        # specific claim (the parties decline to invoke the cap), not the
+        # creation of a limitation of liability.  Genuine caps
+        # ("aggregate liability shall not exceed USD 1M") still fire.
+        if re.search(
+            r"\b(?:not\s+to\s+rely|shall\s+not\s+rely|cannot\s+rely|may\s+not\s+rely)"
+            r"\s+on\b[^.]{0,50}\b(?:any\s+|a\s+)?limitation\s+of\s+liability\b"
+            r"|\blimitation\s+of\s+liability\b[^.]{0,60}"
+            r"\b(?:rely|relied|reliance)\b[^.]{0,40}"
+            r"\b(?:fraud\w*|willful\s+misconduct|wilful\s+misconduct|"
+            r"gross\s+negligence)\b",
+            lower,
+        ):
+            continue
         # "The indemnity shall not apply to the extent prohibited by
         # applicable law" is a statutorily-mandated carve-out limiting the
         # scope of an indemnity to what the law allows — it does not agree a
@@ -1579,6 +1604,33 @@ def rule_termination(doc, sentences):
             lower,
         ):
             continue
+        # "This Agreement shall remain in effect until such time as it is
+        # terminated in accordance with clause 10" is an effectiveness /
+        # end-date reference; the termination right itself lives in the
+        # clause it points to.  It does not grant a party a right to
+        # terminate.  Genuine termination rights ("Either party may
+        # terminate this Agreement by written notice") still fire.
+        if re.search(
+            r"\buntil\s+such\s+time\s+as\b[^.]{0,50}\bterminat\w*\b"
+            r"|\bterminat\w*\b[^.]{0,50}\buntil\s+such\s+time\s+as\b"
+            r"|\bshall\s+remain\s+in\s+effect\b[^.]{0,55}\bterminat\w*\b",
+            lower,
+        ):
+            continue
+        # "This Agreement shall terminate if required by any applicable law
+        # or regulatory authority" is a statutorily-mandated automatic
+        # termination for legal compliance, not a party's negotiated right
+        # to terminate.  Genuine rights ("Either party may terminate for
+        # convenience", "for material breach") still fire.
+        if re.search(
+            r"\bterminat\w*\b[^.]{0,45}\b(?:requir\w*|mandat\w*|compell\w*)"
+            r"\s+by\b[^.]{0,35}\b(?:any\s+|applicable\s+|relevant\s+|"
+            r"regulatory\s+|statutory\s+|governing\s+)?"
+            r"(?:law\b|regulation\w*|regulatory\s+authority|statute\w*|"
+            r"legislation)\b",
+            lower,
+        ):
+            continue
         # "Termination of the employment / office / appointment" is an HR or
         # governance event, not a party's right to terminate the agreement.
         # "This Agreement shall be terminated / Either party may terminate"
@@ -1586,6 +1638,19 @@ def rule_termination(doc, sentences):
         if re.search(
             r"\btermination\s+of\s+(?:the\s+|a\s+)?"
             r"(?:employment|office|appointment|mandate|engagement)\b",
+            lower,
+        ):
+            continue
+        # "The appointment / mandate / engagement of the Representative
+        # shall terminate automatically upon the expiration of the
+        # Agreement" is a governance-role sunset (the role outlives its
+        # purpose), not a party's right to terminate the agreement.  The
+        # role noun sits in subject position before the terminate verb;
+        # "either party may terminate this Agreement" still fires.
+        if re.search(
+            r"\b(?:the\s+|a\s+|an\s+)?(?:term\s+of\s+appointment|"
+            r"appointment\b|mandate\b|engagement\b|tenure\b)"
+            r"[^.]{0,45}\bshall\s+(?:automatically\s+)?terminat\w*\b",
             lower,
         ):
             continue
@@ -2232,6 +2297,43 @@ def rule_insurance(doc, sentences):
             ) and not re.search(
                 r"\b(?:maintain\w*|procure\w*|carry|obtain\w*|cover\w*)\b[^.]{0,40}"
                 r"\binsurance\b",
+                lower,
+            ):
+                continue
+            # "The insurance requirements of the Employer are set out in the
+            # Contract Data" / "The insurance requirements for this project
+            # are detailed in the specification" is a pointer to where
+            # requirements live, not an obligation on a party to maintain a
+            # policy.  Genuine coverage obligations ("shall maintain
+            # professional indemnity insurance") still fire — the negative
+            # leg keeps maintain/procure/carry/obtain untouched.
+            if re.search(
+                r"\binsurance\s+(?:requirements?|obligation\w*|arrangements?)\b"
+                r"[^.]{0,40}\b(?:set\s+(?:out|forth|down)|described?\b|"
+                r"detailed?\b|specified?\b|defined?\b|listed?\b|"
+                r"outlined?\b)\b"
+                r"|\b(?:set\s+(?:out|forth|down)|described?\b|detailed?\b|"
+                r"specified?\b|defined?\b|listed?\b|outlined?\b)\b"
+                r"[^.]{0,40}\binsurance\s+(?:requirements?|obligation\w*|"
+                r"arrangements?)\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|carry|obtain\w*|cover\w*)\b[^.]{0,40}"
+                r"\binsurance\b",
+                lower,
+            ):
+                continue
+            # "To the extent required by the Buyer, the Supplier shall take
+            # out insurance for the Goods" conditions coverage on a third
+            # party's request via "to the extent" — a conditional
+            # might-event, not a primary coverage duty on the Supplier.  A
+            # primary duty ("the Supplier shall take out / maintain
+            # insurance") still fires — the negative leg requires "to the
+            # extent".
+            if re.search(
+                r"\bto\s+the\s+extent\b[^.]{0,50}"
+                r"\b(?:requir\w*|request\w*|demand\w*|instruct\w*|"
+                r"direct\w*)\s+by\b[^.]{0,60}\binsurance\b",
                 lower,
             ):
                 continue

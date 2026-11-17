@@ -2045,3 +2045,84 @@ def test_probe_r24_genuine_keeps_still_fire():
         ["The Buyer shall make an advance payment of 30% of the contract price upon signature."]
     ) if c.clause == "payment"]
     assert clauses, "advance-payment obligation must keep firing"
+
+
+def test_until_such_time_as_termination_not_duration():
+    # Reference to termination at an undefined future point ("until such time as it is
+    # terminated") is not a fixed-duration undertaking.
+    clauses = [c for c in _clauses(
+        ["This Agreement shall remain in effect until such time as it is terminated in "
+         "accordance with clause 10."]
+    ) if c.clause == "duration"]
+    assert clauses == [], "at-will-until-termination must not fire duration"
+
+
+def test_law_mandated_termination_not_party_right():
+    # Termination compelled by law/regulation is not a party termination right.
+    clauses = [c for c in _clauses(
+        ["This Agreement shall terminate if required by any applicable law or regulatory "
+         "authority."]
+    ) if c.clause == "termination"]
+    assert clauses == [], "law-mandated termination must not fire termination"
+
+
+def test_role_appointment_expiry_not_party_termination():
+    # Expiry of an appointment/office coupled with automatic termination is an HR/governance
+    # event, not a contractual termination right.
+    clauses = [c for c in _clauses(
+        ["The appointment of the Representative shall terminate automatically upon the "
+         "expiration of the Distribution Agreement."]
+    ) if c.clause == "termination"]
+    assert clauses == [], "role appointment expiry must not fire termination"
+
+
+def test_construed_away_liability_language_not_a_cap():
+    # Language construing something as a limitation of liability (or agreeing not to rely on
+    # a limitation) creates no cap.
+    clauses = [c for c in _clauses(
+        ["Nothing in this clause shall be construed as a limitation of liability of the "
+         "parties."]
+    ) if c.clause == "liability_cap"]
+    assert clauses == [], "construed-away language must not fire liability_cap"
+    clauses = [c for c in _clauses(
+        ["The parties hereby agree not to rely on any limitation of liability in respect "
+         "of fraud."]
+    ) if c.clause == "liability_cap"]
+    assert clauses == [], "waiver of cap must not fire liability_cap"
+
+
+def test_referenced_insurance_requirements_not_obligation():
+    # Pointers to where insurance requirements are stated create no coverage obligation.
+    clauses = [c for c in _clauses(
+        ["The insurance requirements of the Employer are set out in the Contract Data."]
+    ) if c.clause == "insurance"]
+    assert clauses == [], "requirements pointer must not fire insurance"
+
+
+def test_to_the_extent_insurance_not_primary_duty():
+    # Conditional, buyer-driven insurance fallback is not a primary coverage obligation.
+    clauses = [c for c in _clauses(
+        ["To the extent required by the Buyer, the Supplier shall take out insurance for "
+         "the Goods."]
+    ) if c.clause == "insurance"]
+    assert clauses == [], "to-the-extent conditional must not fire insurance"
+
+
+def test_probe_r25_genuine_keeps_still_fire():
+    # Round 25 guards must not suppress genuine clauses:
+    # party termination rights, primary insurance duties, and real liability caps.
+    clauses = [c for c in _clauses([
+        "Either party may terminate this Agreement without cause upon 60 days' written notice.",
+        "The Buyer may terminate this Agreement for cause if the Seller commits a material breach.",
+    ]) if c.clause == "termination"]
+    assert clauses, "party termination rights must keep firing"
+    clauses = [c for c in _clauses([
+        "The Supplier shall maintain professional indemnity insurance during the Term.",
+        "The Supplier shall take out insurance for the Goods during transit at its own cost.",
+    ]) if c.clause == "insurance"]
+    assert clauses, "primary insurance duties must keep firing"
+    clauses = [c for c in _clauses([
+        "Each party's aggregate liability shall not exceed the amounts paid by Client in "
+        "the preceding 12 months.",
+    ]) if c.clause == "liability_cap"]
+    assert clauses, "genuine liability caps must keep firing"
