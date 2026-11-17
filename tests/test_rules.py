@@ -2293,3 +2293,170 @@ def test_discuss_renewal_not_term_renewal():
     ) if c.clause == "renewal"]
     assert clauses and any("auto-renew" in (c.flag or "") for c in clauses), \
         "automatic term renewal must keep firing"
+
+
+def test_late_payment_interest_not_payment_terms():
+    # Late-payment interest is an economic consequence of delay, not a payment
+    # terms clause (no due date, sequence, tranche or method is fixed).
+    clauses = [c for c in _clauses(
+        ["Late payment shall attract interest at 2% per month on any overdue "
+         "amounts."]
+    ) if c.clause == "payment"]
+    assert clauses == [], "late-payment interest must not fire payment"
+    clauses = [c for c in _clauses(
+        ["Net 30 days from the invoice date, the Customer shall pay the full "
+         "amount."]
+    ) if c.clause == "payment"]
+    assert clauses, "genuine net-30 payment terms must keep firing"
+
+
+def test_acceptance_procedure_pointer_not_window():
+    # A pointer to a test plan states how acceptance is performed; it imposes
+    # no review window or inspection procedure of its own.
+    clauses = [c for c in _clauses(
+        ["Acceptance tests shall be performed in accordance with the test plan "
+         "set out in Schedule 2."]
+    ) if c.clause == "acceptance"]
+    assert clauses == [], "procedure pointer must not fire acceptance"
+    clauses = [c for c in _clauses(
+        ["The Buyer shall be deemed to have accepted the Goods if it fails to "
+         "notify defects within 30 days."]
+    ) if c.clause == "acceptance"]
+    assert clauses and any("window" in (c.flag or "") for c in clauses), \
+        "genuine acceptance window must keep firing"
+
+
+def test_statutory_carve_out_not_cap():
+    # A carve-out that refuses to cap non-excludable heads of liability (death /
+    # personal injury) is the opposite of an agreed cap or disclaimer.
+    clauses = [c for c in _clauses(
+        ["Nothing in this Agreement shall limit either party's liability for "
+         "death or personal injury caused by its negligence."]
+    ) if c.clause == "liability_cap"]
+    assert clauses == [], "statutory carve-out must not fire liability cap"
+    clauses = [c for c in _clauses(
+        ["Each party's aggregate liability under this Agreement shall not "
+         "exceed the Contract Price."]
+    ) if c.clause == "liability_cap"]
+    assert clauses, "genuine total-liability cap must keep firing"
+
+
+def test_own_acts_allocation_not_cap():
+    # Allocating responsibility for one's own acts and omissions restates who
+    # answers for what; it is not an agreed cap, disclaimer or exclusion.
+    clauses = [c for c in _clauses(
+        ["Each party shall be liable for the acts and omissions of its own "
+         "personnel."]
+    ) if c.clause == "liability_cap"]
+    assert clauses == [], "own-acts allocation must not fire liability cap"
+    clauses = [c for c in _clauses(
+        ["Each party's aggregate liability under this Agreement shall not "
+         "exceed the Contract Price."]
+    ) if c.clause == "liability_cap"]
+    assert clauses, "genuine total-liability cap must keep firing"
+
+
+def test_public_domain_carve_out_not_confidentiality():
+    # A definitional exclusion ("shall not include the public domain") says what
+    # the term covers, not who must keep what secret.
+    clauses = [c for c in _clauses(
+        ["Confidential Information shall not include information in the public "
+         "domain through no fault of the receiving party."]
+    ) if c.clause == "confidentiality"]
+    assert clauses == [], "public-domain carve-out must not fire confidentiality"
+    clauses = [c for c in _clauses(
+        ["The Receiving Party shall keep the Confidential Information strictly "
+         "confidential for 3 years."]
+    ) if c.clause == "confidentiality"]
+    assert clauses, "genuine confidentiality obligation must keep firing"
+
+
+def test_ip_bare_definition_not_clause():
+    # Defining what Intellectual Property Rights means enumerates the scope of
+    # the term; it does not assign, grant or transfer anything.
+    clauses = [c for c in _clauses(
+        ["Intellectual Property Rights means all patents, copyrights, trade "
+         "marks and other similar rights."]
+    ) if c.clause == "ip"]
+    assert clauses == [], "bare IP definition must not fire ip"
+    clauses = [c for c in _clauses(
+        ["The Customer grants the Supplier a royalty-free licence to use the "
+         "Customer's Intellectual Property during the Term."]
+    ) if c.clause == "ip"]
+    assert clauses, "genuine licence grant must keep firing"
+
+
+def test_intend_to_renew_not_term_renewal():
+    # An intention to renew on terms still to be agreed is an aspiration, not
+    # an agreed extension of the term.
+    clauses = [c for c in _clauses(
+        ["The Parties intend to renew this Agreement on terms to be agreed "
+         "between them."]
+    ) if c.clause == "renewal"]
+    assert clauses == [], "intention to renew must not fire renewal"
+    clauses = [c for c in _clauses(
+        ["This Agreement shall automatically renew for successive 1 year terms."]
+    ) if c.clause == "renewal"]
+    assert clauses and any("auto-renew" in (c.flag or "") for c in clauses), \
+        "automatic term renewal must keep firing"
+
+
+def test_unless_renewed_expiry_not_renewal():
+    # "shall terminate ... unless renewed" is a conditional continuation
+    # formula (an expiry default), not a renewal of the term itself.
+    clauses = [c for c in _clauses(
+        ["This Agreement shall terminate on the expiry of the fixed Term "
+         "unless renewed by the parties."]
+    ) if c.clause == "renewal"]
+    assert clauses == [], "unless-renewed expiry must not fire renewal"
+    clauses = [c for c in _clauses(
+        ["The lease shall automatically renew for 12 months unless the tenant "
+         "gives written notice."]
+    ) if c.clause == "renewal"]
+    assert clauses and any("auto-renew" in (c.flag or "") for c in clauses), \
+        "auto-renewal with notice carve-out must keep firing"
+
+
+def test_competition_law_qualifier_not_grant():
+    # Acknowledging that competition law qualifies exclusivity is a legal
+    # qualifier, not a grant of exclusive rights to either party.
+    clauses = [c for c in _clauses(
+        ["Any exclusivity granted under this Agreement is subject to applicable "
+         "competition law."]
+    ) if c.clause == "exclusivity"]
+    assert clauses == [], "competition-law qualifier must not fire exclusivity"
+    clauses = [c for c in _clauses(
+        ["The Seller shall have the exclusive right to sell the Products in the "
+         "Territory."]
+    ) if c.clause == "exclusivity"]
+    assert clauses, "grant of exclusive rights must keep firing"
+
+
+def test_controller_compliance_not_data_clause():
+    # Allocating statutory responsibility for compliance is a role statement,
+    # not a processing, transfer or breach obligation.
+    clauses = [c for c in _clauses(
+        ["The Controller shall remain responsible for compliance with "
+         "applicable data protection legislation."]
+    ) if c.clause == "data_protection"]
+    assert clauses == [], "controller compliance allocation must not fire"
+    clauses = [c for c in _clauses(
+        ["To the extent the Processor processes personal data, the Data "
+         "Processing Agreement shall apply."]
+    ) if c.clause == "data_protection"]
+    assert clauses, "genuine processing obligation must keep firing"
+
+
+def test_subrogation_waiver_not_obligation():
+    # A duty to obtain a subrogation waiver instructs how an existing policy is
+    # handled; it does not oblige either party to take out or maintain cover.
+    clauses = [c for c in _clauses(
+        ["The Vendor shall cause its insurers to waive rights of subrogation "
+         "against the Customer."]
+    ) if c.clause == "insurance"]
+    assert clauses == [], "subrogation waiver must not fire insurance"
+    clauses = [c for c in _clauses(
+        ["The Supplier shall maintain professional indemnity insurance during "
+         "the Term."]
+    ) if c.clause == "insurance"]
+    assert clauses, "coverage obligation must keep firing"

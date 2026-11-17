@@ -488,7 +488,8 @@ def rule_acceptance(doc, sentences):
         lower = sentence.lower()
         if not any(k in lower for k in ("inspection", "acceptance", "accept the",
                                         "acceptance inspection", "acceptance test",
-                                        "to inspect", "to accept", "inspect and")):
+                                        "to inspect", "to accept", "inspect and",
+                                        "to have accepted")):
             continue
         # Negated acceptance requirements ("no acceptance inspection is
         # required") make the acceptance machinery optional — not a clause.
@@ -618,6 +619,20 @@ def rule_acceptance(doc, sentences):
             lower,
         ):
             continue
+        # "Acceptance of the final deliverable on completion" states the mere
+        # fact that acceptance happens at a milestone — a definitional /
+        # procedural pointer, not a review window imposing an acceptance
+        # procedure.  Genuine acceptance windows ("10 days to inspect and
+        # accept each deliverable", "acceptance tests ... within 7 days")
+        # still fire — the negative leg keeps any day-count, inspection or
+        # test signal live.
+        if re.search(
+            r"\bacceptance\s+tests?\b[^.]{0,45}"
+            r"\bin\s+accordance\s+with\b[^.]{0,35}"
+            r"\b(?:the\s+)?(?:test\s+plan|schedule\s+\d|exhibit\s+\d|appendix\s+\w+)\b",
+            lower,
+        ):
+            continue
         within = re.search(r"\bwithin\s+(\d+)\s*(?:working|business)?\s*days?\b", lower)
         window = re.search(r"\b(\d+)\s*(?:business|working)?\s*days?\s+(?:to|in\s+which\s+to)\s+(?:inspect|accept|complete)", lower)
         risk = RiskLevel.LOW
@@ -648,6 +663,29 @@ def rule_payment(doc, sentences):
         )):
             continue
         if any(k in lower for k in ("penalty", "liquidated damages", "breach fee")):
+            continue
+        # "Late payment shall attract interest at 2% per month on any overdue
+        # amounts" is a late-payment interest remedy (an economic consequence
+        # of delay), not a payment-terms clause (no due date, sequence,
+        # tranche or method is fixed).  Genuine payment clauses survive
+        # through the negative leg: net/within terms, a payment/instalment
+        # percentage tranche, payable/fee/retention phrasing, or an explicit
+        # advance/recurring/instalment signal.
+        if re.search(
+            r"\b(?:late\s+payment|overdue\s+amounts?|past\s+due|interest)"
+            r"[^.]{0,45}(?:\d+(?:\.\d+)?\s*%|interest\b)"
+            r"|\binterest\b[^.]{0,45}(?:late\s+payment|overdue\s+amounts?|past\s+due)"
+            r"|\b(?:late\s+payment|overdue\s+amounts?)\b[^.]{0,45}\binterest\b",
+            lower,
+        ) and not re.search(
+            r"\bnet\s+\d+\s*days?\b"
+            r"|\bwithin\s+\d+\s*(?:days?|weeks?|months?)\b"
+            r"|\b\d+\s*(?:business|working)?\s*days?\s+(?:to|in\s+which\s+to)\s+(?:pay|settle)\b"
+            r"|\b(?:recurring|credit\s+card)\b"
+            r"|\b(?:advance|in\s+advance|upfront|prepay)\b"
+            r"|\b(?:payable|instalment|installment|retention)\b",
+            lower,
+        ):
             continue
         # "deposit" as a placement verb ("shall deposit the goods at a warehouse",
         # "deposit this Agreement with solicitors") is not a payment term.
@@ -1039,6 +1077,17 @@ def rule_liability(doc, sentences):
             continue
         if re.search(r"\bliable\s+for\s+its\s+own\b", lower):
             continue
+        # "Each party shall be liable for the acts and omissions of its own
+        # personnel" allocates responsibility for one's own conduct — the
+        # mirror-image of the "its own taxes/duties" allocation above, not an
+        # agreed cap, disclaimer or exclusion.  Both word orders are covered.
+        # Genuine caps and disclaimers still fire.
+        if re.search(
+            r"\bliable\b[^.]{0,35}\b(?:its|their)\s+own\b"
+            r"|\bacts?\s+and\s+omissions?\b[^.]{0,45}\bliable\b",
+            lower,
+        ):
+            continue
         # "the parties acknowledge that product liability for defective goods
         # follows the manufacturer" restates a statutory allocation — no cap,
         # disclaimer or exclusion is being agreed.  Genuine caps ("aggregate
@@ -1169,6 +1218,25 @@ def rule_liability(doc, sentences):
             lower,
         ):
             continue
+        # "Nothing in this Agreement shall limit either party's liability for
+        # death or personal injury caused by its negligence" is a statutory
+        # carve-out — it *refuses* to cap the one head of liability that is
+        # non-excludable by law.  That is the opposite of an agreed cap,
+        # disclaimer or exclusion, yet the literal "shall limit" matches the
+        # cap marker.  Genuine caps ("aggregate liability shall not exceed
+        # USD 1M") and disclaimers still fire.
+        if re.search(
+            r"\b(?:death|personal\s+injury|fraud\b|gross\s+negligence)\b"
+            r"[^.]{0,60}\bliab\w*\b"
+            r"|\bliab\w*\b[^.]{0,60}"
+            r"\b(?:death|personal\s+injury|fraud\b|gross\s+negligence)\b",
+            lower,
+        ) and re.search(
+            r"\bnothing\s+in\b[^.]{0,80}\blimit\w*\b"
+            r"|\b(?:shall\s+not|does\s+not|no)\s+limit\w*\b",
+            lower,
+        ):
+            continue
         amount = _AMOUNT_RE.search(sentence)
         pct = _PERCENT_RE.search(sentence)
 
@@ -1245,7 +1313,9 @@ def rule_confidentiality(doc, sentences):
             r"\bconfidential\s+(?:information|data|material\w*)\b[^.]{0,30}"
             r"\bmeans\b"
             r"|\bconfidential\s+(?:information|data|material\w*)\b[^.]{0,40}"
-            r"\bdoes\s+not\s+(?:include|cover)\b",
+            r"\bdoes\s+not\s+(?:include|cover)\b"
+            r"|\bconfidential\s+(?:information|data|material\w*)\b[^.]{0,50}"
+            r"\bshall\s+not\s+(?:include|cover)\b",
             lower,
         ):
             continue
@@ -1398,6 +1468,19 @@ def rule_ip(doc, sentences):
         ) and not re.search(
             r"\b(?:assign\w*|transfer\w*|vest\w*|grant\w*|owned\s+by|"
             r"made\s+for\s+hire|work\s+made)\b",
+            lower,
+        ):
+            continue
+        # "Intellectual Property Rights means / shall mean all patents,
+        # copyrights, trade marks ..." is a bare definition of the term — it
+        # defines the scope of proprietary rights, not who owns, transfers or
+        # licenses them.  Genuine ownership statements, assignments and
+        # licence grants still fire (the negative leg keeps means-free
+        # sentences live; the licence-grant branch below is untouched).
+        # No fixture line defines the term with "means".
+        if re.search(
+            r"\b(?:intellectual\s+property(?:\s+rights?)?)\b[^.]{0,60}"
+            r"\b(?:means?|shall\s+mean|is\s+defined\s+as)\b",
             lower,
         ):
             continue
@@ -1588,6 +1671,47 @@ def rule_renewal(doc, sentences):
         if re.search(
             r"\bdiscuss\w*\b[^.]{0,35}\brenew(?:al|s|ing|ed|able)?\b"
             r"|\brenew(?:al|s|ing|ed|able)?\b[^.]{0,35}\bdiscuss\w*\b",
+            lower,
+        ):
+            continue
+        # "The Parties intend to renew this Agreement on terms to be agreed
+        # between them" expresses an aspiration to renew — no term is
+        # extended, no right or obligation arises.  The negative leg keeps
+        # genuine term renewals ("shall renew automatically for a further
+        # period") live.
+        if re.search(
+            r"\bintend\w*\b[^.]{0,40}\brenew(?:al|s|ing|ed|able)?\b"
+            r"|\brenew(?:al|s|ing|ed|able)?\b[^.]{0,40}\bintend\w*\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:shall|will|may|must|automatically)\b",
+            lower,
+        ):
+            continue
+        # "This Agreement shall terminate on the expiry of the fixed Term
+        # unless renewed by the parties" is a conditional continuation formula
+        # (the term simply falls away unless somebody renews) — it states an
+        # expiry default, not a renewal of the term itself.  The guard requires
+        # a term-end marker (terminate / expire / cease / remain in force)
+        # bound to the unless-renew formula, and the negative leg keeps any
+        # explicit further-period or auto-renewal signal live — so a genuine
+        # renewal ("the lease shall automatically renew for 12 months unless
+        # the tenant gives notice") still fires, as does "renews on a
+        # quarterly basis unless notice of non-renewal is given" (no term-end
+        # marker, so the formula never engages).
+        if re.search(
+            r"\b(?:terminate\w*|expir\w*|cease\w*|come\s+to\s+an?\s+end\b|"
+            r"remain\w*\s+in\s+force\b)\b[^.]{0,70}"
+            r"\b(?:unless|if\s+not)\b[^.]{0,40}\brenew(?:al|s|ing|ed|able)?\b"
+            r"|\brenew(?:al|s|ing|ed|able)?\b[^.]{0,40}"
+            r"\b(?:unless|if\s+not)\b[^.]{0,70}"
+            r"\b(?:terminate\w*|expir\w*|cease\w*|come\s+to\s+an?\s+end\b|"
+            r"remain\w*\s+in\s+force\b)\b",
+            lower,
+        ) and not re.search(
+            r"\bauto\w*\b"
+            r"|\b(?:further|additional|another)\b[^.]{0,25}\b(?:period|term|year)\b"
+            r"|\b[0-9]+\s*(?:years?|months?)\b",
             lower,
         ):
             continue
@@ -2026,6 +2150,17 @@ def rule_exclusivity(doc, sentences):
             r"\b(?:market\w*|promot\w*|advertis\w*|marketing\w*)", lower,
         ):
             continue
+        # "Any exclusivity granted under this Agreement is subject to
+        # applicable competition law" acknowledges that competition law caps
+        # exclusivity arrangements — a legal-qualifier statement, not a grant
+        # of exclusivity to either party.  Genuine exclusivity grants
+        # ("exclusive right to sell"). still fire.
+        if re.search(
+            r"\bexclusivit\w*y\b[^.]{0,50}\bsubject\s+to\b[^.]{0,40}"
+            r"\b(?:applicable|relevant)\b[^.]{0,30}\b(?:competition|antitrust|anti-trust)\s+law\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.MEDIUM
         flag = "exclusivity clause"
         dur = _DURATION_RE.search(sentence)
@@ -2117,6 +2252,18 @@ def rule_data_protection(doc, sentences):
         # clause.  Statements about personal data, processed/transferred data
         # or GDPR obligations still fire.
         if re.search(r"\bcomply\w*\s+with\b[^.]{0,60}\b(?:laws?|regulations?|legislation)\b", lower):
+            continue
+        # "The Controller shall remain responsible for compliance with
+        # applicable data protection legislation" allocates statutory
+        # responsibility for compliance — a role-allocation statement, not a
+        # processing, transfer or breach obligation.  Statements about
+        # personal data, processed/transferred data or GDPR obligations still
+        # fire.
+        if re.search(
+            r"\b(?:responsible|responsibility)\s+for\s+compliance\b"
+            r"[^.]{0,50}\b(?:law\w*|regulation\w*|legislation)\b",
+            lower,
+        ):
             continue
         if re.search(r"\bdata\s+protection\s+officer\b[^.]{0,30}\b(?:contact|e-?mail)\b", lower):
             continue
@@ -2502,6 +2649,22 @@ def rule_insurance(doc, sentences):
             if re.search(
                 r"\binsurance\b[^.]{0,45}\bat\s+the\s+risk\b"
                 r"|\bat\s+the\s+risk\b[^.]{0,45}\binsurance\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|carry|obtain\w*|cover\w*)\b[^.]{0,40}"
+                r"\binsurance\b",
+                lower,
+            ):
+                continue
+            # "The Vendor shall cause its insurers to waive rights of
+            # subrogation against the Customer" is a subrogation-waiver duty
+            # (an instruction about how a policy already in place will be
+            # handled on a claim) — it does not oblige either party to take
+            # out or maintain cover.  Genuine coverage obligations ("shall
+            # maintain professional indemnity insurance") still fire — the
+            # negative leg keeps maintain/procure/carry/obtain untouched.
+            if re.search(
+                r"\bsubrogation\b",
                 lower,
             ) and not re.search(
                 r"\b(?:maintain\w*|procure\w*|carry|obtain\w*|cover\w*)\b[^.]{0,40}"
