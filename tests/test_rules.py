@@ -2126,3 +2126,70 @@ def test_probe_r25_genuine_keeps_still_fire():
         "the preceding 12 months.",
     ]) if c.clause == "liability_cap"]
     assert clauses, "genuine liability caps must keep firing"
+
+
+def test_final_acceptance_term_end_not_acceptance_window():
+    # A term ending at final acceptance of the last deliverable defines the agreement's
+    # duration by a milestone; it creates no window in which deliverables are inspected.
+    clauses = [c for c in _clauses(
+        ["The Term shall run from the Effective Date until the Final Acceptance of the "
+         "last Deliverable."]
+    ) if c.clause == "acceptance"]
+    assert clauses == [], "term-end milestone must not fire acceptance"
+    clauses = [c for c in _clauses(
+        ["The Customer shall have 10 days after delivery to inspect and accept each "
+         "Deliverable."]
+    ) if c.clause == "acceptance"]
+    assert clauses, "genuine acceptance window must keep firing"
+
+
+def test_exclusivity_breach_reference_not_grant():
+    # A penalty triggered by breach of exclusivity obligations elsewhere points back at
+    # another clause; it does not itself grant an exclusive right.
+    clauses = [c for c in _clauses(
+        ["Any breach of the exclusivity obligations under clause 7 shall attract a "
+         "penalty of USD 10,000."]
+    ) if c.clause == "exclusivity"]
+    assert clauses == [], "exclusivity cross-reference must not fire exclusivity"
+    clauses = [c for c in _clauses(
+        ["The Seller shall have the exclusive right to sell the Products in the Territory."]
+    ) if c.clause == "exclusivity"]
+    assert clauses, "grant of exclusive rights must keep firing"
+
+
+def test_evidence_of_insurance_not_obligation():
+    # Proof/certificate obligations evidence coverage; they do not impose coverage itself.
+    clauses = [c for c in _clauses(
+        ["The Contractor shall provide evidence of insurance coverage upon request."]
+    ) if c.clause == "insurance"]
+    assert clauses == [], "evidence-of-coverage must not fire insurance"
+    clauses = [c for c in _clauses(
+        ["The Supplier shall maintain professional indemnity insurance during the Term."]
+    ) if c.clause == "insurance"]
+    assert clauses, "coverage obligation must keep firing"
+
+
+def test_reimbursable_cost_cap_not_price():
+    # A cap on reimbursable out-of-pocket costs is a budget limit, not a price for goods.
+    clauses = [c for c in _clauses(
+        ["Reimbursable costs shall not exceed USD 50,000 in any calendar year."]
+    ) if c.clause == "price"]
+    assert clauses == [], "reimbursable-cost cap must not fire price"
+    clauses = [c for c in _clauses(
+        ["The Customer shall pay for the Goods at the price of USD 5,000 per unit."]
+    ) if c.clause == "price"]
+    assert clauses, "genuine unit price must keep firing"
+
+
+def test_purchase_order_expiry_not_termination_right():
+    # A purchase order expiring automatically on its stated date is a lifecycle event,
+    # not a party's contractual termination right.
+    clauses = [c for c in _clauses(
+        ["Each Purchase Order shall terminate automatically upon its stated expiry date."]
+    ) if c.clause == "termination"]
+    assert clauses == [], "purchase-order automated expiry must not fire termination"
+    clauses = [c for c in _clauses(
+        ["Either party may terminate this Agreement without cause upon 60 days' written "
+         "notice."]
+    ) if c.clause == "termination"]
+    assert clauses, "party termination right must keep firing"

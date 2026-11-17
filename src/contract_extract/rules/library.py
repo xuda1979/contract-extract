@@ -344,6 +344,22 @@ def rule_price(doc, sentences):
             lower,
         ):
             continue
+        # "Reimbursable costs shall not exceed USD 50,000 in any calendar
+        # year" is an expense-reimbursement cap (the amount a party may
+        # claim back for out-of-pocket spend), not the price of goods or
+        # services under this Agreement.  No fixture line pairs
+        # reimburse/expense with a "shall not exceed" amount: the fixture
+        # line "Client shall reimburse Agency for out-of-pocket costs within
+        # net 30 days" has no amount, and fixture expenses are expressed as
+        # sums certain.  Genuine prices still fire.
+        if re.search(
+            r"\b(?:reimburs\w*|expense\w*|out[- ]of[- ]pocket\w*|expenditure\w*)\b"
+            r"[^.]{0,45}\bshall\s+(?:not\s+)?(?:exceed|be\s+limited\s+to|be\s+capped\s+at)\b"
+            r"|\b(?:cap\w*|limit\w*)\b[^.]{0,30}\b(?:reimburs\w*|expense\w*|"
+            r"out[- ]of[- ]pocket\w*)\b",
+            lower,
+        ):
+            continue
         flag = f"price: {detail}"
         if any(k in lower for k in ("in advance", "advance payment", "upon execution",
                                     "upfront", "payable in advance", "non-refundable")):
@@ -575,6 +591,30 @@ def rule_acceptance(doc, sentences):
             r"(?:amended|revised|changed|modified|new)\s+terms?\b"
             r"|\bacceptance\s+of\s+(?:the\s+)?(?:terms?\b|agreement\b|"
             r"amendment\w*)\b",
+            lower,
+        ):
+            continue
+        # "The Term shall run from the Effective Date until the Final
+        # Acceptance of the last Deliverable" defines the term's end by a
+        # milestone event — it is a duration / term-end statement, not a
+        # window in which deliverables are inspected and accepted.  The guard
+        # requires a term-family framing (Term / Effective Date / commence /
+        # expiry / the Agreement continuing) together with the milestone
+        # "acceptance of" a deliverable-like object, so genuine acceptance
+        # windows ("10 days to inspect and accept each deliverable") still
+        # fire; milestone mentions in payment/retention contexts that lack
+        # the term-family framing ("10% on final acceptance") stay live too.
+        if re.search(
+            r"\b(?:term|agreement|effective\s+date|commenc\w*|expir\w*|"
+            r"runs?\s+from|continue\w*|remain\s+in\s+effect)\b"
+            r"[^.]{0,45}\bacceptance\s+of\b[^.]{0,35}"
+            r"\b(?:deliverable\w*|work\w*|services?\b|goods\b|products?\b|"
+            r"milestone\w*)\b",
+            lower,
+        ) and not re.search(
+            r"\bwithin\s+\d+\s*(?:working|business)?\s*days?\b"
+            r"|\b\d+\s*(?:business|working)?\s*days?\s+(?:to|in\s+which\s+to)\b"
+            r"|\b(?:inspect\b|to\s+inspect\b|inspect\s+and\b)",
             lower,
         ):
             continue
@@ -1683,6 +1723,21 @@ def rule_termination(doc, sentences):
             lower,
         ):
             continue
+        # "Each Purchase Order shall terminate automatically upon its stated
+        # expiry date" is the automated expiry of a sub-document (a purchase
+        # order), not a party's right to terminate the agreement.  The guard
+        # is pinned to the order noun in the same sentence as the terminate
+        # and expiry pair, so "either party may terminate this Agreement"
+        # still fires, and no fixture line pairs an order with termination
+        # (the only purchase-order fixture line is about delivery, line 42).
+        if re.search(
+            r"\bpurchase\s+order\b[^.]{0,50}\bterminat\w*\b[^.]{0,40}\bexpir\w*\b"
+            r"|\bpurchase\s+order\b[^.]{0,50}\bexpir\w*\b[^.]{0,40}\bterminat\w*\b"
+            r"|\bexpir\w*\b[^.]{0,30}\bpurchase\s+order\b[^.]{0,50}\bterminat\w*\b"
+            r"|\bterminat\w*\b[^.]{0,40}\bpurchase\s+order\b[^.]{0,50}\bexpir\w*\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.LOW
         flag = "termination clause"
         if "withdraw" in lower and "for convenience" in lower:
@@ -1763,6 +1818,22 @@ def rule_exclusivity(doc, sentences):
             lower,
         ):
             continue
+        # "Any breach of the exclusivity obligations under clause 7" is a
+        # cross-reference to exclusivity duties elsewhere — the exclusivity
+        # term itself is set out in the clause it points to, so the reference
+        # does not grant market exclusivity.  Genuine exclusivity grants
+        # ("exclusive right to sell", "exclusive license grant") still fire.
+        if re.search(
+            r"\bexclusivit\w*\b[^.]{0,30}\bobligation\w*\b[^.]{0,35}"
+            r"\b(?:clause|section|article|term)\b",
+            lower,
+        ):
+            continue
+        # "The Supplier shall have the exclusive right to supply Components
+        # for the Term" is a grant of market exclusivity — the supply verb is
+        # the substance of the exclusivity.  It fires normally.
+        # "The Seller shall have the exclusive right to inspect the Books and
+        # Records of the Seller" (audit right) is already guarded above.
         # "exclusive rights of use over the marketing materials" is a usage
         # right alongside a licence grant, not a market-exclusivity term.  An
         # "exclusive right to sell" (fixture line 146) still fires.
@@ -2334,6 +2405,23 @@ def rule_insurance(doc, sentences):
                 r"\bto\s+the\s+extent\b[^.]{0,50}"
                 r"\b(?:requir\w*|request\w*|demand\w*|instruct\w*|"
                 r"direct\w*)\s+by\b[^.]{0,60}\binsurance\b",
+                lower,
+            ):
+                continue
+            # "The Contractor shall provide evidence of insurance coverage
+            # upon request" is a documentary / evidentiary step (proof of a
+            # policy that exists), not an inter-party obligation to take out
+            # coverage.  Genuine coverage obligations ("shall maintain
+            # professional indemnity insurance") still fire — the negative leg
+            # keeps maintain/procure/carry/obtain untouched.
+            if re.search(
+                r"\b(?:evidence?|proof|certificates?)\s+of\s+insurance\b"
+                r"|\binsurance\b[^.]{0,35}"
+                r"\b(?:evidence?|proof|certificates?)\s+of\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|carry|obtain\w*|cover\w*)\b[^.]{0,40}"
+                r"\binsurance\b",
                 lower,
             ):
                 continue
