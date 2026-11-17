@@ -2193,3 +2193,103 @@ def test_purchase_order_expiry_not_termination_right():
          "notice."]
     ) if c.clause == "termination"]
     assert clauses, "party termination right must keep firing"
+
+
+def test_defects_liability_period_not_cap():
+    # The defects liability period is the post-acceptance warranty window in
+    # construction contracts, not an agreed cap on liability.
+    clauses = [c for c in _clauses(
+        ["Acceptance of the Works shall be deemed given upon the expiry of the "
+         "defects liability period."]
+    ) if c.clause == "liability_cap"]
+    assert clauses == [], "defects liability period must not fire liability cap"
+    clauses = [c for c in _clauses(
+        ["The total liability of either party under this Agreement shall not exceed "
+         "the Contract Price."]
+    ) if c.clause == "liability_cap"]
+    assert clauses, "genuine total-liability cap must keep firing"
+
+
+def test_at_the_risk_insurance_not_obligation():
+    # "at the risk of" allocates who bears insurance cost in transit; it does
+    # not oblige either party to maintain a policy.
+    clauses = [c for c in _clauses(
+        ["Insurance of the Goods shall be at the risk of the Buyer during transit."]
+    ) if c.clause == "insurance"]
+    assert clauses == [], "risk-allocation 'at the risk of' must not fire insurance"
+    clauses = [c for c in _clauses(
+        ["The Supplier shall maintain professional indemnity insurance during the "
+         "Term."]
+    ) if c.clause == "insurance"]
+    assert clauses, "coverage obligation must keep firing"
+
+
+def test_survival_not_termination_right():
+    # Survival/savings boilerplate preserves rights that outlive the ending;
+    # it is not a grant of a right to terminate.
+    clauses = [c for c in _clauses(
+        ["Termination of the Agreement shall not affect the accrued rights of the "
+         "parties."]
+    ) if c.clause == "termination"]
+    assert clauses == [], "survival clause must not fire termination"
+    clauses = [c for c in _clauses(
+        ["Either party may terminate this Agreement without cause upon 60 days' "
+         "written notice."]
+    ) if c.clause == "termination"]
+    assert clauses, "party termination right must keep firing"
+
+
+def test_acceleration_not_termination_right():
+    # Acceleration makes the unpaid balance due on a termination event; that is
+    # a payment consequence, not a right to terminate.
+    clauses = [c for c in _clauses(
+        ["In the event of termination, the unpaid balance shall become due and "
+         "payable immediately."]
+    ) if c.clause == "termination"]
+    assert clauses == [], "acceleration clause must not fire termination"
+    clauses = [c for c in _clauses(
+        ["Either party may terminate this Agreement without cause upon 60 days' "
+         "written notice."]
+    ) if c.clause == "termination"]
+    assert clauses, "party termination right must keep firing"
+
+
+def test_copyright_life_not_ip_clause():
+    # A term-of-agreement that tracks the copyright life is a duration clause,
+    # not an IP assignment, grant or ownership provision.
+    clauses = [c for c in _clauses(
+        ["This Agreement shall continue for the life of the copyright in the Works."]
+    ) if c.clause == "ip"]
+    assert clauses == [], "copyright-life term must not fire ip"
+    clauses = [c for c in _clauses(
+        ["All inventions created during employment are assigned to the employer."]
+    ) if c.clause == "ip"]
+    assert clauses, "genuine IP assignment must keep firing"
+
+
+def test_invention_disclosure_not_transfer():
+    # A disclosure/reporting duty changes no ownership; only an assignment,
+    # grant or transfer changes who owns the IP.
+    clauses = [c for c in _clauses(
+        ["The Employee shall promptly disclose any inventions to the Company."]
+    ) if c.clause == "ip"]
+    assert clauses == [], "invention disclosure duty must not fire ip"
+    clauses = [c for c in _clauses(
+        ["All inventions created during employment are assigned to the employer."]
+    ) if c.clause == "ip"]
+    assert clauses, "genuine IP assignment must keep firing"
+
+
+def test_discuss_renewal_not_term_renewal():
+    # A commitment to discuss renewal before expiry is negotiation lead-time,
+    # not an agreed renewal or extension of the term itself.
+    clauses = [c for c in _clauses(
+        ["The parties shall discuss renewal of this Agreement at least 3 months "
+         "before expiry."]
+    ) if c.clause == "renewal"]
+    assert clauses == [], "discuss-renewal lead time must not fire renewal"
+    clauses = [c for c in _clauses(
+        ["This Agreement shall automatically renew for successive 1 year terms."]
+    ) if c.clause == "renewal"]
+    assert clauses and any("auto-renew" in (c.flag or "") for c in clauses), \
+        "automatic term renewal must keep firing"

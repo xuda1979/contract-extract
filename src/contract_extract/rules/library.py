@@ -1050,6 +1050,14 @@ def rule_liability(doc, sentences):
             lower,
         ):
             continue
+        # "Acceptance of the Works shall be deemed given upon the expiry of
+        # the defects liability period" — the defects liability period (DLP)
+        # is the post-acceptance warranty window common in construction
+        # contracts, not an agreed cap, disclaimer or exclusion on liability.
+        # Genuine caps ("aggregate liability shall not exceed USD 1M") still
+        # fire.
+        if re.search(r"\bdefects?\s+liability\s+period\b", lower):
+            continue
         # "The company's liability in tort shall be governed by the applicable
         # statute" allocates substantive law (statutory text governs a cause of
         # action) — no cap, disclaimer or agreed exclusion.  Genuine agreed caps
@@ -1368,6 +1376,31 @@ def rule_ip(doc, sentences):
             lower,
         ):
             continue
+        # "This Agreement shall continue for the life of the copyright in the
+        # Works" is a duration / term-of-agreement sentence (the term tracks
+        # the copyright life), not a transfer, grant or ownership clause about
+        # the parties' IP.  Genuine assignments and licence grants still fire.
+        if re.search(
+            r"\b(?:life|term|duration|period)\s+of\s+(?:the\s+)?copyright\b"
+            r"|\bcopyright\b[^.]{0,30}\b(?:life|term|duration)\b",
+            lower,
+        ):
+            continue
+        # "The Employee shall promptly disclose any inventions to the
+        # Company" is a disclosure / reporting duty, not an assignment, grant
+        # or ownership clause (no right changes hands).  Genuine transfers
+        # ("inventions ... are assigned to the employer") still fire via the
+        # negative leg.
+        if re.search(
+            r"\binventions?\b[^.]{0,40}\bdisclos\w*\b"
+            r"|\bdisclos\w*\b[^.]{0,40}\binventions?\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:assign\w*|transfer\w*|vest\w*|grant\w*|owned\s+by|"
+            r"made\s+for\s+hire|work\s+made)\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.LOW
         flag = None
         detail = None
@@ -1547,6 +1580,17 @@ def rule_renewal(doc, sentences):
             lower,
         ):
             continue
+        # "The parties shall discuss renewal of this Agreement at least 3
+        # months before expiry" states a discussion / notice lead-time
+        # commitment, not a renewal of the term itself (no term is extended).
+        # Genuine term renewals ("the term shall renew automatically") still
+        # fire.
+        if re.search(
+            r"\bdiscuss\w*\b[^.]{0,35}\brenew(?:al|s|ing|ed|able)?\b"
+            r"|\brenew(?:al|s|ing|ed|able)?\b[^.]{0,35}\bdiscuss\w*\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.LOW
         flag = "renewal clause"
         if re.search(r"automatic|auto-renew|auto\s+renew|renews\s+automatically|renew\s+automatically|quarterly|automatically\s+renew", lower):
@@ -1631,6 +1675,30 @@ def rule_termination(doc, sentences):
             r"|\bsurviv\w*\b[^.]{0,35}"
             r"\b(?:provision\w*|section\w*|clause\w*|article\w*|paragraph\w*|"
             r"term\w*)\b[^.]{0,90}\bterminat\w*\b",
+            lower,
+        ):
+            continue
+        # "Termination of the Agreement shall not affect the accrued rights
+        # of the parties" is survival / savings boilerplate (the rights that
+        # outlive the ending), not a party's right to terminate the agreement.
+        # Genuine rights ("either party may terminate this Agreement") still
+        # fire.
+        if re.search(
+            r"\bterminat\w*\b[^.]{0,60}\bshall\s+not\s+affect\b[^.]{0,40}"
+            r"\b(?:accrued|rights?|obligations?|provisions?)\b",
+            lower,
+        ):
+            continue
+        # "In the event of termination, the unpaid balance shall become due
+        # and payable immediately" is an acceleration / payment-consequence
+        # rule triggered by a termination event — not a party's right to
+        # terminate the agreement.  "Either party may terminate this
+        # Agreement" and "terminate immediately upon default" still fire.
+        if re.search(
+            r"\bin\s+the\s+event\s+of\b[^.]{0,45}\bterminat\w*\b[^.]{0,60}"
+            r"\b(?:due\s+and\s+payable|shall\s+become\s+due|payable\s+immediately)\b"
+            r"|\bterminat\w*\b[^.]{0,45}\b(?:balance|amount|sum)\b[^.]{0,40}"
+            r"\b(?:due\s+and\s+payable|become\s+due|become\s+payable)\b",
             lower,
         ):
             continue
@@ -2418,6 +2486,22 @@ def rule_insurance(doc, sentences):
                 r"\b(?:evidence?|proof|certificates?)\s+of\s+insurance\b"
                 r"|\binsurance\b[^.]{0,35}"
                 r"\b(?:evidence?|proof|certificates?)\s+of\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|carry|obtain\w*|cover\w*)\b[^.]{0,40}"
+                r"\binsurance\b",
+                lower,
+            ):
+                continue
+            # "Insurance of the Goods shall be at the risk of the Buyer
+            # during transit" allocates who bears the insurance risk / cost —
+            # a risk-allocation statement, not an inter-party obligation to
+            # maintain a policy.  Genuine coverage obligations ("shall
+            # maintain professional indemnity insurance") still fire — the
+            # negative leg keeps maintain/procure/carry/obtain untouched.
+            if re.search(
+                r"\binsurance\b[^.]{0,45}\bat\s+the\s+risk\b"
+                r"|\bat\s+the\s+risk\b[^.]{0,45}\binsurance\b",
                 lower,
             ) and not re.search(
                 r"\b(?:maintain\w*|procure\w*|carry|obtain\w*|cover\w*)\b[^.]{0,40}"
