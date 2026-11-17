@@ -58,6 +58,140 @@ def test_automatic_renewal_is_medium():
     assert all(c.risk.value == "MEDIUM" for c in clauses)
 
 
+def test_deed_signature_acceptance_not_fired():
+    # "execute this Deed upon the acceptance of the signature page" is a
+    # deed-execution / signature-formalities statement, not an acceptance
+    # machinery clause.
+    assert not _clauses(
+        "The parties shall execute this Deed upon the acceptance of the appended signature page."
+    )
+
+
+def test_offer_acceptance_fires():
+    # A genuine acceptance-machinery clause still fires: deemed acceptance
+    # upon completion of the acceptance test.
+    flags = _risk_by_rule(
+        ["The Buyer shall be deemed to have accepted the Works upon completion of the acceptance test."],
+        "acceptance",
+    )
+    assert flags
+
+
+def test_insurer_claim_payment_not_a_payment_term():
+    # An insurer's claims-settlement payment ("payment of the claim within 30
+    # days of the loss assessment") is not a payment term between the
+    # contracting parties.
+    assert not _clauses(
+        "The Insurer shall make payment of the claim within 30 days of the loss assessment."
+    )
+
+
+def test_payment_of_sum_due_fires():
+    # "make payment of the purchase price within 30 days of the invoice" is a
+    # genuine payment-term commitment between Buyer and Seller.
+    flags = _risk_by_rule(
+        ["The Buyer shall make payment of the purchase price within 30 days of the invoice date."],
+        "payment",
+    )
+    assert flags
+
+
+def test_copyright_duration_not_fired():
+    # "duration of copyright protection shall be 70 years after the author's
+    # death" is a statutory IP-protection term.
+    assert not _clauses(
+        "The duration of copyright protection shall be 70 years after the author's death."
+    )
+
+
+def test_salary_notice_penalty_not_fired():
+    # "Failure to give the required notice shall attract a penalty of one
+    # month's salary" is an employment remedy, not a penalty clause against a
+    # contracting counterparty.
+    assert not _clauses(
+        "Failure to give the required notice shall attract a penalty of one month's salary."
+    )
+
+
+def test_statutory_product_liability_not_fired():
+    # "The Supplier shall be liable to consumers for defective products under
+    # the Product Liability Act" restates a statutory allocation.
+    assert not _clauses(
+        "The Supplier shall be liable to consumers for defective products under the Product Liability Act."
+    )
+
+
+def test_exclusive_dealing_not_fired():
+    # "exclusive dealing that restricts competition" is a competition-law /
+    # antitrust anti-arrangement statement.
+    assert not _clauses(
+        "The parties shall not engage in exclusive dealing that restricts competition."
+    )
+
+
+def test_tenant_renewal_option_fires():
+    # A tenant's option to renew a lease remains a genuine renewal clause.
+    flags = _risk_by_rule(
+        ["The Tenant may renew the Lease for a further term by serving notice on the Landlord."],
+        "renewal",
+    )
+    assert flags
+
+
+def test_employee_termination_fires():
+    # An employment termination right by notice is still a termination clause.
+    flags = _risk_by_rule(
+        ["The Employee may terminate this employment by giving notice to the Employer."],
+        "termination",
+    )
+    assert flags
+
+
+def test_bank_customer_confidentiality_fires():
+    # A bank's duty to keep the affairs of its customer confidential is a
+    # genuine confidentiality clause.
+    flags = _risk_by_rule(
+        ["The Bank shall keep the affairs of the Customer confidential in accordance with banking practice."],
+        "confidentiality",
+    )
+    assert flags
+
+
+def test_privacy_policy_publication_fires():
+    # Publishing a privacy policy describing data processing is a genuine
+    # data-protection clause.
+    flags = _risk_by_rule(
+        ["The Company shall publish a privacy policy describing how personal data is processed."],
+        "data_protection",
+    )
+    assert flags
+
+
+def test_adviser_recommended_insurance_not_fired():
+    # "take out such insurance as its professional advisers recommend" defers
+    # the coverage decision — not a concrete coverage obligation.
+    assert not _clauses(
+        "Each party shall take out such insurance as its professional advisers recommend."
+    )
+
+
+def test_attendees_own_insurance_not_fired():
+    # Requiring attendees to hold their own insurance passes the burden to
+    # individuals — not an inter-party coverage obligation.
+    assert not _clauses(
+        "The Organiser shall require attendees to hold their own insurance for the event."
+    )
+
+
+def test_quantity_of_data_not_fired():
+    # "quantity of data to be transferred per month" is a technical
+    # capacity/volume metric, not a personal-data movement obligation.
+    assert not _clauses(
+        "The contract shall specify the quantity of data to be transferred per month."
+    )
+
+
+
 def test_illustrative_duration_not_fired():
     # "For example, a period of 3 weeks may be reasonable" is illustrative,
     # not a binding term.

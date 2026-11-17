@@ -159,6 +159,18 @@ def rule_duration(doc, sentences):
             lower,
         ):
             continue
+        # "The duration of copyright protection shall be 70 years after the
+        # author's death" is a statutory IP-protection term (fixed by law, not
+        # negotiated) — extending the instrument guard above to statutory
+        # protection families.  A genuine negotiated licence / agreement term
+        # ("the term of the Licence shall be 3 years") has no protection
+        # noun and still fires.
+        if re.search(
+            r"\b(?:term|duration|period)\s+of\b[^.]{0,25}"
+            r"\b(?:copyright|patent\w*|trademark|industrial\s+design)\s+protection\b",
+            lower,
+        ):
+            continue
         # "The warranty period is 12 months from delivery", "the standstill
         # period of 60 days" are coverage or procedural windows, not
         # agreement terms.  Zero fixture files use these phrases (checked
@@ -664,6 +676,23 @@ def rule_acceptance(doc, sentences):
             lower,
         ):
             continue
+        # "The parties shall execute this Deed upon the acceptance of the
+        # appended signature page" is a deed-execution / signature formalities
+        # statement (when the deed is deemed executed), not a window in which
+        # deliverables are inspected and accepted.  The guard anchors on
+        # deed / signature-page / counterpart execution language on either
+        # side of "acceptance"; genuine deliverables acceptance ("10 days to
+        # inspect and accept each deliverable") still fires.
+        if re.search(
+            r"\b(?:deed\w*|signature\s+(?:page|pages?)|signed\s+page|counterpart\w*)"
+            r"\b[^.]{0,45}\baccept\w*\b"
+            r"|\baccept\w*\b[^.]{0,45}\b(?:deed\b|signature\s+(?:page|pages?)|"
+            r"signed\s+page|counterpart\w*)\b"
+            r"|\bexecut\w*\b[^.]{0,40}\b(?:deed\b|signature\s+page\b)\b[^.]{0,40}"
+            r"\baccept\w*\b",
+            lower,
+        ):
+            continue
         within = re.search(r"\bwithin\s+(\d+)\s*(?:working|business)?\s*days?\b", lower)
         window = re.search(r"\b(\d+)\s*(?:business|working)?\s*days?\s+(?:to|in\s+which\s+to)\s+(?:inspect|accept|complete)", lower)
         risk = RiskLevel.LOW
@@ -765,6 +794,25 @@ def rule_payment(doc, sentences):
             r"[^.]{0,50}\badvance\b[^.]{0,50}\bdiscretion\b"
             r"|\bdiscretion\b[^.]{0,50}\badvance\b[^.]{0,50}"
             r"\b(?:payment|payments|instalments?|installments?|fees?)\b",
+            lower,
+        ):
+            continue
+        # "The Insurer shall make payment of the claim within 30 days of the
+        # loss assessment" / "payment of the claim shall be made upon receipt
+        # of the proof of loss" is an insurer's claims-settlement commitment
+        # (the insurer pays its insured's claim), not a commercial payment
+        # term between contracting parties for goods or services.  The guard
+        # anchors on claim / insured / loss language either side of
+        # "payment"; a genuine invoice / purchase-price payment sibling
+        # ("payment of the invoice within 30 days") has no insurer context
+        # and still fires.
+        if re.search(
+            r"\b(?:payment|payments?)\s+of\b[^.]{0,40}"
+            r"\b(?:claim\w*|loss\b|losses?\b|insured\b|indemnit\w*)\b"
+            r"|\b(?:claim\w*|loss\b|losses?\b|insured\b|indemnit\w*)\b[^.]{0,40}"
+            r"\b(?:payment|payments?)\s+of\b"
+            r"|\b(?:insurer|insurance\s+company|underwriter\w*|policy\b|"
+            r"policyholder\w*)\b[^.]{0,45}\b(?:payment|payments?|pay\b)\b",
             lower,
         ):
             continue
@@ -1041,6 +1089,26 @@ def rule_penalty(doc, sentences):
             )
         ):
             continue
+        # "Failure to give the required notice shall attract a penalty of one
+        # month's salary" is an employment remedy (a wage sanction for
+        # insufficient notice), not a negotiated default penalty for a
+        # goods/services breach.  The guard requires BOTH a salary anchor on
+        # either side of the penalty word AND an employment / notice /
+        # dismissal context bound to the sentence, so a genuine quantified
+        # contractual penalty ("a late payment penalty of 2% per month" — no
+        # salary) or a "penalty of one month's rent" lease charge stays
+        # untouched.
+        if re.search(
+            r"\bpenalt\w*\b[^.]{0,40}\bsalary\b"
+            r"|\bsalary\b[^.]{0,40}\bpenalt\w*\b",
+            lower,
+        ) and re.search(
+            r"\b(?:employ\w*|notice\b|dismiss\w*|redundan\w*|severance|"
+            r"resign\w*|terminat\w+\s+employment|month'?s?\s+wages?|"
+            r"month'?s?\s+salary|week'?s?\s+(?:salary|wages?))\b",
+            lower,
+        ):
+            continue
         pct = _PERCENT_RE.search(sentence)
         amount = _AMOUNT_RE.search(sentence)
         risk = RiskLevel.MEDIUM
@@ -1160,10 +1228,16 @@ def rule_liability(doc, sentences):
         # follows the manufacturer" restates a statutory allocation — no cap,
         # disclaimer or exclusion is being agreed.  Genuine caps ("aggregate
         # liability shall not exceed USD 1M") and disclaimers still fire.
+        # Both directions: "the parties acknowledge that product liability
+        # for defective goods follows the manufacturer" and "the Supplier
+        # shall be liable to consumers for defective products under the
+        # Product Liability Act" restate statutory allocation.
         if re.search(
             r"\bproduct\s+liability\b[^.]{0,45}"
             r"\b(?:defect\w*|manufacturer|consumer|statutory|"
-            r"shall\s+follow|rests?\s+with|remains?\s+with)\b",
+            r"shall\s+follow|rests?\s+with|remains?\s+with)\b"
+            r"|\b(?:defect\w*|consumer\w*|liable\s+to\b|manufacturer)\b"
+            r"[^.]{0,45}\bproduct\s+liability\b",
             lower,
         ):
             continue
@@ -2383,6 +2457,18 @@ def rule_exclusivity(doc, sentences):
             lower,
         ):
             continue
+        # "The parties shall not engage in exclusive dealing that restricts
+        # competition" is a competition-law / antitrust anti-arrangement
+        # statement (exclusive dealing as a restrictive practice), not a grant
+        # of market exclusivity to either party.  A genuine exclusivity grant
+        # ("exclusive right to sell" / "sole distributor") still fires.  No
+        # fixture line uses "exclusive dealing" (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bexclusive\s+dealing\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.MEDIUM
         flag = "exclusivity clause"
         dur = _DURATION_RE.search(sentence)
@@ -2608,6 +2694,19 @@ def rule_data_protection(doc, sentences):
                     r"banking|credit|identity|biometric)\s+data\b",
                     lower,
                 ):
+            continue
+        # "The contract shall specify the quantity of data to be transferred
+        # per month" is a technical capacity / volume metric (bandwidth,
+        # storage or usage allowance), not a personal-data movement
+        # obligation.  Genuine data-transfer / processing clauses still fire.
+        if re.search(
+            r"\b(?:quantity|volume|amount|level|rate)s?\s+of\s+data\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:personal|customer|consumer|user|employee|health|financial|"
+            r"banking|credit|identity|biometric)\s+data\b",
+            lower,
+        ):
             continue
         risk = RiskLevel.LOW
         flag = "data protection clause"
@@ -2983,6 +3082,53 @@ def rule_insurance(doc, sentences):
             ) and not re.search(
                 r"\b(?:maintain\w*|procure\w*|carry|obtain\w*|take\s+out)\b[^.]{0,40}"
                 r"\binsurance\b",
+                lower,
+            ):
+                continue
+            # "The Insurer shall make payment of the claim within 30 days of
+            # the loss assessment" is a claims-settlement commitment by the
+            # insurer (administering payouts under a policy already in
+            # force), not an inter-party obligation for a party to take out
+            # or maintain cover.  Genuine coverage obligations ("shall
+            # maintain professional indemnity insurance") still fire.
+            if re.search(
+                r"\b(?:insurer\b|insurance\s+company\b|underwriter\w*)\b"
+                r"[^.]{0,55}\b(?:pay\w*|settle\w*|indemnif\w*|reimburse\w*)\b"
+                r"|\b(?:pay\w*|settle\w*|indemnif\w*|reimburse\w*)\b"
+                r"[^.]{0,55}\b(?:insurer\b|insurance\s+company\b|underwriter\w*)\b",
+                lower,
+            ) and re.search(
+                r"\b(?:claim\w*|loss(?:es)?\b|loss\s+assessment\b|insured\b)\b",
+                lower,
+            ):
+                continue
+            # "Each party shall take out such insurance as its professional
+            # advisers recommend" defers the coverage decision to professional
+            # advisers' recommendations — an elastic "obtain whatever cover
+            # your advisers say is appropriate" statement, not a concrete
+            # coverage obligation.  Genuine coverage obligations naming a
+            # policy type or fixed requirement still fire.
+            if re.search(
+                r"\bsuch\s+insurance\b[^.]{0,50}"
+                r"\b(?:advis\w*|recommend\w*|deem\w*|consider\w*)\b"
+                r"|\b(?:advis\w*|recommend\w*|deem\w*|consider\w*)\b[^.]{0,50}"
+                r"\bsuch\s+insurance\b",
+                lower,
+            ):
+                continue
+            # "The Organiser shall require attendees to hold their own
+            # insurance for the event" passes the cost/effort of coverage to
+            # individuals (attendees, participants, users, guests) rather than
+            # obliging a contracting party — not an inter-party coverage
+            # obligation.  Genuine coverage obligations ("shall maintain
+            # professional indemnity insurance") still fire.
+            if re.search(
+                r"\b(?:attendees?|participants?|guests?|users?|customers?|"
+                r"members?)\b[^.]{0,45}"
+                r"\b(?:own|personal|individual)\s+insurance\b"
+                r"|\b(?:own|personal|individual)\s+insurance\b[^.]{0,45}"
+                r"\b(?:attendees?|participants?|guests?|users?|customers?|"
+                r"members?)\b",
                 lower,
             ):
                 continue
