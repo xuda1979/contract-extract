@@ -1630,3 +1630,162 @@ def test_insure_verb_is_a_coverage_obligation():
         ["The Supplier shall insure the Goods against loss or damage during transit."]
     ) if c.clause == "insurance"]
     assert clauses and clauses[0].risk.value == "LOW"
+
+
+def test_application_acceptance_not_a_deliverables_acceptance():
+    # "The acceptance of the application shall be notified to the applicant"
+    # is administrative paperwork (licensing / registration), not an
+    # acceptance of deliverables.  A genuine acceptance window still fires.
+    for sentence in [
+        "The acceptance of the application shall be notified to the applicant in writing.",
+        "The application shall be accepted by the licensing authority within 30 days.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "acceptance"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Customer shall have 10 days after delivery to inspect and accept each Deliverable."]
+    ) if c.clause == "acceptance"]
+    assert clauses and clauses[0].risk.value == "LOW"
+
+
+def test_marking_as_confidential_not_a_restriction():
+    # "Documents shall be marked as confidential" is a marking duty, not a
+    # confidentiality restriction on use or disclosure.  A genuine
+    # non-disclosure obligation still fires.
+    for sentence in [
+        "Documents shall be marked as confidential by the Supplier.",
+        "The Supplier shall stamp the label confidential on each page of the report.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "confidentiality"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Licensee shall not disclose confidential information to any third party."]
+    ) if c.clause == "confidentiality"]
+    assert clauses and clauses[0].risk.value == "LOW"
+
+
+def test_personal_data_definition_not_a_data_clause():
+    # "Personal data means any information relating to a natural person" is a
+    # GDPR definitional statement — it names no processing, transfer or
+    # breach obligation.  A cross-border transfer still fires.
+    for sentence in [
+        "Personal data means any information relating to an identified or identifiable natural person.",
+        "Personal data is defined as any information relating to a natural person.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "data_protection"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Any data transferred outside the EEA shall be subject to standard contractual clauses."]
+    ) if c.clause == "data_protection"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_exclusive_control_over_marketing_not_market_exclusivity():
+    # "exclusive control over the marketing of the Products" is an internal
+    # responsibility allocation, not a market-exclusivity grant to sell,
+    # license or distribute.  A genuine exclusive right to sell still fires.
+    for sentence in [
+        "The Buyer shall have exclusive control over the marketing of the Products in the Territory.",
+        "The Buyer shall have control of the marketing of the Products exclusively within the region.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "exclusivity"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Seller shall have the exclusive right to sell the Products in the Territory."]
+    ) if c.clause == "exclusivity"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_cif_and_cost_allocation_not_insurance_obligation():
+    # "on CIF terms, cost, insurance and freight" is an INCOTERMS shipping
+    # term and "the cost of transportation and insurance shall be borne by
+    # the Buyer" is a cost-allocation statement — neither creates a coverage
+    # obligation.  A genuine maintain-insurance obligation still fires.
+    for sentence in [
+        "The Goods shall be supplied on CIF terms, being cost, insurance and freight to the port of destination.",
+        "The cost of transportation and insurance shall be borne by the Buyer.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "insurance"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Supplier shall maintain marine insurance for the Goods during transit at its own cost and freight."]
+    ) if c.clause == "insurance"]
+    assert clauses and clauses[0].risk.value == "LOW"
+
+
+def test_loan_prepayment_not_a_payment_term():
+    # "The Borrower may prepay the Loan" is loan-facility mechanics, not a
+    # payment term for goods or services.  A genuine advance payment still
+    # fires.
+    for sentence in [
+        "The Borrower may prepay the Loan in whole or in part at any time.",
+        "The Loan may be prepaid by the Borrower in whole or in part at any time.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "payment"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Buyer shall pay an advance payment of 30% of the contract price upon signature."]
+    ) if c.clause == "payment"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_loan_prepayment_penalty_not_a_default_penalty():
+    # "A prepayment penalty ... early settlement of the Loan" is a loan
+    # yield-protection charge, not a default penalty for a contractual
+    # breach.  A genuine late-payment penalty and a prepayment penalty
+    # without loan context still fire.
+    for sentence in [
+        "A prepayment penalty of 1% shall apply to any early settlement of the Loan.",
+        "The Loan may be repaid early, subject to a prepayment penalty of 1%.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "penalty"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["A late payment penalty of 1.5% per month shall apply to any overdue invoice."]
+    ) if c.clause == "penalty"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+    clauses = [c for c in _clauses(
+        ["A prepayment penalty of USD 5,000 applies if the Buyer cancels the order within 7 days of delivery."]
+    ) if c.clause == "penalty"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_survival_boilerplate_not_termination_right():
+    # "Upon termination of this Agreement, the provisions of Sections 4 and
+    # 7 shall survive" lists what outlives the agreement — not a party's
+    # right to terminate it.  Genuine termination rights still fire.
+    for sentence in [
+        "Upon termination of this Agreement, the provisions of Sections 4 and 7 shall survive in accordance with their terms.",
+        "The provisions of Section 6 shall survive the termination of this Agreement.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "termination"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Either party may terminate this Agreement without cause upon 60 days' written notice."]
+    ) if c.clause == "termination"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+    clauses = [c for c in _clauses(
+        ["The Buyer may terminate this Agreement for cause if the Seller commits a material breach."]
+    ) if c.clause == "termination"]
+    assert clauses and clauses[0].risk.value == "LOW"
+
+
+def test_probe_r22_clean_families_stay_silent():
+    # Additional Round 22 probe candidates that already stayed silent and
+    # must keep doing so: "renewable energy" (renew\\w* token is not a term
+    # renewal), "quantity surveyor" (a profession), "remain the property of"
+    # (retention without a transfer verb), "sole responsibility" (a duty
+    # allocation), premises delivery (real-estate conveyance), early
+    # withdrawal (banking product term) and a no-warranty disclaimer.
+    expects = [
+        ("renewal", "The Buyer shall use renewable energy sources for its operations."),
+        ("quantity", "The Contractor shall appoint a quantity surveyor to measure the Works."),
+        ("ip", "Pre-existing know-how and materials shall remain the property of the Supplier."),
+        ("exclusivity", "The Supplier shall have the sole responsibility for quality control of the Products."),
+        ("delivery", "Delivery of the Premises shall take place on the Completion Date, at which time title shall pass to the Buyer."),
+        ("penalty", "The Bank may charge a penalty for early withdrawal of the deposit."),
+        ("liability_cap", "The Supplier makes no warranty that the Services will be error-free or uninterrupted."),
+    ]
+    for rule, sentence in expects:
+        clauses = [c for c in _clauses(sentence) if c.clause == rule]
+        assert clauses == [], (rule, sentence)

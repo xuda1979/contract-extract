@@ -498,6 +498,19 @@ def rule_acceptance(doc, sentences):
             lower,
         ):
             continue
+        # "The acceptance of the application / registration / request shall
+        # be notified to the applicant" is administrative paperwork (licensing,
+        # registration, immigration), not a deliverables acceptance.  Genuine
+        # acceptance windows still fire.
+        if re.search(
+            r"\bacceptance\s+of\s+(?:the\s+|a\s+|this\s+|an\s+)?"
+            r"(?:application\w*|registration\w*|enrollment\w*|enrolment\w*|"
+            r"request\w*|submission\w*)\b"
+            r"|\b(?:application\w*|registration\w*|enrollment\w*|enrolment\w*|"
+            r"request\w*|submission\w*)\b[^.]{0,35}\baccept(?:ed|s|ing)?\b",
+            lower,
+        ):
+            continue
         within = re.search(r"\bwithin\s+(\d+)\s*(?:working|business)?\s*days?\b", lower)
         window = re.search(r"\b(\d+)\s*(?:business|working)?\s*days?\s+(?:to|in\s+which\s+to)\s+(?:inspect|accept|complete)", lower)
         risk = RiskLevel.LOW
@@ -548,6 +561,22 @@ def rule_payment(doc, sentences):
         # "notes payable" on a balance sheet is an accounting line item, not a
         # payment term between the parties.  None of the fixtures use it.
         if re.search(r"\bnotes?\s+payable\b", lower):
+            continue
+        # "The Borrower may prepay the Loan in whole or in part" / "A
+        # prepayment penalty..." is loan-facility mechanics (the borrower may
+        # accelerate repayment), not a payment term for goods or services.
+        # Genuine payment terms ("invoices shall be paid within 30 days",
+        # "buyer shall make an advance payment") still fire — the gate keeps
+        # "to pay" / "advance payment" obligations untouched.
+        if re.search(
+            r"\b(?:prepay(?:s|ed|ing)?\b|prepayments?|pre[- ]?paid)\b[^.]{0,45}"
+            r"\b(?:loan\w*|fixtures?|facilit\w*|debt\w*|borrow\w*|mortgage\w*|"
+            r"credit\s+line\b|advance\s+facilit\w*|bond\w*)\b"
+            r"|\b(?:loan\w*|fixtures?|facilit\w*|debt\w*|borrow\w*|mortgage\w*|"
+            r"credit\s+line\b|advance\s+facilit\w*|bond\w*)\b[^.]{0,45}"
+            r"\b(?:prepay(?:s|ed|ing)?\b|prepayments?|pre[- ]?paid)\b",
+            lower,
+        ):
             continue
         # find a specific financial term
         pct = _PERCENT_RE.search(sentence)
@@ -732,6 +761,23 @@ def rule_penalty(doc, sentences):
         ) and re.search(
             r"\b(?:deposit\w*|principal|maturity|savings|account\b|bank\w*|"
             r"certificate\s+of\s+deposit)\b",
+            lower,
+        ):
+            continue
+        # "A prepayment penalty of 1% shall apply to any early settlement of
+        # the Loan" is a loan yield-protection charge (the borrower pays to
+        # settle the facility early), not a default penalty for a contract
+        # breach.  A genuine late-payment / liquidated-damages penalty has no
+        # loan / borrow / settlement context and stays untouched.
+        if re.search(
+            r"\b(?:prepay\w*|pre[- ]?paid|early\s+(?:settlement|repayment|redemption))\b"
+            r"[^.]{0,45}\b(?:penalt\w*|fee|charge\w*|damages?)\b"
+            r"|\b(?:penalt\w*|fee|charge\w*|damages?)\b[^.]{0,45}"
+            r"\b(?:prepay\w*|pre[- ]?paid|early\s+(?:settlement|repayment|redemption))\b",
+            lower,
+        ) and re.search(
+            r"\b(?:loan\w*|borrow\w*|financ\w*|mortgage\w*|debt\w*|facilit\w*|"
+            r"credit\w*|bank\w*|principal\b)\b",
             lower,
         ):
             continue
@@ -1027,6 +1073,18 @@ def rule_confidentiality(doc, sentences):
             r"\bmeans\b"
             r"|\bconfidential\s+(?:information|data|material\w*)\b[^.]{0,40}"
             r"\bdoes\s+not\s+(?:include|cover)\b",
+            lower,
+        ):
+            continue
+        # "Documents shall be marked as confidential / marked 'Confidential'"
+        # is a marking duty (label the documents), not a restriction on who
+        # may use or disclose them.  Genuine use/disclosure restrictions
+        # ("shall keep strictly confidential", "shall not disclose") still
+        # fire.  No fixture line uses "mark" + "confidential" together.
+        if re.search(
+            r"\b(?:mark\w*|label\w*|stamp\w*|designat\w*)\b[^.]{0,25}"
+            r"\bconfidential\b"
+            r"|\bconfidential\b[^.]{0,40}\b(?:mark\w*|label\w*|stamp\w*|designat\w*)\b",
             lower,
         ):
             continue
@@ -1359,6 +1417,24 @@ def rule_termination(doc, sentences):
             lower,
         ):
             continue
+        # "Upon termination of this Agreement, the provisions of Sections 4
+        # and 7 shall survive ..." is a survival boilerplate that opens with
+        # the termination event and lists provisions that outlive it — not a
+        # party's right to terminate.  Because the survival verb comes last,
+        # the 50-character window above is exhausted by the enumeration, so a
+        # dedicated guard matches the document/section noun between the
+        # termination event and the survival verb.
+        if re.search(
+            r"\bterminat\w*\b[^.]{0,90}"
+            r"\b(?:provision\w*|section\w*|clause\w*|article\w*|paragraph\w*|"
+            r"term\w*|agreement|contract)\b"
+            r"[^.]{0,35}\bsurviv\w*\b"
+            r"|\bsurviv\w*\b[^.]{0,35}"
+            r"\b(?:provision\w*|section\w*|clause\w*|article\w*|paragraph\w*|"
+            r"term\w*)\b[^.]{0,90}\bterminat\w*\b",
+            lower,
+        ):
+            continue
         # "supersedes and terminates any prior agreements" is supersession
         # boilerplate about earlier contracts, not a party's right to
         # terminate this one.  "This Agreement shall be terminated by either
@@ -1559,6 +1635,20 @@ def rule_exclusivity(doc, sentences):
             lower,
         ):
             continue
+        # "The Buyer shall have exclusive control over the marketing of the
+        # Products" is an internal responsibility allocation (who runs which
+        # function), not a market-exclusivity grant to the other party to
+        # sell, license or distribute.  Both word orders are covered; a
+        # genuine "exclusive right to sell" still fires.  No fixture line
+        # uses "exclusive control".
+        if re.search(
+            r"\bexclusive\s+control\b[^.]{0,40}\b(?:over|of|on|upon)\b"
+            r"|\bcontrol\b[^.]{0,45}\bexclusively\b",
+            lower,
+        ) and re.search(
+            r"\b(?:market\w*|promot\w*|advertis\w*|marketing\w*)", lower,
+        ):
+            continue
         risk = RiskLevel.MEDIUM
         flag = "exclusivity clause"
         dur = _DURATION_RE.search(sentence)
@@ -1677,6 +1767,21 @@ def rule_data_protection(doc, sentences):
         ) and re.search(r"\bpersonal\s+data\b", lower) and not re.search(
             r"\b(?:transfer(?:s|red|ring)?|disclos\w*|process(?:ed|ing)?\s+of|"
             r"controller\b|processor\b|DPA\b|SCC\b|outside\s+(?:the\s+)?(?:EEA|EU)\b)",
+            lower,
+        ):
+            continue
+        # "Personal data means any information relating to an identified or
+        # identifiable natural person" is a GDPR definitional statement, not a
+        # processing / transfer / breach obligation.  Genuine clauses naming
+        # personal data and processing, transfers or obligations still fire.
+        if re.search(
+            r"\bpersonal\s+data\b[^.]{0,35}\b(?:means|refers?\s+to|is\s+defined\s+as)\b"
+            r"|\b(?:means|refers?\s+to|is\s+defined\s+as)\b[^.]{0,35}\bpersonal\s+data\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:transfer(?:s|red|ring)?|disclos\w*|process(?:ed|ing)?\s+of|"
+            r"controller\b|processor\b|DPA\b|SCC\b|collect(?:ed|ing)?\b|"
+            r"outside\s+(?:the\s+)?(?:EEA|EU)\b)\b",
             lower,
         ):
             continue
@@ -1888,6 +1993,21 @@ def rule_insurance(doc, sentences):
             ) and not re.search(
                 r"\b(?:maintain\w*|procure\w*|carry|obtain\w*|cover\w*)\b[^.]{0,40}"
                 r"\binsurance\b",
+                lower,
+            ):
+                continue
+            # "The Goods shall be supplied on CIF terms, being cost,
+            # insurance and freight to the port of destination" is an
+            # INCOTERMS shipping term and "the cost of transportation and
+            # insurance shall be borne by the Buyer" is a cost-allocation
+            # statement — neither creates a coverage obligation to maintain a
+            # policy.  Genuine coverage obligations ("shall maintain
+            # professional indemnity insurance") still fire.
+            if re.search(
+                r"\bcost,\s+insurance\s+and\s+freight\b"  # CIF Incoterm
+                r"|\b(?:cost|expense|expenses|charges?)\s+of\s+(?:the\s+)?"
+                r"(?:transport\w*|shipment|shipping|freight)\b[^.]{0,30}\binsurance\b"
+                r"|\bcif\s+(?:terms?|incoterm\w*)\b",
                 lower,
             ):
                 continue
