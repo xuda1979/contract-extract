@@ -241,6 +241,20 @@ def rule_duration(doc, sentences):
         # post-completion repair / snagging window (the construction DLP
         # family), not the agreement's term.  A "term of the Lease" still
         # fires.
+        # "The interest-free period is 30 days from the invoice date" is a
+        # financing / billing arrangement window (no interest accrues within
+        # it), not the agreement's term.  Genuine agreement terms ("the term
+        # of this Agreement shall be for a period of 2 years") still fire —
+        # the guard requires the "interest-free period" compound or an
+        # interest-free term in the sentence.
+        if re.search(
+            r"\binterest[- ]?free\s+period\b"
+            r"|\bperiod\s+of\s+(?:interest|finance\w*)[\s-]?free\b"
+            r"|\binterest[- ]?free\b[^.]{0,30}\bperiod\b"
+            r"|\bperiod\b[^.]{0,30}\binterest[- ]?free\b",
+            lower,
+        ):
+            continue
         if re.search(
             r"\b(?:workmanship|snag\w*|remedial|rectification)\b[^.]{0,40}"
             r"\b(?:repair\w*|remed\w*|defect\w*)\b"
@@ -351,6 +365,29 @@ def rule_quantity(doc, sentences):
         # "long".
         if re.search(
             r"\b\d+(?:[.,]\d+)?\s+pages?\s+long\b",
+            lower,
+        ):
+            continue
+        # "The auditors filed 12 copies of the report with the court" /
+        # "The application was submitted in 8 copies to the registry" count
+        # copies of a document filed / lodged with an institution — a
+        # procedural filing, not a quantity of goods.  "Three counterparts of
+        # the agreement were executed" counts execution counterparts (duplicate
+        # originals), likewise not goods.  Genuine committed goods quantities
+        # ("a total of 10,000 units", "12 events") still fire — the guard
+        # requires an institutional / filing noun or the "counterpart" noun
+        # near the count.
+        if re.search(
+            r"\b\d+(?:[.,]\d+)?\s+copies?\b[^.]{0,45}"
+            r"\b(?:court\w*|tribunal\w*|registry|registrar|authority|"
+            r"government\w*|agency|filed?|lodg\w*|submitted?|stamp\w*)\b"
+            r"|\b(?:court\w*|tribunal\w*|registry|registrar|authority|"
+            r"government\w*|agency|filed?|lodg\w*|submitted?|stamp\w*)\b"
+            r"[^.]{0,45}\b\d+(?:[.,]\d+)?\s+copies?\b"
+            r"|\b\d+(?:[.,]\d+)?\s+counterparts?\b[^.]{0,30}"
+            r"\b(?:agreement|contract|deed|instrument)\b"
+            r"|\b(?:agreement|contract|deed|instrument)\b[^.]{0,30}"
+            r"\b\d+(?:[.,]\d+)?\s+counterparts?\b",
             lower,
         ):
             continue
@@ -549,6 +586,28 @@ def rule_delivery(doc, sentences):
             r"\bdeliver(?:s|ed|y|ing)?\b[^.]{0,60}\b(?:training\s+program(?:me)?\w*|"
             r"training\s+course\w*|training\s+materials?|presentation\s+slides?|"
             r"lecture\w*|keynote\b|\breport\b|the\s+training\b|workshop\w*|seminar\w*)\b",
+            lower,
+        ):
+            continue
+        # "The Contractor shall deliver the business plan to the Board within
+        # 14 days" / "The vendor shall deliver the proposal by 30 June" are
+        # document/proposal knowledge submissions to a corporate body — not a
+        # goods delivery obligation, even with a deadline.  "deliver the
+        # business plan" is the professional-output family of the knowledge
+        # guard above.  Goods deliveries ("deliver the goods to the buyer's
+        # warehouse within 30 days") still fire — the guard requires the
+        # non-goods document noun after the deliver verb.
+        if re.search(
+            r"\bdeliver(?:s|ed|y|ing)?\b[^.]{0,45}"
+            r"\b(?:business\s+plans?|proposals?|plans?\s+to\s+(?:the\s+)?"
+            r"(?:board|committee|management)|budgets?|strateg(?:y|ies)|"
+            r"presentations?|drafts?|memorandum|memo\b)\b"
+            r"|\b(?:business\s+plans?|proposals?|budgets?|strateg(?:y|ies)|"
+            r"presentations?|drafts?|memorandum|memo\b)\b[^.]{0,45}"
+            r"\bmust\s+be\s+delivered\b"
+            r"|\b(?:business\s+plans?|proposals?|budgets?|strateg(?:y|ies)|"
+            r"presentations?|drafts?|memorandum|memo\b)\b[^.]{0,45}"
+            r"\bshall\s+be\s+delivered\b",
             lower,
         ):
             continue
@@ -1115,6 +1174,35 @@ def rule_penalty(doc, sentences):
             lower,
         ):
             continue
+        # "The player was shown a yellow card for the penalty" / "The penalty
+        # kick was converted by the striker" / "The referee awarded a penalty
+        # shot after the foul" are on-field sports sanctions (a card, kick or
+        # shot as game events), not a contractual default penalty.  The guard
+        # extends the sports family above (goals/match/tournament) to the
+        # player-level event nouns.  Zero fixture lines use these (checked
+        # against fixtures/generate_fixtures.py); a genuine quantified breach
+        # penalty ("a late payment penalty of 2% per month") stays untouched.
+        if re.search(
+            r"\bpenalt\w*\b[^.]{0,45}"
+            r"\b(?:yellow\s+card|kick|corners?|shot|shots|strikers?|referees?|"
+            r"players?|fouls?|tackles?|pitch|converted|spotted\s+the\s+ball)\b"
+            r"|\b(?:yellow\s+card|red\s+card|referees?|umpires?|strikers?)\b"
+            r"[^.]{0,45}\bpenalt\w*\b",
+            lower,
+        ):
+            continue
+        # "The penalty for late payment of the parking ticket is EUR 40" is a
+        # municipal parking / traffic ticket fine (a payment penalty levied on
+        # a ticket), not a contractual default penalty for a breach.
+        if re.search(
+            r"\bpenalt\w*\b[^.]{0,40}\b(?:parking|traffic)\s+ticket\w*\b"
+            r"|\b(?:parking|traffic)\s+ticket\w*\b[^.]{0,40}\bpenalt\w*\b"
+            r"|\b(?:parking|street)?\s*(?:fine|fines)\b[^.]{0,35}\bpenalt\w*\b"
+            r"|\bpenalt\w*\b[^.]{0,35}\b(?:parking\s+fine|fixed\s+penalty\s+notice|"
+            r"parking\s+charge\w*)\b",
+            lower,
+        ):
+            continue
         # "The tax penalty for late filing shall be 5% of the tax due" is a
         # statutory revenue-filing sanction imposed on a taxpayer — not a
         # negotiated default penalty for a contractual breach.  A genuine
@@ -1677,6 +1765,34 @@ def rule_liability(doc, sentences):
             lower,
         ):
             continue
+        # "The owner shall be liable for damage caused by their pet" is a
+        # pet-owner / animal-owner tort liability (statutory duty of care for
+        # one's animal), not an agreed cap, disclaimer or exclusion between
+        # the parties.  Genuine caps and disclaimers still fire — the guard
+        # requires the pet/animal noun near the liability verb.
+        if re.search(
+            r"\bliab\w*\b[^.]{0,40}\b(?:pet\w*|animals?\b|livestock\b|cattle\b|"
+            r"dogs?\b|horses?\b)\b"
+            r"|\b(?:pet\w*|animals?\b|livestock\b|cattle\b|dogs?\b|horses?\b)\b"
+            r"[^.]{0,40}\bliab\w*\b",
+            lower,
+        ):
+            continue
+        # "Directors shall be liable for breach of their duties" is a
+        # corporate-governance duty statement (officers answer for their
+        # statutory duties to the company), not an agreed cap, disclaimer or
+        # exclusion between the parties.  Genuine caps and disclaimers still
+        # fire — the guard requires the director/officer noun bound to the
+        # duties/breach frame.
+        if re.search(
+            r"\b(?:directors?|officers?|board\s+members?|trustees?)\b"
+            r"[^.]{0,40}\bliab\w*\b[^.]{0,40}"
+            r"\b(?:dut\w+|breach\w*\s+of)\b"
+            r"|\bliab\w*\b[^.]{0,40}\b(?:directors?|officers?|board\s+members?|"
+            r"trustees?)\b[^.]{0,40}\b(?:dut\w+|breach\w*\s+of)\b",
+            lower,
+        ):
+            continue
         amount = _AMOUNT_RE.search(sentence)
         pct = _PERCENT_RE.search(sentence)
 
@@ -1800,6 +1916,23 @@ def rule_confidentiality(doc, sentences):
             r"[^.]{0,40}\b(?:settlement|mediation)\b[^.]{0,40}\bconfidential\w*\b"
             r"|\bconfidential\w*\b[^.]{0,40}\b(?:settlement|mediation)\b"
             r"[^.]{0,40}\b(?:terms?|details?|contents?|existence)\b",
+            lower,
+        ):
+            continue
+        # "Employee confidentiality agreements remain in force after
+        # termination" is a statement about a class of HR documents (the
+        # company's employment NDAs) — background boilerplate, not an
+        # obligation between the parties over this contract's information.
+        # Genuine obligations ("shall keep strictly confidential for 3
+        # years") still fire — the guard requires the employee/employment
+        # confidentiality-agreement noun.
+        if re.search(
+            r"\b(?:employee\w*|staff\w*|employment\w*|personnel\b)\b[^.]{0,30}"
+            r"\bconfidentiality\b[^.]{0,30}\b(?:agreement\w*|clause\w*|"
+            r"undertaking\w*|obligation\w*|n[ds]as?\b)\b"
+            r"|\bconfidentiality\b[^.]{0,30}\b(?:agreement\w*|clause\w*|"
+            r"undertaking\w*|obligation\w*)\b[^.]{0,30}"
+            r"\b(?:employee\w*|staff\w*|employment\w*|personnel\b)\b",
             lower,
         ):
             continue
@@ -1996,6 +2129,25 @@ def rule_ip(doc, sentences):
         # allocates or transfers IP itself.  Genuine ownership statements
         # ("all IP created under this Agreement is owned by the Customer")
         # still fire.
+        if re.search(
+            r"\b(?:shall\s+)?trademark\b[^.]{0,45}\bbrand\b"
+            r"|\bbrand\b[^.]{0,45}\b(?:shall\s+)?trademark\b",
+            lower,
+        ):
+            continue
+        # "The Company intends to patent the device in the US and EU" is a
+        # commercialization / registration intention (file a patent for a
+        # product) — there is no transfer, grant or ownership allocation of
+        # existing IP between the parties.  Genuine assignments ("the patent
+        # rights ... are assigned to the Customer") still fire — the guard
+        # requires the verb-form "patent the", not the noun "patent rights".
+        if re.search(
+            r"\b(?:shall\s+)?patent\s+the\b[^.]{0,50}"
+            r"\b(?:device\w*|invention\w*|product\w*|technology|process\w*|"
+            r"method\w*|system\w*|design\w*)\b",
+            lower,
+        ):
+            continue
         if re.search(
             r"\b(?:intellectual\s+property|ip)\s+(?:clause|provision|section|"
             r"article|term)\b[^.]{0,50}\b(?:allocat\w*|contemplat\w*|address\w*|"
@@ -2886,6 +3038,23 @@ def rule_exclusivity(doc, sentences):
             lower,
         ):
             continue
+        # "The CEO gave an exclusive interview to the newspaper" / "The
+        # network aired the exclusive footage of the incident" are
+        # journalistic / media exclusivity (content given to one outlet or a
+        # scoop aired by one network), not a market-exclusivity grant to
+        # sell, license or distribute.  Genuine market grants ("exclusive
+        # right to sell" / "sole distributor") still fire.
+        if re.search(
+            r"\bexclusive\b[^.]{0,40}"
+            r"\b(?:interview\w*|footage\b|photos?\b|pictures?\b|images?\b|"
+            r"clips?\b|commentar\w*|broadcast\w*|report(?:ed|ing)?\b|"
+            r"air(?:ed|s|ing)?\b|coverage\b|scoop\w*|deals?\b)\b"
+            r"|\b(?:interview\w*|footage\b|photos?\b|pictures?\b|images?\b|"
+            r"clips?\b|broadcast\w*|coverage\b|scoop\w*)\b[^.]{0,40}"
+            r"\bexclusive\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.MEDIUM
         flag = "exclusivity clause"
         dur = _DURATION_RE.search(sentence)
@@ -2932,6 +3101,24 @@ def rule_data_protection(doc, sentences):
             r"rights?|ownership|title|property|bonds?|securities|"
             r"(?:the\s+)?business|employees?|personnel|staff|"
             r"(?:the\s+)?projects?)\b",
+            lower,
+        ):
+            continue
+        # "The transfer of the lease requires the landlord's prior consent" /
+        # "The transfer of the tenancy is subject to the lessor's approval" /
+        # "Any transfer of the licence requires written approval" / "The
+        # transfer of the claim shall be notified to the insurer" are
+        # assignment transfers of a legal instrument or right (a lease,
+        # tenancy, licence or insurance claim) that requires consent or
+        # notice — not a personal-data transfer.  The gate keyword "transfer"
+        # admits them, so the guard pins the legal-object noun.  Genuine data
+        # transfers ("personal data transferred outside the EEA") still fire.
+        if re.search(
+            r"\btransfer(?:red|s)?\s+of\s+(?:the\s+|a\s+|any\s+|such\s+)?"
+            r"(?:lease|tenanc\w+|leasehold|licen[cs]e|licen[cs]es?|claim\w*|"
+            r"policy\w*|permit|concession\w*|franchise\w*|right\s+of\s+use)\b"
+            r"|\b(?:lease|tenanc\w+|leasehold)\b[^.]{0,35}"
+            r"\b(?:shall|must|will)\s+be\s+transferred\b",
             lower,
         ):
             continue
@@ -3443,6 +3630,23 @@ def rule_insurance(doc, sentences):
                 r"\bto\s+the\s+extent\b[^.]{0,50}"
                 r"\b(?:requir\w*|request\w*|demand\w*|instruct\w*|"
                 r"direct\w*)\s+by\b[^.]{0,60}\binsurance\b",
+                lower,
+            ):
+                continue
+            # "The transfer of the claim shall be notified to the insurer" /
+            # "Assignment of the claim to the insurer shall be in writing" is
+            # a claims-assignment / subrogation transfer notice to the insurer
+            # (who will pay the claim and how it is assigned), not an
+            # inter-party obligation to maintain cover.  Genuine coverage
+            # obligations ("shall maintain professional indemnity insurance")
+            # still fire.
+            if re.search(
+                r"\b(?:transfer\w*|assign\w*|assignment\w*)\b[^.]{0,40}"
+                r"\b(?:claim\w*|loss\b|losses?\b|benefit\w*)\b[^.]{0,40}"
+                r"\b(?:to|upon|against)\b[^.]{0,25}"
+                r"\b(?:insurer\b|insurance\s+compan\w*|underwriter\w*)\b"
+                r"|\binsurer\b[^.]{0,45}\b(?:claim\w*|loss\b|losses?\b)\b"
+                r"[^.]{0,35}\b(?:transfer\w*|assign\w*)\b",
                 lower,
             ):
                 continue

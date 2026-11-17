@@ -3449,3 +3449,204 @@ def test_renewal_fee_not_a_contract_price():
         ["Supply price is USD 12.00 per unit."]
     ) if c.clause == "price"]
     assert clauses and clauses[0].risk.value in ("LOW", "MEDIUM", "HIGH")
+
+
+def test_sports_field_penalties_not_penalty_terms():
+    # On-field sports sanctions ("yellow card", "penalty kick", "penalty
+    # shot") are game events, not a contractual default penalty for a breach.
+    for sentence in [
+        "The player was shown a yellow card for the penalty.",
+        "The penalty kick was converted by the striker.",
+        "The referee awarded a penalty shot after the foul.",
+        "Bobby earned a penalty in the football match.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "penalty"]
+        assert clauses == [], sentence
+    # A genuine quantified breach penalty still fires.
+    clauses = [c for c in _clauses(
+        ["A late payment penalty of 2% per month applies to overdue amounts."]
+    ) if c.clause == "penalty"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_parking_ticket_penalty_not_penalty_term():
+    # A municipal parking/traffic ticket fine is a levy on a ticket, not a
+    # negotiated contractual default penalty.
+    for sentence in [
+        "The penalty for late payment of the parking ticket is EUR 40.",
+        "A parking fine penalty of EUR 80 applies to each ticket.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "penalty"]
+        assert clauses == [], sentence
+    # A genuine penalty amount still fires.
+    clauses = [c for c in _clauses(
+        ["Penalty of USD 5,000 per day of delay after the notice period."]
+    ) if c.clause == "penalty"]
+    assert clauses
+
+
+def test_copies_filed_with_institution_not_quantity():
+    # Copies of a document filed/lodged with an institution (court, registry,
+    # agency) or executed counterparts count duplicate originals, not a
+    # quantity of goods.
+    for sentence in [
+        "The auditors filed 12 copies of the report with the court.",
+        "The application was submitted in 8 copies to the registry.",
+        "The deed was witnessed in 3 counterparts.",
+        "Three counterparts of the agreement were executed.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "quantity"]
+        assert clauses == [], sentence
+    # A genuine committed goods quantity still fires.
+    clauses = [c for c in _clauses(
+        ["The Buyer shall purchase 10,000 units of the Product."]
+    ) if c.clause == "quantity"]
+    assert clauses
+
+
+def test_delivery_of_business_plan_or_proposal_not_goods():
+    # Delivering a business plan / proposal to a corporate body is a document
+    # submission, not a goods delivery obligation, even with a deadline.
+    for sentence in [
+        "The Contractor shall deliver the business plan to the Board within 14 days.",
+        "The vendor shall deliver the proposal by 30 June.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "delivery"]
+        assert clauses == [], sentence
+    # A genuine goods delivery deadline still fires.
+    clauses = [c for c in _clauses(
+        ["The Seller shall deliver the goods to the buyer's warehouse within 30 days."]
+    ) if c.clause == "delivery"]
+    assert clauses
+
+
+def test_transfer_of_lease_or_claim_not_data_transfer():
+    # A transfer of a lease/tenancy/licence/claim requires consent or notice —
+    # an assignment of a legal instrument, not a personal-data transfer.
+    for sentence in [
+        "The transfer of the lease requires the landlord's prior consent.",
+        "The transfer of the claim shall be notified to the insurer.",
+        "The transfer of the tenancy is subject to the lessor's approval.",
+        "Any transfer of the licence requires written approval.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "data_protection"]
+        assert clauses == [], sentence
+    # A genuine cross-border data transfer still fires.
+    clauses = [c for c in _clauses(
+        ["Personal data transferred outside the EEA requires appropriate safeguards."]
+    ) if c.clause == "data_protection"]
+    assert clauses
+
+
+def test_claim_assignment_notice_not_insurance_obligation():
+    # Notifying a claim transfer to the insurer is claims-assignment
+    # mechanics, not an inter-party coverage obligation.
+    for sentence in [
+        "The transfer of the claim shall be notified to the insurer.",
+        "Assignment of the claim to the insurer shall be in writing.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "insurance"]
+        assert clauses == [], sentence
+    # A genuine coverage obligation still fires.
+    clauses = [c for c in _clauses(
+        ["The Company shall maintain professional indemnity insurance."]
+    ) if c.clause == "insurance"]
+    assert clauses and clauses[0].risk.value in ("LOW", "MEDIUM", "HIGH")
+
+
+def test_media_exclusivity_not_exclusivity_grant():
+    # Journalistic/media exclusivity (interview, footage, scoop) is content
+    # given to one outlet — not a market-exclusivity grant to sell, license
+    # or distribute.
+    for sentence in [
+        "The CEO gave an exclusive interview to the newspaper.",
+        "The network aired the exclusive footage of the incident.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "exclusivity"]
+        assert clauses == [], sentence
+    # A genuine market exclusivity grant still fires.
+    clauses = [c for c in _clauses(
+        ["Distributor is granted an exclusive right to sell the Products within the Territory."]
+    ) if c.clause == "exclusivity"]
+    assert clauses
+
+
+def test_trademark_or_patent_registration_verb_not_ip_term():
+    # "trademark the brand / patent the device" are registration intentions,
+    # not a transfer, grant or ownership clause about existing IP.
+    for sentence in [
+        "The Company shall trademark its new brand name before launch.",
+        "The Company intends to patent the device in the US and EU.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "ip"]
+        assert clauses == [], sentence
+    # A genuine IP assignment still fires.
+    clauses = [c for c in _clauses(
+        ["The patent and trademark rights in the Works are assigned to the Customer."]
+    ) if c.clause == "ip"]
+    assert clauses
+
+
+def test_interest_free_period_not_duration():
+    # An interest-free period is a financing/billing window, not the
+    # agreement's term.
+    for sentence in [
+        "The interest-free period is 30 days from the invoice date.",
+        "An interest-free period of 60 days applies to the balance.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "duration"]
+        assert clauses == [], sentence
+    # A genuine agreement term still fires.
+    clauses = [c for c in _clauses(
+        ["The term of this Agreement shall be for a period of 2 years, effective from January 1, 2024."]
+    ) if c.clause == "duration"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_pet_owner_liability_not_liability_cap():
+    # A pet-owner/animal tort duty is statutory, not an agreed cap or
+    # disclaimer between the parties.
+    for sentence in [
+        "The owner shall be liable for damage caused by their pet.",
+        "The keeper shall be liable for injuries caused by the animal.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "liability_cap"]
+        assert clauses == [], sentence
+    # A genuine agreed liability cap still fires.
+    clauses = [c for c in _clauses(
+        ["The aggregate liability of the Seller shall not exceed USD 1,000,000."]
+    ) if c.clause == "liability_cap"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_directors_duties_liability_not_liability_cap():
+    # Directors/officers answering for their statutory duties is a corporate-
+    # governance statement, not an agreed cap or disclaimer between the
+    # parties.
+    for sentence in [
+        "Directors shall be liable for breach of their duties.",
+        "The board members shall be liable for breach of their duties of care.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "liability_cap"]
+        assert clauses == [], sentence
+    # A genuine agreed liability cap still fires.
+    clauses = [c for c in _clauses(
+        ["The aggregate liability of the Seller shall not exceed USD 1,000,000."]
+    ) if c.clause == "liability_cap"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_employee_confidentiality_agreement_not_confidentiality_clause():
+    # A mention of employee confidentiality agreements (HR paperwork) is not
+    # an obligation between the parties over this contract's information.
+    for sentence in [
+        "Employee confidentiality agreements remain in force after termination.",
+        "Staff confidentiality clauses bind all workers.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "confidentiality"]
+        assert clauses == [], sentence
+    # A genuine confidentiality obligation still fires.
+    clauses = [c for c in _clauses(
+        ["The parties shall keep all business information confidential for 2 years."]
+    ) if c.clause == "confidentiality"]
+    assert clauses
