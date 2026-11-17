@@ -1553,3 +1553,80 @@ def test_demerit_points_penalty_not_a_contract_penalty():
         ["The Contractor shall pay a penalty of USD 1,000 per day for each day of delay."]
     ) if c.clause == "penalty"]
     assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_bare_confidentiality_definition_not_an_obligation():
+    # "Confidential Information means information that is not generally
+    # known" is a definitional statement — it imposes no disclosure
+    # restriction.  A genuine non-disclosure obligation still fires.
+    for sentence in [
+        "Confidential Information means information that is not generally known and has commercial value.",
+        "Confidential Information does not include information that is publicly available.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "confidentiality"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Licensee shall not disclose confidential information to any third party."]
+    ) if c.clause == "confidentiality"]
+    assert clauses and clauses[0].risk.value == "LOW"
+
+
+def test_gdpr_purpose_limitation_not_a_data_clause():
+    # "Personal data shall be collected for ... purposes only" restates the
+    # GDPR purpose-limitation principle — it names no processing, transfer
+    # or breach obligation.  A cross-border transfer still fires.
+    for sentence in [
+        "Personal data shall be collected for specified, explicit and legitimate purposes only.",
+        "Personal data shall be processed only for the purposes stated in this Policy.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "data_protection"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Any data transferred outside the EEA shall be subject to standard contractual clauses."]
+    ) if c.clause == "data_protection"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_approval_authority_not_market_exclusivity():
+    # "exclusive authority to approve expenditures" is an internal governance
+    # approval limit — not a grant of market exclusivity.  A genuine
+    # exclusive right to sell still fires.
+    for sentence in [
+        "The Chief Executive Officer shall have the exclusive authority to approve expenditures above USD 50,000.",
+        "The Board shall have the exclusive power to authorize any acquisition of the Company.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "exclusivity"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Seller shall have the exclusive right to sell the Products in the Territory."]
+    ) if c.clause == "exclusivity"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_retained_ownership_ip_not_assigned():
+    # "intellectual property rights ... remain vested in the Licensor" is a
+    # retention statement — ownership never moves, so it must not be read as
+    # a one-way assignment to the other party.  Such statements may still
+    # fire as a LOW informational ip clause, but never at HIGH assignment
+    # risk.  A genuine assignment still fires at HIGH.
+    for sentence in [
+        "All intellectual property rights in the Standard Software shall remain vested in the Licensor.",
+        "All intellectual property rights in the Works shall remain vested with the Contractor.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "ip"]
+        assert all(c.risk.value != "HIGH" for c in clauses), sentence
+    clauses = [c for c in _clauses(
+        ["All inventions created during employment are assigned to the employer."]
+    ) if c.clause == "ip"]
+    assert clauses and clauses[0].risk.value == "HIGH"
+
+
+def test_insure_verb_is_a_coverage_obligation():
+    # "shall insure the Goods against loss or damage during transit" is a
+    # genuine coverage obligation even though it uses the verb "insure"
+    # rather than the noun "insurance".  It must fire a LOW insurance
+    # requirement.
+    clauses = [c for c in _clauses(
+        ["The Supplier shall insure the Goods against loss or damage during transit."]
+    ) if c.clause == "insurance"]
+    assert clauses and clauses[0].risk.value == "LOW"

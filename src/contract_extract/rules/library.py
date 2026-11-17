@@ -1015,6 +1015,21 @@ def rule_confidentiality(doc, sentences):
             r"\b(?:does|do|shall|will)\s+not\s+apply\b", lower
         ):
             continue
+        # "Confidential Information means information that is not generally
+        # known" and "Confidential Information does not include ..." are bare
+        # definitions / carve-outs — they say what the term covers, not who
+        # must keep what secret.  Genuine obligations naming who may disclose
+        # or for how long ("shall remain confidential for 3 years",
+        # "acknowledge that confidential information includes pricing") still
+        # fire.
+        if re.search(
+            r"\bconfidential\s+(?:information|data|material\w*)\b[^.]{0,30}"
+            r"\bmeans\b"
+            r"|\bconfidential\s+(?:information|data|material\w*)\b[^.]{0,40}"
+            r"\bdoes\s+not\s+(?:include|cover)\b",
+            lower,
+        ):
+            continue
         dur = _DURATION_RE.search(sentence)
         risk = RiskLevel.LOW
         flag = "confidentiality clause"
@@ -1133,7 +1148,21 @@ def rule_ip(doc, sentences):
         risk = RiskLevel.LOW
         flag = None
         detail = None
-        if re.search(r"\b(work[- ]for[- ]hire|works made|shall vest in|vested in|are assigned to|is assigned to|assigns? to|shall be assigned|ownership.*passes|owned by)", lower):
+        # "intellectual property shall remain vested in the Licensor / stay
+        # with the Licensor" reserves ownership with the holder — the opposite
+        # of "assigned to other party".  (The " vest" keyword gate in Round 17
+        # deliberately kept the leading space so "investment" does not match;
+        # the guard here must not re-break "shall vest in Licensor".)
+        if re.search(
+            r"\bremain(?:s|ing|ed)?\s+vested\s+in\b"
+            r"|\bremain(?:s|ing|ed)?\s+vested\b[^.]{0,35}\b(?:with|in)\b"
+            r"|\bstay\w*[^.]{0,25}\b(?:with|in)\b[^.]{0,35}\b(?:vested|ownership)\b",
+            lower,
+        ):
+            risk = RiskLevel.LOW
+            flag = "each party retains ownership"
+            detail = "in party remains with holder"
+        elif re.search(r"\b(work[- ]for[- ]hire|works made|shall vest in|vested in|are assigned to|is assigned to|assigns? to|shall be assigned|ownership.*passes|owned by)", lower):
             conditional = re.search(r"\b(upon\s+(?:full\s+)?payment|upon\s+receipt|after\s+full\s+payment|made\s+for\s+hire\s+under|in\s+consideration\s+of\s+full\s+payment)", lower)
             if conditional:
                 risk = RiskLevel.MEDIUM
@@ -1518,6 +1547,18 @@ def rule_exclusivity(doc, sentences):
             lower,
         ):
             continue
+        # "The Chief Executive Officer shall have the exclusive authority to
+        # approve expenditures" is an internal corporate approval-limit (who
+        # may sign off what) — a governance allocation, not a market
+        # exclusivity grant to sell, license or distribute.  Genuine market
+        # rights ("exclusive right to sell" / "sole distributor") still fire.
+        if re.search(
+            r"\bexclusive\s+(?:authority|mandate|power|right\w*)\b[^.]{0,25}"
+            r"\b(?:approve|approval\w*|authoriz\w*|expend\w*|spend\w*|"
+            r"sign\b|award\w*|decid\w*)\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.MEDIUM
         flag = "exclusivity clause"
         dur = _DURATION_RE.search(sentence)
@@ -1618,6 +1659,27 @@ def rule_data_protection(doc, sentences):
             lower,
         ):
             continue
+        # "Personal data shall be collected for specified, explicit and
+        # legitimate purposes only" is a GDPR purpose-limitation principle
+        # statement — administrative compliance text, no processing, transfer
+        # or breach obligation between the parties.  "only" may sit before
+        # ("processed only for the purposes stated") or after ("purposes
+        # only") the purpose noun, so both word orders are matched.  Genuine
+        # data-processing / transfer / DPA statements still fire.
+        if re.search(
+            r"\b(?:collected|processed|used|handled)\b[^.]{0,45}"
+            r"\bpurposes?\b[^.]{0,25}\bonly\b"
+            r"|\b(?:collected|processed|used|handled)\b[^.]{0,45}"
+            r"\bonly\b[^.]{0,30}\bpurposes?\b"
+            r"|\bpurposes?\b[^.]{0,25}\bonly\b[^.]{0,35}"
+            r"\b(?:collection|processing|use)\b",
+            lower,
+        ) and re.search(r"\bpersonal\s+data\b", lower) and not re.search(
+            r"\b(?:transfer(?:s|red|ring)?|disclos\w*|process(?:ed|ing)?\s+of|"
+            r"controller\b|processor\b|DPA\b|SCC\b|outside\s+(?:the\s+)?(?:EEA|EU)\b)",
+            lower,
+        ):
+            continue
         # "the parties shall transfer the raw material data to the
         # manufacturer" moves commercial commodity data — recipe / material
         # specs — not personal data.  Only transfers of product / material /
@@ -1674,7 +1736,11 @@ def rule_insurance(doc, sentences):
     out = []
     for page, sentence in sentences:
         lower = sentence.lower()
-        if "insurance" in lower:
+        # The gate must also admit verb forms ("shall insure the Goods
+        # against loss or damage") and agent nouns, not just the noun
+        # "insurance".  \binsur\w*\b matches insurance/insure(d|s|ing)/
+        # insurer but never "ensure" (no "insur" substring).
+        if "insurance" in lower or re.search(r"\binsur\w*\b", lower):
             # A negated or disclaimed coverage statement ("nothing requires
             # either party to maintain insurance", "does not include liability
             # insurance") is not a coverage obligation and must not fire.  The
@@ -1775,7 +1841,11 @@ def rule_insurance(doc, sentences):
             # obligation that mentions the certificate in passing ("maintain
             # professional indemnity insurance and provide a certificate of
             # insurance upon request") still fires — the negative leg keeps
-            # maintain/procure/carry/obtain obligations untouched.
+            # maintain/procure/carry/obtain obligations untouched.  The third
+            # and fourth branches cover certificate / cover-note issuance
+            # without the noun "insurance" ("A cover note shall be delivered
+            # upon request of the insured.") — the verb-form gate admits the
+            # sentence via "insured".
             if re.search(
                 r"\binsurance\s+(?:certificate|certificates|cover\s+(?:note|notes)|"
                 r"policy\s+documents?|policies?\s+documents?)\b"
@@ -1784,7 +1854,14 @@ def rule_insurance(doc, sentences):
                 r"|\b(?:issu(?:e|ed|ing)|deliver\w*|supply\w*|furnish\w*|"
                 r"transmit\w*|submit\w*)\b[^.]{0,60}"
                 r"\binsurance\s+(?:certificate|certificates|cover\s+(?:note|notes)|"
-                r"policy\s+documents?|policies?\s+documents?)\b",
+                r"policy\s+documents?|policies?\s+documents?)\b"
+                r"|\b(?:certificate|certificates|cover\s+(?:note|notes))\b"
+                r"[^.]{0,60}\b(?:issu(?:e|ed|ing)|deliver\w*|supply\w*|furnish\w*|"
+                r"transmit\w*|submit\w*)\b[^.]{0,40}\binsured\b"
+                r"|\b(?:issu(?:e|ed|ing)|deliver\w*|supply\w*|furnish\w*|"
+                r"transmit\w*|submit\w*)\b[^.]{0,60}"
+                r"\b(?:certificate|certificates|cover\s+(?:note|notes))\b"
+                r"[^.]{0,40}\binsured\b",
                 lower,
             ) and not re.search(
                 r"\b(?:maintain\w*|procure\w*|carry|obtain\w*)\b[^.]{0,40}"
