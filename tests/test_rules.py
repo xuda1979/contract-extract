@@ -3136,3 +3136,188 @@ def test_settlement_terms_confidential_not_confidentiality_clause():
         ["All confidential information shall remain confidential for a period of 3 years after termination."]
     ) if c.clause == "confidentiality"]
     assert clauses, "confidentiality obligation must keep firing"
+
+
+def test_knowledge_delivery_not_goods_delivery():
+    # Presenting, training, or reporting to an audience is not the delivery
+    # of goods or equipment.  A genuine goods-delivery deadline still fires.
+    for sentence in [
+        "We shall deliver a keynote presentation at the annual conference.",
+        "The Consultant shall deliver training courses to staff.",
+        "The consultant shall deliver the training programme within 30 days of commencement.",
+        "The Committee shall deliver its report to the board within 30 days.",
+        "The speaker shall deliver the lecture on the opening day.",
+        "Deliverable: the contractor shall deliver the training materials.",
+        "The team shall deliver the presentation slides to the client within 5 days.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "delivery"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Seller shall deliver the goods within 30 days of the purchase order."]
+    ) if c.clause == "delivery"]
+    assert clauses, "goods delivery deadline must keep firing"
+
+
+def test_accepting_risk_not_goods_acceptance():
+    # Accepting a risk, liability, or appointment is not accepting delivered
+    # goods or works.  A genuine inspection-and-accept deadline still fires.
+    for sentence in [
+        "The Seller accepts payment via credit card.",
+        "We accept payment by card or bank transfer.",
+        "The tenant accepts the risk of theft.",
+        "The Buyer accepts repossession of the vehicle.",
+        "The Contractor accepts the appointment.",
+        "The client accepts the tender submitted by the bidder.",
+        "The Buyer accepts temporary repairs until final settlement.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "acceptance"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Buyer shall have 10 days to inspect and accept each deliverable."]
+    ) if c.clause == "acceptance"]
+    assert clauses, "inspection-and-accept deadline must keep firing"
+
+
+def test_final_acceptance_milestone_not_acceptance_obligation():
+    # A final-acceptance milestone after handover describes a stage in the
+    # works process, not an acceptance obligation that binds a party.
+    clauses = [c for c in _clauses(
+        ["Final acceptance shall take place after site handover."]
+    ) if c.clause == "acceptance"]
+    assert clauses == []
+    clauses = [c for c in _clauses(
+        ["The Buyer shall have 10 days to inspect and accept each deliverable."]
+    ) if c.clause == "acceptance"]
+    assert clauses, "inspection-and-accept deadline must keep firing"
+
+
+def test_non_contractual_penalties_not_penalty_terms():
+    # Quiz points, participation fees, and financial-products early-exit
+    # charges are not contractual penalty provisions.  A genuine delay
+    # penalty still fires.
+    for sentence in [
+        "A penalty of 5 points applies for each incorrect answer in the quiz.",
+        "Penalty shootout: the team prevailed 4-2.",
+        "The team won the penalty shootout after extra time.",
+        "An early withdrawal penalty of 3% applies to certificates of deposit.",
+        "A penalty of 3% is charged on the redeemed units.",
+        "The policy pays a penalty for late renewal of the insurance.",
+        "The club shall pay a transfer fee of GBP 4m to the federation.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "penalty"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Contractor shall pay a penalty of 5% of the Contract Price for any delay."]
+    ) if c.clause == "penalty"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_statutory_or_account_termination_not_contract_termination():
+    # Reactions, accounts, and real-property instruments that expire by
+    # operation of law are not contractual termination rights.  A genuine
+    # termination provision still fires.
+    for sentence in [
+        "The reaction shall terminate when the temperature reaches 100 degrees.",
+        "The subscription shall terminate upon account closure by the user.",
+        "Your user account shall be terminated for violating the community guidelines.",
+        "The grant shall terminate upon the death of the recipient.",
+        "The easement shall terminate when the parcel is rezoned.",
+        "The power of attorney shall terminate upon the donor's death.",
+        "The offer shall terminate at 5pm unless accepted earlier.",
+        "The appointment shall terminate at the end of the academic year.",
+        "Tenure of the committee shall terminate upon dissolution.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "termination"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Either party may terminate this Agreement for material breach."]
+    ) if c.clause == "termination"]
+    assert clauses, "termination provision must keep firing"
+
+
+def test_accepting_payment_by_card_not_payment_terms():
+    # Stating that a seller accepts card payments is a payment method, not a
+    # payment obligation with terms.  A genuine invoicing or recurring-billing
+    # term still fires.
+    for sentence in [
+        "The Seller accepts payment via credit card.",
+        "We accept payment by card or bank transfer.",
+        "The seller accepts payment through PayPal or by cheque.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "payment"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Invoices shall be paid within 30 days of receipt."]
+    ) if c.clause == "payment"]
+    assert clauses, "invoice payment term must keep firing"
+
+
+def test_accepting_payment_by_card_not_data_transfer():
+    # Paying by card is not a transfer of personal data.  A genuine
+    # cross-border data transfer still fires.
+    for sentence in [
+        "The Seller accepts payment via credit card.",
+        "We accept payment by card or bank transfer.",
+        "The seller accepts payment through PayPal or by cheque.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "data_protection"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Any data transferred outside the EEA shall be subject to standard contractual clauses."]
+    ) if c.clause == "data_protection"]
+    assert clauses, "cross-border transfer must keep firing"
+
+
+def test_consumer_insurance_arrangements_not_insurance_obligation():
+    # Arranging or being encouraged to hold contents insurance is a personal
+    # matter, not a party obligation to insure under the contract.  A genuine
+    # professional-indemnity obligation still fires.
+    for sentence in [
+        "The tenant shall arrange home insurance for the contents.",
+        "Each household is encouraged to hold contents insurance against fire.",
+        "Flood insurance is recommended in high-risk zones.",
+        "Each household is advised to hold possessions insurance.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "insurance"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Provider shall carry professional indemnity insurance throughout the term."]
+    ) if c.clause == "insurance"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_insurance_policy_metadata_not_insurance_obligation():
+    # Policy metadata (insured value, named insured) describes a policy, it
+    # does not obligate a party to insure.  A genuine insurance obligation
+    # still fires.
+    for sentence in [
+        "The insured value of the vehicle is USD 20,000.",
+        "The named insured is the policyholder listed in the schedule.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "insurance"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Provider shall carry professional indemnity insurance throughout the term."]
+    ) if c.clause == "insurance"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_insurance_market_movements_not_insurance_obligation():
+    # Insurance products, premium movements, and member accident coverage are
+    # market or product descriptions, not party obligations to insure.  A
+    # genuine insurance obligation still fires.
+    for sentence in [
+        "The bank offers insurance products to its customers.",
+        "The company sells insurance products across all channels.",
+        "Insurance premiums for health plans rose 8% this year.",
+        "Premium rates increased by 5% for motor policies.",
+        "This policy covers personal accident insurance for members.",
+        "Accident insurance for participants is included in the event plan.",
+        "The policy pays a penalty for late renewal of the insurance.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "insurance"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Provider shall carry professional indemnity insurance throughout the term."]
+    ) if c.clause == "insurance"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"

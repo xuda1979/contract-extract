@@ -487,6 +487,18 @@ def rule_delivery(doc, sentences):
             lower,
         ):
             continue
+        # Professional / knowledge-delivery events ("deliver a keynote /
+        # lecture / training programme / report / presentation slides /
+        # workshop") are services milestones, not goods delivery obligations,
+        # even when they carry a deadline.  Goods deliveries ("deliver the
+        # goods to the buyer's warehouse within 30 days") still fire.
+        if re.search(
+            r"\bdeliver(?:s|ed|y|ing)?\b[^.]{0,60}\b(?:training\s+program(?:me)?\w*|"
+            r"training\s+course\w*|training\s+materials?|presentation\s+slides?|"
+            r"lecture\w*|keynote\b|\breport\b|the\s+training\b|workshop\w*|seminar\w*)\b",
+            lower,
+        ):
+            continue
         m = re.search(
             rf"\bwithin\s+({_NUMTOKEN})\s*(?:business|working|calendar)?\s*(day|week|month)s?\b"
             rf"|\bat\s+least\s+({_NUMTOKEN})\s+days?\s+before\b"
@@ -592,10 +604,13 @@ def rule_acceptance(doc, sentences):
         ):
             continue
         # "Acceptance of the risk under this policy" is an underwriting /
-        # risk-appetite statement, not a deliverables acceptance.  No fixture
-        # uses "acceptance of risk" or "underwriting".
+        # risk-appetite statement, and "Acceptance of liability for loss of
+        # use is excluded" restates an exclusion carve-out — neither is a
+        # deliverables acceptance.  No fixture uses "acceptance of risk" or
+        # "acceptance of liability".
         if re.search(
-            r"\bacceptance\s+of\s+(?:the\s+|all\s+|any\s+)?risk\b"
+            r"\bacceptance\s+of\s+(?:the\s+|all\s+|any\s+|such\s+)?"
+            r"(?:risk|liabilit\w*)\b"
             r"|\bunderwrit\w*\b",
             lower,
         ):
@@ -746,6 +761,26 @@ def rule_acceptance(doc, sentences):
             lower,
         ):
             continue
+        # "Final acceptance shall take place after site handover" states when
+        # acceptance happens as a project milestone (site handover / completion
+        # / commissioning) — a schedule pointer, not a window in which
+        # deliverables are inspected and accepted.  Genuine acceptance windows
+        # ("final acceptance within 10 days of delivery", "acceptance tests ...
+        # within 7 days") still fire — the negative leg keeps any day-count,
+        # inspection or test signal live.
+        if re.search(
+            r"\b(?:final\s+|provisional\s+)?acceptance\b[^.]{0,60}"
+            r"\b(?:takes?\s+place|shall\s+be\s+(?:made|carried\s+out|effected|given))"
+            r"\b[^.]{0,40}\b(?:after|upon|on)\b[^.]{0,40}"
+            r"\b(?:handover|completion|commissioning|practical\s+completion)\b",
+            lower,
+        ) and not re.search(
+            r"\bwithin\s+\d+\s*(?:working|business)?\s*days?\b"
+            r"|\b\d+\s*(?:business|working)?\s*days?\s+(?:to|in\s+which\s+to)\b"
+            r"|\b(?:inspect\b|to\s+inspect\b|to\s+accept\b|test\w*\b)",
+            lower,
+        ):
+            continue
         within = re.search(r"\bwithin\s+(\d+)\s*(?:working|business)?\s*days?\b", lower)
         window = re.search(r"\b(\d+)\s*(?:business|working)?\s*days?\s+(?:to|in\s+which\s+to)\s+(?:inspect|accept|complete)", lower)
         risk = RiskLevel.LOW
@@ -877,6 +912,27 @@ def rule_payment(doc, sentences):
             r"\b(?:court|tribunal|arbitrat\w+)\b[^.]{0,50}"
             r"\b(?:award\w*|order\w*|grant\w*|adjudicat\w*)\b[^.]{0,50}"
             r"\bpayment\b",
+            lower,
+        ):
+            continue
+        # "The Seller accepts payment via credit card" / "We accept payment by
+        # card or bank transfer" is a payment-method acceptance statement (the
+        # seller's willingness to be paid in a given form), not a payment term
+        # fixing an amount, due date or tranche.  Genuine payment terms
+        # ("invoices shall be paid within 30 days", "recurring billing to the
+        # customer's credit card") still fire — the negative leg keeps
+        # recurring / advance / invoice / net terms untouched.
+        if re.search(
+            r"\baccept\w*\s+payment\w*\b[^.]{0,40}"
+            r"\b(?:via|by|through|in)\b[^.]{0,30}"
+            r"\b(?:credit\s+card|card\b|bank\s+transfer|debit\s+card|paypal|"
+            r"wire\s+transfer|cheque\w*|check\b)\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:recurring|credit\s+card)\b[^.]{0,25}\b(?:billing|charged?|"
+            r"debit\w*|payment\s+of)\b"
+            r"|\b(?:invoice\w*|net\s+\d+\s+days?\b|within\s+\d+\s+days?\b|"
+            r"advance\s+payment|upfront|prepay)\b",
             lower,
         ):
             continue
@@ -1170,6 +1226,41 @@ def rule_penalty(doc, sentences):
             r"\b(?:employ\w*|notice\b|dismiss\w*|redundan\w*|severance|"
             r"resign\w*|terminat\w+\s+employment|month'?s?\s+wages?|"
             r"month'?s?\s+salary|week'?s?\s+(?:salary|wages?))\b",
+            lower,
+        ):
+            continue
+        # "A penalty of 5 points applies for each incorrect answer in the
+        # quiz" is a competition / exam scoring rule (points for wrong
+        # answers), not a contractual default penalty.
+        if re.search(
+            r"\bpenalt\w*\b[^.]{0,75}"
+            r"\b(?:quiz\w*|contest\w*|competition\w*|exam\w*|answ\w*\s+sheet)\b",
+            lower,
+        ):
+            continue
+        # "The team won the penalty shootout after extra time" is football
+        # match-deciding procedure, not a contractual default penalty.  The
+        # sports guard above already covers goals/match/league scoring, but a
+        # shootout-specific frame is common.
+        if re.search(
+            r"\bpenalt\w*\b[^.]{0,25}\bshootout\b",
+            lower,
+        ):
+            continue
+        # "A penalty of 3% is charged on the redeemed units" is an investment
+        # fund redemption fee (cancellation charge on units sold back), not a
+        # contractual default penalty for a breach.
+        if re.search(
+            r"\bpenalt\w*\b[^.]{0,45}\bredeem\w*\b"
+            r"|\bredeem\w*\b[^.]{0,45}\bpenalt\w*\b",
+            lower,
+        ):
+            continue
+        # "The policy pays a penalty for late renewal of the insurance" is an
+        # insurance-continuation surcharge payable for not renewing a policy on
+        # time, not a contractual default penalty for a breach.
+        if re.search(
+            r"\bpenalt\w*\b[^.]{0,50}\blate\s+renew\w*\b[^.]{0,30}\binsurance\b",
             lower,
         ):
             continue
@@ -2376,6 +2467,55 @@ def rule_termination(doc, sentences):
             lower,
         ):
             continue
+        # "The reaction shall terminate when the temperature reaches 100
+        # degrees" is a scientific / process description (a chemical or
+        # physical process stopping under conditions), not a party's right to
+        # terminate the agreement.
+        if re.search(
+            r"\b(?:reaction\w*|temperature\w*|ignition\b|combustion\b|"
+            r"chemical\w*|reactant\w*|catalyst\w*|fermentation\b)\b[^.]{0,50}"
+            r"\bterminat\w*\b[^.]{0,50}\b(?:temperature\w*|reactant\w*|"
+            r"catalyst\w*|heating\b|cooling\b|reaches?\b|exceed\w*)\b"
+            r"|\btemperatur\w*\b[^.]{0,40}\bterminat\w*\b",
+            lower,
+        ):
+            continue
+        # "The grant / easement / power of attorney shall terminate upon the
+        # death of the recipient / when the parcel is rezoned" is the sunset
+        # of a property right or authority when its supporting fact lapses —
+        # not a party's right to terminate the agreement.
+        if re.search(
+            r"\b(?:grant\b|easement\b|power\s+of\s+attorney|succession\b|"
+            r"trust\b)\b[^.]{0,50}\bterminat\w*\b[^.]{0,50}"
+            r"\b(?:death\b|deceas\w*|rezon\w*|demise\b|dissolution)\b"
+            r"|\b(?:death\b|deceas\w*|rezon\w*)\b[^.]{0,40}\bterminat\w*\b"
+            r"[^.]{0,40}\b(?:grant\b|easement\b|power\s+of\s+attorney)\b",
+            lower,
+        ):
+            continue
+        # "The offer shall terminate at 5pm unless accepted earlier" is an
+        # offer-expiry rule (when an outstanding offer lapses in the absence
+        # of acceptance), not a party's right to terminate the agreement.
+        if re.search(
+            r"\bthe\s+offer\b[^.]{0,40}\bshall\s+terminate\b[^.]{0,60}"
+            r"\b(?:accept\w*)\b"
+            r"|\b(?:accept\w*)\b[^.]{0,60}"
+            r"\b(?:the\s+offer\b[^.]{0,40}\bshall\s+terminate|"
+            r"offer\s+shall\s+terminate)\b",
+            lower,
+        ):
+            continue
+        # "The subscription shall terminate upon account closure by the user"
+        # is a service-subscription lifecycle rule (a user ending their
+        # account), not a party's right to terminate the agreement.
+        if re.search(
+            r"\bsubscription\b[^.]{0,50}\bterminat\w*\b[^.]{0,50}"
+            r"\b(?:account\s+closure|closure\w*|close\w*\s+account|cancel\w*)\b"
+            r"|\baccount\s+closure\b[^.]{0,40}\bterminat\w*\b[^.]{0,40}"
+            r"\bsubscription\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.LOW
         flag = "termination clause"
         if "withdraw" in lower and "for convenience" in lower:
@@ -2724,6 +2864,23 @@ def rule_data_protection(doc, sentences):
         # names a payment mechanism (bank transfer of funds), not a
         # personal-data transfer.
         if re.search(r"\bwire\s+transfer(?:s|red)?\b", lower):
+            continue
+        # "The Buyer accepts payment by card or bank transfer" is a payment-
+        # method acceptance statement (the seller's willingness to be paid in
+        # a given form), not a personal-data movement.  The bare gate keyword
+        # "transfer" admits it, so the guard pins the accept-payment frame.
+        # Genuine data transfers ("personal data transferred outside the
+        # EEA") still fire.
+        if re.search(
+            r"\baccept\w*\s+payment\b[^.]{0,40}"
+            r"\b(?:by|via|through|in)\b[^.]{0,30}"
+            r"\b(?:card\b|bank\s+transfer|wire\b|cheque\w*|check\b|paypal)\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:personal|customer|consumer|user|employee|health|financial|"
+            r"banking|credit|identity|biometric)\s+data\b",
+            lower,
+        ):
             continue
         # "The transfer window for players closes on 1 September" is a
         # sports-transfer market window (registration of players), not a
@@ -3324,6 +3481,84 @@ def rule_insurance(doc, sentences):
                 r"|\b(?:own|personal|individual)\s+insurance\b[^.]{0,45}"
                 r"\b(?:attendees?|participants?|guests?|users?|customers?|"
                 r"members?)\b",
+                lower,
+            ):
+                continue
+            # "The tenant shall arrange home insurance for the contents" /
+            # "Each household is encouraged to hold contents insurance" /
+            # "Flood insurance is recommended in high-risk zones" is consumer
+            # cover for the speaker's own residence or possessions — not an
+            # inter-party coverage obligation in a commercial contract.  A
+            # homeowner genuinely required to maintain cover still fires — the
+            # negative leg keeps maintain/procure/carry/obtain/take-out
+            # untouched.
+            if re.search(
+                r"\b(?:home|contents|flood|household|dwellings?|possessions?)\s+"
+                r"insurance\b"
+                r"|\binsurance\s+for\s+(?:the\s+|your\s+)?"
+                r"(?:home\b|contents|flood\b|household\b|dwellings?|possessions?)\b"
+                r"|\b(?:home|contents|flood|household|dwellings?|possessions?)\b"
+                r"[^.]{0,35}\binsurance\b",
+                lower,
+            ) and re.search(
+                r"\b(?:arrang\w*|encourag\w*|recommend\w*|hold\b|held\b|advis\w*)\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|carry|obtain\w*)\b[^.]{0,40}"
+                r"\binsurance\b",
+                lower,
+            ):
+                continue
+            # "The insured value of the vehicle is USD 20,000" / "The named
+            # insured is the policyholder listed in the schedule" is a policy
+            # declaration (declared value / who is covered), not an
+            # inter-party obligation to take out or maintain cover.
+            if re.search(
+                r"\binsured\s+value\b"
+                r"|\bnamed\s+insured\b[^.]{0,40}\bpolicyholder\b",
+                lower,
+            ):
+                continue
+            # "The bank offers insurance products to its customers" is a
+            # product-marketing statement by a seller of insurance, not an
+            # inter-party obligation on a contracting party to maintain cover.
+            if re.search(
+                r"\b(?:offer\w*|sell\w*|sold\b|provid\w*|market\w*)\b[^.]{0,45}"
+                r"\binsurance\s+products?\b"
+                r"|\binsurance\s+products?\b[^.]{0,45}"
+                r"\b(?:offer\w*|sell\w*|sold\b|provid\w*|market\w*)\b",
+                lower,
+            ):
+                continue
+            # "Insurance premiums for health plans rose 8% this year" is a
+            # market / industry premium-level observation, not a coverage
+            # obligation.  The premium-adjustment guard above covers
+            # administrative bookkeeping; this one covers movement statements
+            # about premium levels only.
+            if re.search(
+                r"\binsurance\s+premium\w*\b[^.]{0,45}"
+                r"\b(?:rose\b|increase\w*|fell\b|decline\w*|up\s+\d+|by\s+\d+%?|"
+                r"higher\b|lower\b)\b",
+                lower,
+            ):
+                continue
+            # "This policy covers personal accident insurance for members" is
+            # a product-cover description for individuals who hold a
+            # membership, not an inter-party obligation for a contracting
+            # party to maintain cover.
+            if re.search(
+                r"\baccident\s+insurance\b[^.]{0,45}\b(?:member\w*|participant\w*)\b"
+                r"|\b(?:member\w*|participant\w*)\b[^.]{0,45}"
+                r"\baccident\s+insurance\b",
+                lower,
+            ):
+                continue
+            # "The policy pays a penalty for late renewal of the insurance"
+            # is an insurance-continuation surcharge for not renewing a policy
+            # on time, not a coverage obligation (the penalty-rule guard
+            # already stops the penalty half).
+            if re.search(
+                r"\bpenalt\w*\b[^.]{0,45}\blate\s+renew\w*\b[^.]{0,30}\binsurance\b",
                 lower,
             ):
                 continue
