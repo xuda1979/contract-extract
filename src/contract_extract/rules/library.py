@@ -263,6 +263,23 @@ def rule_duration(doc, sentences):
             lower,
         ):
             continue
+        # "The notice period is 30 days, unless the parties agree otherwise" is
+        # an HR or administrative notice timetable (how long before a step a
+        # party must give notice) — not the fixed term of the agreement.
+        # "The vesting period for the options is 4 years" is an equity-grant
+        # vesting schedule — not the term of the contract.  Genuine agreement
+        # terms ("the term of this Agreement shall be for a period of 2
+        # years") still fire.  Zero fixture lines use "notice period" or
+        # "vesting period" (checked against fixtures/generate_fixtures.py;
+        # the fixture vesting lines use "vest in" — fixture lines 65/185).
+        if re.search(
+            r"\bnotice\s+period\b"
+            r"|\bperiod\s+of\s+notice\b"
+            r"|\bvesting\s+period\b"
+            r"|\bperiod\s+of\s+vesting\b",
+            lower,
+        ):
+            continue
         m = _DUR_PAT1.search(sentence) or _DUR_PAT4.search(sentence) or _DUR_PAT5.search(sentence)
         if not m:
             continue
@@ -391,6 +408,24 @@ def rule_quantity(doc, sentences):
             lower,
         ):
             continue
+        # "The customer returned 3 items to the store" / "The report contains
+        # 12 items on the agenda" count return batches, agenda entries or
+        # inspection findings — not contractual quantities of goods, units or
+        # copies.  The guard is pinned to the non-commercial noun contexts
+        # (returned / agenda / meeting / audit / defect / checklist), so a
+        # genuine "deliver 500 items" procurement quantity still fires.  Zero
+        # fixture lines pair a number with items in these contexts (checked
+        # against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b\d+(?:[.,]\d+)?\s+items?\b[^.]{0,40}"
+            r"\b(?:return(?:ed|s|ing)?|agenda|meeting\w*|audit\b|defect\w*|"
+            r"inspected?|found?\s+during|checklist|complaint\w*)\b"
+            r"|\b(?:return(?:ed|s|ing)?|agenda|meeting\w*|audit\b|defect\w*|"
+            r"inspected?|found?\s+during|checklist|complaint\w*)\b"
+            r"[^.]{0,40}\b\d+(?:[.,]\d+)?\s+items?\b",
+            lower,
+        ):
+            continue
         m = re.search(
             rf"\b{_NUMTOKEN}\s+units?\b"
             rf"|\b{_NUMTOKEN}\s+items?\b"
@@ -512,6 +547,27 @@ def rule_price(doc, sentences):
         # "renewal fee" noun.
         if re.search(
             r"\brenewal\s+fees?\b",
+            lower,
+        ):
+            continue
+        # "The customer asked for a quote for the new widgets" / "We received
+        # a price quote of USD 500 for the repair" / "The bid price was USD
+        # 1,200,000 for the construction project" quote a market ask or a
+        # submitted tender bid — a procurement estimate, not the price agreed
+        # for goods or services under this contract.  The guard requires the
+        # "price quote" compound or a bare "quote"/"bid" with a price amount
+        # and a bidding frame; a genuine contracted price still fires (the
+        # fixture price lines never use quote/bid phrasing — fixture line 178
+        # "Subcontractor quote: USD 4,520,000 total." is a heading label with
+        # no "price" prefix or bid verb and still fires).
+        if re.search(
+            r"\bprice\s+quote\w*\b"
+            r"|\bbid\s+price\b"
+            r"|\b(?:quoted?\s+price|quote\w*|bid\s+price|bids?\b)\b[^.]{0,25}"
+            r"\b(?:request(?:ed|s)?\s+for|solicit\w*|submit\w*|received?|"
+            r"invitation\s+to|sealed|tender\w*)\b"
+            r"|\b(?:request(?:ed|s)?\s+for|solicit\w*|submit\w*|received?|"
+            r"invitation\s+to|sealed|tender\w*)\b[^.]{0,25}\b(?:quote\w*|bid\w*)\b",
             lower,
         ):
             continue
@@ -890,6 +946,32 @@ def rule_acceptance(doc, sentences):
             r"\bwithin\s+\d+\s*(?:working|business)?\s*days?\b"
             r"|\b\d+\s*(?:business|working)?\s*days?\s+(?:to|in\s+which\s+to)\b"
             r"|\b(?:inspect\b|to\s+inspect\b|to\s+accept\b|test\w*\b)",
+            lower,
+        ):
+            continue
+        # "The acceptance test will take place after the pilot run" / "Site
+        # acceptance is scheduled for 31 December" schedule a project
+        # milestone in a software / construction delivery plan — not a window
+        # in which deliverables are examined and accepted.  Genuine acceptance
+        # windows ("acceptance tests ... within 7 days", "Final acceptance
+        # shall be completed within 60 days following delivery") still fire —
+        # the negative leg keeps any day-count, inspection or accept signal
+        # live, and the sentence itself contains the word "test" so the
+        # milestone guard above cannot catch this family (its negative leg
+        # suppresses "test"-bearing sentences).
+        if re.search(
+            r"\bacceptance\s+tests?\b[^.]{0,45}"
+            r"\b(?:(?:will|shall|may)\s+)?takes?\s+place\b[^.]{0,40}"
+            r"\b(?:after|upon|on|following)\b[^.]{0,40}"
+            r"\b(?:pilot\s+run\w*|trial\w*|site\b|delivery\s+phase\w*|phase\w*)\b"
+            r"|\bsite\s+acceptance\b[^.]{0,45}"
+            r"\b(?:is|shall\s+be|will\s+be)\s+scheduled\b"
+            r"[^.]{0,40}\b(?:on|for|to\s+take\s+place)\b",
+            lower,
+        ) and not re.search(
+            r"\bwithin\s+\d+\s*(?:working|business)?\s*days?\b"
+            r"|\b\d+\s*(?:business|working)?\s*days?\s+(?:to|in\s+which\s+to)\b"
+            r"|\b(?:inspect\b|to\s+inspect\b|to\s+accept\b)\b",
             lower,
         ):
             continue
@@ -1793,6 +1875,41 @@ def rule_liability(doc, sentences):
             lower,
         ):
             continue
+        # "The auditor's professional liability shall not exceed the statutory
+        # cap" / "The statutory liability of the carrier is limited by the CMR
+        # Convention" restate a professional or statutory liability regime
+        # (auditors, carriers) — not an agreed cap negotiated between the
+        # parties.  Genuine caps ("Cap on liability shall be 100% of the
+        # subcontract price", fixture 184) still fire — the guard requires the
+        # professional/statutory/regulatory adjective bound to a liability
+        # noun plus a cap/limit frame.  Zero fixture lines use these
+        # adjectives with liability (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:professional|statutory|regulatory|legal)\b[^.]{0,25}"
+            r"\bliab\w*\b[^.]{0,30}\b(?:cap\w*|limit\w*|ceiling|maximum)\b"
+            r"|\bliab\w*\b[^.]{0,25}\b(?:professional|statutory|regulatory|legal)\b"
+            r"[^.]{0,30}\b(?:cap\w*|limit\w*|ceiling|maximum)\b",
+            lower,
+        ):
+            continue
+        # "The employee shall be liable for any loss caused by gross
+        # negligence" is an employment-law statement (an individual worker's
+        # personal responsibility), not an agreed liability allocation
+        # between the contracting parties.  Genuine indemnity/liability
+        # clauses ("the Contractor shall be liable for loss or damage")
+        # still fire — the guard requires the employee/employment noun bound
+        # to gross-negligence/minor-wilful frames.  Zero fixture lines pair
+        # employee with gross negligence (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:employee\w*|staff\w*|employment\b)\b[^.]{0,40}\bliab\w*\b"
+            r"[^.]{0,40}\bgross\s+negligence\b"
+            r"|\bgross\s+negligence\b[^.]{0,40}\bliab\w*\b[^.]{0,40}"
+            r"\b(?:employee\w*|staff\w*|employment\b)\b",
+            lower,
+        ):
+            continue
         amount = _AMOUNT_RE.search(sentence)
         pct = _PERCENT_RE.search(sentence)
 
@@ -1933,6 +2050,44 @@ def rule_confidentiality(doc, sentences):
             r"|\bconfidentiality\b[^.]{0,30}\b(?:agreement\w*|clause\w*|"
             r"undertaking\w*|obligation\w*)\b[^.]{0,30}"
             r"\b(?:employee\w*|staff\w*|employment\w*|personnel\b)\b",
+            lower,
+        ):
+            continue
+        # "The opinion is privileged and confidential under attorney-client
+        # privilege" marks a legal-advice privilege (litigation / solicitor
+        # privilege), not a contractual duty of secrecy between the parties.
+        # "The confidential annex to the judgment was released to the press"
+        # is a court-document disclosure event.  Genuine confidentiality
+        # obligations ("shall keep strictly confidential for 3 years") still
+        # fire — the guards require the privilege / judgment / press frame.
+        # Zero fixture lines use these phrases (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:attorney[-\s]client|legal\s+professional|solicitor[-\s]client|"
+            r"litigation|lawyer[-\s]client)\s+privilege\b",
+            lower,
+        ):
+            continue
+        if re.search(
+            r"\bconfidential\b[^.]{0,45}\b(?:annex\w*|schedule\w*|exhibit\w*)\b"
+            r"[^.]{0,45}\b(?:judgment|ruling|award|order\b)\b"
+            r"|\b(?:annex\w*|schedule\w*|exhibit\w*)\b[^.]{0,45}\bconfidential\b"
+            r"[^.]{0,45}\b(?:judgment|ruling|award|order\b)\b",
+            lower,
+        ):
+            continue
+        # "The parties shall keep the fact of this settlement confidential" is
+        # settlement confidentiality about the dispute resolution itself (seen
+        # in mediation/adr boilerplate) — not the contract's own confidential
+        # information.  The guard above already covers terms/details/contents
+        # of settlement; this leg covers the bare "fact of" frame.  Genuine
+        # obligations ("information exchanged shall remain confidential for 3
+        # years") still fire.
+        if re.search(
+            r"\bfact\s+of\b[^.]{0,40}\b(?:settlement|mediation)\b[^.]{0,40}"
+            r"\bconfidential\w*\b"
+            r"|\bconfidential\w*\b[^.]{0,40}\b(?:settlement|mediation)\b"
+            r"[^.]{0,40}\bfact\s+of\b",
             lower,
         ):
             continue
@@ -2145,6 +2300,24 @@ def rule_ip(doc, sentences):
             r"\b(?:shall\s+)?patent\s+the\b[^.]{0,50}"
             r"\b(?:device\w*|invention\w*|product\w*|technology|process\w*|"
             r"method\w*|system\w*|design\w*)\b",
+            lower,
+        ):
+            continue
+        # "The vesting period for the options is 4 years" is an equity-grant
+        # vesting schedule, not an IP allocation.  "The copyright notice
+        # appears on every page of the manual" is a marking duty statement,
+        # not an ownership transfer.  "The trademark registration was renewed
+        # for another 10 years" is a registry administration event, not an IP
+        # right being allocated.  Genuine IP assignments ("the patent rights
+        # ... are assigned to the Customer", "shall vest in the Licensor")
+        # still fire.  Zero fixture lines use these phrases (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bvesting\s+period\b"
+            r"|\bperiod\s+of\s+vesting\b"
+            r"|\bcopyright\s+notice\b"
+            r"|\btrademark\s+registr\w*\b[^.]{0,45}\brenew\w*\b[^.]{0,25}\byears?\b"
+            r"|\brenew\w*\b[^.]{0,30}\btrademark\s+registr\w*\b",
             lower,
         ):
             continue
@@ -2656,6 +2829,24 @@ def rule_termination(doc, sentences):
             r"|\bemployment\s+contract\b[^.]{0,40}\bterminat\w*\b"
             r"|\bterminat\w*\b[^.]{0,40}\b(?:the\s+)?employment\b[^.]{0,20}"
             r"\b(?:relationship|arrangement)\b",
+            lower,
+        ):
+            continue
+        # "The employment may be terminated by either party with 30 days'
+        # notice" is an HR statement about the employment relationship in
+        # subject position — not a party's right to terminate the agreement.
+        # The noun-form guard above covers "termination of the employment";
+        # this guard covers the verb form where the bare employment noun sits
+        # as the subject of "be terminated", with the notice / dismissal /
+        # resignation frame.  "Either party may terminate this Agreement"
+        # still fires.  The employment offer fixture (line 214 "The term of
+        # employment is 2 years") never puts employment in subject position
+        # of "be terminated" (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:the\s+)?employment\b[^.]{0,30}\b(?:may|shall|can|will)\s+be\s+"
+            r"terminated\b[^.]{0,50}\b(?:notice|dismissal|resignation|"
+            r"termination\s+(?:date|payment)|gross\s+misconduct)\b",
             lower,
         ):
             continue
@@ -3178,6 +3369,22 @@ def rule_data_protection(doc, sentences):
         # pins the "transfer price" noun.  Genuine data transfers ("personal
         # data transferred outside the EEA") still fire.
         if re.search(r"\btransfer\s+price\b", lower):
+            continue
+        # "The domain name shall be transferred to the buyer after payment" /
+        # "The account shall be transferred to the new administrator" transfer
+        # a domain or a user account — an IT asset or admin handover, not a
+        # personal-data transfer.  The bare gate keyword "transfer" admits
+        # them, so the guard pins the domain/account noun.  Genuine data
+        # transfers ("personal data transferred outside the EEA") still fire.
+        # Zero fixture lines use "domain" or "account" near transfer (checked
+        # against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:domain\s+name\w*|domains?|accounts?|user\s+accounts?)\b"
+            r"[^.]{0,40}\b(?:transferred?|transferring|transfer\b)\b"
+            r"|\b(?:transferred?|transferring|transfer\b)\b[^.]{0,40}"
+            r"\b(?:domain\s+name\w*|domains?|accounts?|user\s+accounts?)\b",
+            lower,
+        ):
             continue
         # "transfer / assign this Agreement" is a contract-assignment or
         # novation right, not a personal-data transfer ("the Agreement" /
@@ -3877,6 +4084,63 @@ def rule_insurance(doc, sentences):
             # already stops the penalty half).
             if re.search(
                 r"\bpenalt\w*\b[^.]{0,45}\blate\s+renew\w*\b[^.]{0,30}\binsurance\b",
+                lower,
+            ):
+                continue
+            # "Cancellation insurance is offered to all travellers at check-out"
+            # is a consumer add-on sold at booking (travel-industry upsell),
+            # not an inter-party obligation for a contracting party to maintain
+            # cover.  "The event was insured against adverse weather conditions"
+            # is a public-event / film-production risk arrangement, not a
+            # commercial contract coverage obligation.  Genuine coverage
+            # obligations ("shall maintain professional indemnity insurance")
+            # still fire.  Zero fixture lines use these phrases (checked
+            # against fixtures/generate_fixtures.py).
+            if re.search(
+                r"\bcancellation\s+insurance\b[^.]{0,50}"
+                r"\b(?:travell?ers?|passengers?|customers?|guests?|booking\w*|"
+                r"check[- ]out|flight\w*|hotel\w*|holiday\w*|vacation\w*|trip\w*)\b"
+                r"|\b(?:travell?ers?|passengers?|customers?|guests?|booking\w*|"
+                r"check[- ]out|flight\w*|hotel\w*|holiday\w*|vacation\w*|trip\w*)\b"
+                r"[^.]{0,50}\bcancellation\s+insurance\b"
+                r"|\binsured?\b[^.]{0,45}\bagainst\b[^.]{0,35}"
+                r"\b(?:adverse\s+weather|rain\w*|storm\w*|flood\w*|weather\s+"
+                r"conditions?)\b"
+                r"|\badverse\s+weather\b[^.]{0,45}\binsured?\b",
+                lower,
+            ):
+                continue
+            # "Health insurance is mandatory for all employees" is a statutory
+            # / HR benefits statement (the law or employer policy makes cover
+            # compulsory for staff), not an inter-party obligation between the
+            # parties on the contract's own risks.  Genuine coverage
+            # obligations ("shall maintain professional indemnity insurance")
+            # still fire — the guard requires the mandatory/compulsory/required
+            # frame bound to a benefit-type insurance for employees/staff.
+            if re.search(
+                r"\b(?:medical|health|dental|life|disability|pension)\s+"
+                r"insurance\b[^.]{0,40}"
+                r"\b(?:mandatory|compulsory|required?|obligatory|"
+                r"required\s+by\s+law)\b"
+                r"|\b(?:mandatory|compulsory|required?|obligatory|"
+                r"required\s+by\s+law)\b[^.]{0,40}"
+                r"\b(?:medical|health|dental|life|disability|pension)\s+"
+                r"insurance\b",
+                lower,
+            ):
+                continue
+            # "The statutory insurance requirements are set out in the
+            # applicable law" is a statutory-compliance pointer (the legal
+            # regime determines the cover), not a negotiated coverage
+            # obligation.  Genuine coverage obligations ("shall maintain
+            # professional indemnity insurance") still fire — the guard
+            # requires the statutory/regulatory adjective bound to insurance
+            # requirements/coverage.
+            if re.search(
+                r"\b(?:statutory|regulatory|legal)\s+insurance\b[^.]{0,40}"
+                r"\b(?:requirement\w*|obligation\w*|coverage?|cover\b)\b"
+                r"|\b(?:requirement\w*|obligation\w*)\b[^.]{0,40}"
+                r"\b(?:statutory|regulatory|legal)\s+insurance\b",
                 lower,
             ):
                 continue

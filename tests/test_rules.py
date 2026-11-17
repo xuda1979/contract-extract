@@ -3650,3 +3650,177 @@ def test_employee_confidentiality_agreement_not_confidentiality_clause():
         ["The parties shall keep all business information confidential for 2 years."]
     ) if c.clause == "confidentiality"]
     assert clauses
+
+
+def test_returned_items_not_quantity():
+    # Return batches, agenda entries and audit findings are not contractual
+    # quantities of goods, units or copies.
+    for sentence in [
+        "The customer returned 3 items to the store.",
+        "The report contains 12 items on the agenda.",
+        "There were 5 defects found during the audit.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "quantity"]
+        assert clauses == [], sentence
+    # A genuine procurement quantity still fires.
+    clauses = [c for c in _clauses(
+        ["The Customer shall deliver 500 items to the warehouse next month."]
+    ) if c.clause == "quantity"]
+    assert clauses
+
+
+def test_quote_bid_not_price():
+    # Price quotes, tenders and submitted bids are procurement estimates, not
+    # the price agreed for goods or services under this contract.
+    for sentence in [
+        "The customer asked for a quote for the new widgets.",
+        "We received a price quote of USD 500 for the repair.",
+        "The bid price was USD 1,200,000 for the construction project.",
+        "The tender price shall be submitted in sealed envelopes.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "price"]
+        assert clauses == [], sentence
+    # A genuine contracted price still fires.
+    clauses = [c for c in _clauses(
+        ["The price for the Goods shall be USD 500,000 payable within 30 days."]
+    ) if c.clause == "price"]
+    assert clauses
+
+
+def test_notice_vesting_period_not_duration():
+    # Notice timetables and equity vesting schedules are not the agreement's
+    # term.
+    for sentence in [
+        "The notice period is 30 days, unless the parties agree otherwise.",
+        "The vesting period for the options is 4 years.",
+        "The retention period for personnel records is 5 years.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "duration"]
+        assert clauses == [], sentence
+    # A genuine agreement term still fires.
+    clauses = [c for c in _clauses(
+        ["The term of this Agreement shall be for a period of 2 years, effective from January 1, 2024."]
+    ) if c.clause == "duration"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_copyright_notice_registration_renewal_not_ip():
+    # Marking duties, registry renewals and vesting schedules are not IP
+    # ownership transfers.
+    for sentence in [
+        "The copyright notice appears on every page of the manual.",
+        "The trademark registration was renewed for another 10 years.",
+        "The vesting period for the options is 4 years.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "ip"]
+        assert clauses == [], sentence
+    # A genuine IP assignment still fires.
+    clauses = [c for c in _clauses(
+        ["The patent and trademark rights in the Works are assigned to the Customer."]
+    ) if c.clause == "ip"]
+    assert clauses
+
+
+def test_employment_terminated_not_termination():
+    # HR statements about the employment relationship being ended are not a
+    # party's right to terminate the agreement.
+    for sentence in [
+        "The employment may be terminated by either party with 30 days' notice.",
+        "The membership was terminated due to non-payment of fees.",
+        "The subscription was cancelled by the user.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "termination"]
+        assert clauses == [], sentence
+    # A genuine termination right still fires.
+    clauses = [c for c in _clauses(
+        ["Either party may terminate this Agreement for convenience with 30 days' notice."]
+    ) if c.clause == "termination"]
+    assert clauses
+
+
+def test_project_milestone_acceptance_not_acceptance_window():
+    # Scheduling milestones (pilot runs, site acceptance dates) are not
+    # inspection windows.
+    for sentence in [
+        "The acceptance test will take place after the pilot run.",
+        "Site acceptance is scheduled for 31 December.",
+        "The user accepted the invitation to the platform.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "acceptance"]
+        assert clauses == [], sentence
+    # Genuine acceptance windows still fire.
+    for sentence in [
+        "Acceptance shall occur within 15 days after delivery.",
+        "Final acceptance shall be completed within 60 days following delivery.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "acceptance"]
+        assert clauses, sentence
+
+
+def test_privilege_and_settlement_fact_not_confidentiality():
+    # Legal privilege, court-document release and the bare fact of settlement
+    # are not inter-party confidentiality duties.
+    for sentence in [
+        "The opinion is privileged and confidential under attorney-client privilege.",
+        "The confidential annex to the judgment was released to the press.",
+        "The parties shall keep the fact of this settlement confidential.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "confidentiality"]
+        assert clauses == [], sentence
+    # A genuine confidentiality obligation still fires.
+    clauses = [c for c in _clauses(
+        ["The parties shall keep all business information confidential for 2 years."]
+    ) if c.clause == "confidentiality"]
+    assert clauses
+
+
+def test_professional_statutory_liability_not_liability_cap():
+    # Statutory/professional liability regimes and employee gross-negligence
+    # duties are not agreed caps between the parties.
+    for sentence in [
+        "The auditor's professional liability shall not exceed the statutory cap.",
+        "The statutory liability of the carrier is limited by the CMR Convention.",
+        "The employee shall be liable for any loss caused by gross negligence.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "liability_cap"]
+        assert clauses == [], sentence
+    # A genuine agreed liability cap still fires.
+    clauses = [c for c in _clauses(
+        ["The aggregate liability of the Seller shall not exceed USD 1,000,000."]
+    ) if c.clause == "liability_cap"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_domain_account_transfer_not_data_protection():
+    # Domain/account handovers are IT asset transfers, not personal-data
+    # transfers.
+    for sentence in [
+        "The domain name shall be transferred to the buyer after payment.",
+        "The account shall be transferred to the new administrator.",
+        "The database shall be migrated to the new server next month.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "data_protection"]
+        assert clauses == [], sentence
+    # A genuine data transfer still fires.
+    clauses = [c for c in _clauses(
+        ["Personal data shall not be transferred outside the EEA."]
+    ) if c.clause == "data_protection"]
+    assert clauses
+
+
+def test_consumer_and_statutory_insurance_not_insurance_requirement():
+    # Consumer add-ons, event-risk arrangements and statutory/HR mandates are
+    # not inter-party coverage obligations.
+    for sentence in [
+        "Cancellation insurance is offered to all travellers at check-out.",
+        "The event was insured against adverse weather conditions.",
+        "Health insurance is mandatory for all employees.",
+        "The statutory insurance requirements are set out in the applicable law.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "insurance"]
+        assert clauses == [], sentence
+    # A genuine coverage obligation still fires.
+    clauses = [c for c in _clauses(
+        ["The Seller shall maintain professional indemnity insurance."]
+    ) if c.clause == "insurance"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
