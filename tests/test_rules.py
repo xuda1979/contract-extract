@@ -2460,3 +2460,87 @@ def test_subrogation_waiver_not_obligation():
          "the Term."]
     ) if c.clause == "insurance"]
     assert clauses, "coverage obligation must keep firing"
+
+
+def test_insurance_information_not_a_coverage_obligation():
+    # Providing "insurance information" with an order is a paperwork /
+    # information-supply step, not an inter-party obligation to take out or
+    # maintain a policy.  A genuine coverage obligation still fires.
+    for sentence in [
+        "The Customer shall provide insurance information with each purchase order.",
+        "The Supplier shall furnish insurance particulars upon request of the Buyer.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "insurance"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Supplier shall maintain professional indemnity insurance during "
+         "the Term."]
+    ) if c.clause == "insurance"]
+    assert clauses, "coverage obligation must keep firing"
+
+
+def test_ip_address_not_intellectual_property():
+    # Internet-protocol addresses (routing / networking) are admitted by the
+    # "assign" gate keyword but are not intellectual property.  A genuine
+    # assignment still fires.
+    for sentence in [
+        "Each party shall use reasonable care in handling the IP addresses assigned to it.",
+        "The Supplier shall configure the network addresses for the IP subnet within 30 days.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "ip"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Employee shall assign all inventions created during the "
+         "Assignment to the Company."]
+    ) if c.clause == "ip"]
+    assert clauses, "genuine IP assignment must keep firing"
+
+
+def test_tariff_penalty_rates_not_a_contract_penalty():
+    # Penalty rates in a tariff / price schedule are an administrative rate
+    # book, not a negotiated default penalty for a contractual breach.  A
+    # genuine per-breach penalty tied to a rate still fires.
+    for sentence in [
+        "The penalty rates set out in the tariff schedule apply to late filings.",
+        "Late filing charges apply at the rates listed in the fee schedule for penalties.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "penalty"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Penalties for late delivery apply at the rate of 0.5% per day of "
+         "the contract value."]
+    ) if c.clause == "penalty"]
+    assert clauses, "genuine delivery penalty must keep firing"
+
+
+def test_licence_renewal_fee_not_a_term_renewal():
+    # Re-issuing an administrative credential (licence / permit) on payment
+    # of a renewal fee is a credentials matter, not a renewal of the
+    # agreement's term.  A genuine term renewal still fires.
+    for sentence in [
+        "The Licence shall be renewed annually upon payment of the renewal fee.",
+        "The parties shall renew their accreditation on a biennial basis.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "renewal"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["This Agreement shall automatically renew for successive 1 year terms."]
+    ) if c.clause == "renewal"]
+    assert clauses, "genuine auto-renewal must keep firing"
+
+
+def test_nothing_limits_right_to_terminate_not_a_grant():
+    # "Nothing in this clause shall limit the right ... to terminate" is
+    # proviso-preservation boilerplate protecting a right granted elsewhere —
+    # it grants no right itself.  A genuine for-cause termination right still
+    # fires.
+    for sentence in [
+        "Nothing in this clause shall limit the right of either party to terminate for cause.",
+        "Nothing in this Agreement shall be construed as limiting the right to terminate upon material breach.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "termination"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Either party may terminate this Agreement for cause by written notice."]
+    ) if c.clause == "termination"]
+    assert clauses, "genuine termination for cause must keep firing"

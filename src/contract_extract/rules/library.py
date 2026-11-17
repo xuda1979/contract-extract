@@ -897,6 +897,23 @@ def rule_penalty(doc, sentences):
             lower,
         ):
             continue
+        # "The penalty rates set out in the tariff schedule apply to late
+        # filings" references an administrative rate schedule (a tariff /
+        # price book of charges), not a negotiated default penalty for a
+        # contractual breach.  The guard requires the penalty word bound to
+        # a rate noun and a schedule-class noun, so a genuine per-breach
+        # penalty ("penalties for late delivery apply at the rate of 0.5%
+        # per day of the contract value" — fixture line 98, which has no
+        # tariff / price-list / fee-schedule noun) still fires.
+        if re.search(
+            r"\bpenalt\w*\b[^.]{0,15}\brates?\b[^.]{0,30}"
+            r"\b(?:tariff\w*|price\s+list|price\s+schedule|fee\s+schedule|"
+            r"rate\s+schedule|charges?\s+schedule)\b"
+            r"|\b(?:tariff\w*|price\s+list|price\s+schedule|fee\s+schedule|"
+            r"rate\s+schedule|charges?\s+schedule)\b[^.]{0,45}\bpenalt\w*\b",
+            lower,
+        ):
+            continue
         # "The Club shall pay a transfer penalty of EUR 5 million to the
         # football association" is a sports-federation sanction on a club
         # (transfer rules), not a default penalty for a contractual breach.
@@ -1446,6 +1463,19 @@ def rule_ip(doc, sentences):
             lower,
         ):
             continue
+        # "Each party shall use reasonable care in handling the IP addresses
+        # assigned to it" concerns internet-protocol addresses (routing /
+        # networking), not intellectual property.  The gate keyword "assign" /
+        # "assignment" admits it, so the guard pins the IP-address noun in
+        # either word order.  Genuine IP transfers ("inventions assigned to
+        # the Company") still fire.
+        if re.search(
+            r"\bip\s+address(?:es)?\b"
+            r"|\baddress(?:es)?\b[^.]{0,30}\bip\s+subnet\b"
+            r"|\b(?:internet\s+protocol|network)\b[^.]{0,35}\baddress(?:es)?\b",
+            lower,
+        ):
+            continue
         # "This Agreement shall continue for the life of the copyright in the
         # Works" is a duration / term-of-agreement sentence (the term tracks
         # the copyright life), not a transfer, grant or ownership clause about
@@ -1601,6 +1631,31 @@ def rule_renewal(doc, sentences):
             r"\b(?:engagement|appointment|mandate)\b"
             r"|\b(?:engagement|appointment|mandate)\b[^.]{0,35}"
             r"\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ):
+            continue
+        # "The Licence shall be renewed annually upon payment of the renewal
+        # fee" and "the parties shall renew their accreditation on a biennial
+        # basis" re-issue an administrative credential (a licence / permit /
+        # accreditation) for a further period — not a renewal of the agreement
+        # itself.  The verb-form branch requires a credential object after the
+        # renewal verb (so a genuine "this Agreement renews" stays), and the
+        # bare-licence branch is confined to "shall be renewed" + payment /
+        # fee mechanics so "the lease shall renew for a further period" is
+        # untouched.
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,40}"
+            r"\b(?:the\s+|a\s+|their\s+|its\s+)?(?:licen[cs]e\b|licens\w+|"
+            r"permit\b|accredit\w+|registration\b|visa\b|passport\b|"
+            r"endorsement\b)\b"
+            r"|\b(?:licen[cs]e\b|licens\w+|permit\b|accredit\w+|registration\b|"
+            r"visa\b|passport\b|endorsement\b)\b[^.]{0,40}\brenew(?:al|s|ing|ed|able)?\b"
+            r"|\blicen[cs]e\b[^.]{0,35}\bshall\s+be\s+renewed\b[^.]{0,35}"
+            r"\b(?:payment|fee|renewal\s+fee|charge\w*|cost\w*)\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:this|the)\s+(?:agreement|contract|lease)\b[^.]{0,25}\brenew\w*\b"
+            r"|\brenew\w*\b[^.]{0,25}\b(?:this|the)\s+(?:agreement|contract|lease)\b",
             lower,
         ):
             continue
@@ -1927,6 +1982,25 @@ def rule_termination(doc, sentences):
             r"|\bpurchase\s+order\b[^.]{0,50}\bexpir\w*\b[^.]{0,40}\bterminat\w*\b"
             r"|\bexpir\w*\b[^.]{0,30}\bpurchase\s+order\b[^.]{0,50}\bterminat\w*\b"
             r"|\bterminat\w*\b[^.]{0,40}\bpurchase\s+order\b[^.]{0,50}\bexpir\w*\b",
+            lower,
+        ):
+            continue
+        # "Nothing in this clause shall limit the right of either party to
+        # terminate for cause" is proviso-preservation boilerplate — it
+        # protects a termination right that lives in ANOTHER clause, granting
+        # no right itself.  It is distinct from a genuine grant ("Either party
+        # may terminate this Agreement for cause", fixtures lines 168/220/221)
+        # because the guard is anchored to the "nothing ... shall limit / be
+        # construed" formula, not to the bare for-cause phrase.
+        if re.search(
+            r"\bnothing\s+in\b[^.]{0,30}"
+            r"\b(?:shall|does|will|is\s+intended\s+to)\b[^.]{0,10}"
+            r"\blimit\b[^.]{0,45}\b(?:right|rights)\b[^.]{0,40}"
+            r"\bterminat\w*\b"
+            r"|\bnothing\s+in\b[^.]{0,50}\b(?:shall|may|is\s+to)\s+be\s+"
+            r"construed\b[^.]{0,50}\b(?:as\s+)?(?:limiting|affecting)\b"
+            r"[^.]{0,40}\bterminat\w*\b"
+            r"|\bnothing\s+.\s*shall\s+prevent\b[^.]{0,60}\bterminat\w*\b",
             lower,
         ):
             continue
@@ -2668,6 +2742,26 @@ def rule_insurance(doc, sentences):
                 lower,
             ) and not re.search(
                 r"\b(?:maintain\w*|procure\w*|carry|obtain\w*|cover\w*)\b[^.]{0,40}"
+                r"\binsurance\b",
+                lower,
+            ):
+                continue
+            # "The Customer shall provide insurance information with each
+            # purchase order" is a paperwork / information-supply step (data
+            # about coverage to be furnished with an order), not an
+            # inter-party obligation to take out or maintain a policy.  The
+            # guard is pinned to the information/particulars/details noun, so
+            # genuine coverage obligations ("shall maintain professional
+            # indemnity insurance") still fire — the negative leg keeps
+            # maintain/procure/carry/obtain untouched.
+            if re.search(
+                r"\binsurance\s+(?:information|particulars|details|data)\b"
+                r"|\b(?:information|particulars|details|data)\b[^.]{0,25}\binsurance\b"
+                r"[^.]{0,20}\b(?:with\s+each|upon\s+request|to\s+the|provide\w*|"
+                r"furnish\w*|supply\w*)\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|carry|obtain\w*|take\s+out)\b[^.]{0,40}"
                 r"\binsurance\b",
                 lower,
             ):
