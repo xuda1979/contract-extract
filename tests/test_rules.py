@@ -4552,3 +4552,119 @@ def test_insurance_coverage_commences_premium_not_insurance():
         "Insurance coverage commences upon payment of the first premium."
     ) if c.clause == "insurance"]
     assert clauses == []
+
+
+def test_payment_payment_method_statement_not_payment_term():
+    # A method-of-payment statement ("Payment may be made by bank transfer or
+    # credit card" / "We accept most major credit cards for payment") is not a
+    # payment term fixing an amount, due date or tranche.
+    clauses = [c for c in _clauses(
+        "Payment may be made by bank transfer or credit card."
+    ) if c.clause == "payment"]
+    assert clauses == []
+    clauses = [c for c in _clauses(
+        "We accept most major credit cards for payment."
+    ) if c.clause == "payment"]
+    assert clauses == []
+    # A genuine payment term ("within 14 days of receipt") still fires.
+    clauses = [c for c in _clauses(
+        "The invoice must be paid within 14 days of receipt."
+    ) if c.clause == "payment"]
+    assert clauses
+
+
+def test_payment_processing_or_registration_fee_or_stamp_duty_not_payment():
+    # Payment-services tariffs, agency/statutory clearance fees and tax levies
+    # named near "payable" are not inter-party payment terms.
+    clauses = [c for c in _clauses(
+        "The payment gateway charges a processing fee of 2%."
+    ) if c.clause == "payment"]
+    assert clauses == []
+    clauses = [c for c in _clauses(
+        "The registration fee payable to the agency is EUR 200."
+    ) if c.clause == "payment"]
+    assert clauses == []
+    clauses = [c for c in _clauses(
+        "Stamp duty on the deed is payable within 30 days."
+    ) if c.clause == "payment"]
+    assert clauses == []
+
+
+def test_price_processing_restocking_handling_registration_fee_not_price():
+    # Merchant / tariff / registration charges are not the price of goods or
+    # services under this Agreement.
+    for s in (
+        "The payment gateway charges a processing fee of 2%.",
+        "The supplier charges a restocking fee of 10% for returns.",
+        "A handling fee of EUR 20 applies to each transaction.",
+        "The registration fee payable to the agency is EUR 200.",
+    ):
+        clauses = [c for c in _clauses(s) if c.clause == "price"]
+        assert clauses == []
+    # A genuine quoted fee ("service fee of USD 500") still fires.
+    clauses = [c for c in _clauses(
+        "The Supplier shall pay a service fee of USD 500 upon delivery."
+    ) if c.clause == "price"]
+    assert clauses
+
+
+def test_penalty_percent_of_turnover_not_penalty():
+    # A statutory/regulatory revenue-share sanction ("a percentage of
+    # turnover") is not a negotiated default penalty for a contractual breach.
+    clauses = [c for c in _clauses(
+        "The company faces a penalty of 4% of turnover for the breach."
+    ) if c.clause == "penalty"]
+    assert clauses == []
+    # A genuine quantified late-payment penalty still fires.
+    clauses = [c for c in _clauses(
+        "A late payment penalty of 2% per month shall apply to overdue invoices."
+    ) if c.clause == "penalty"]
+    assert clauses
+
+
+def test_confidentiality_status_statements_not_confidentiality():
+    # Status / attribute statements (until publication, audience limitation,
+    # treated-as-under-policy, descriptive discussions) are not agreed
+    # secrecy duties between the parties.
+    for s in (
+        "The report remains confidential until publication.",
+        "The negotiation positions are confidential to the two teams.",
+        "Client information is treated as confidential under the policy.",
+        "Confidential discussions took place at the summit.",
+    ):
+        clauses = [c for c in _clauses(s) if c.clause == "confidentiality"]
+        assert clauses == []
+    # A genuine secrecy obligation still fires.
+    clauses = [c for c in _clauses(
+        "Confidential information shall remain confidential for 3 years after termination."
+    ) if c.clause == "confidentiality"]
+    assert clauses
+
+
+def test_insurance_holds_directors_and_officers_not_insurance():
+    # A factual statement that the company currently holds a D&O policy is not
+    # an inter-party coverage obligation.
+    clauses = [c for c in _clauses(
+        "The company holds directors and officers insurance."
+    ) if c.clause == "insurance"]
+    assert clauses == []
+    # A genuine maintain/procure coverage obligation still fires.
+    clauses = [c for c in _clauses(
+        "The contractor shall maintain public liability insurance of USD 2m."
+    ) if c.clause == "insurance"]
+    assert clauses
+
+
+def test_data_protection_payment_method_transfer_not_data():
+    # A payment-method statement using the word "transfer" ("Payment may be
+    # made by bank transfer") is not a personal-data movement.
+    clauses = [c for c in _clauses(
+        "Payment may be made by bank transfer or credit card."
+    ) if c.clause == "data_protection"]
+    assert clauses == []
+    # A genuine personal-data transfer still fires.
+    clauses = [c for c in _clauses(
+        "Personal data may be transferred outside the EEA with consent."
+    ) if c.clause == "data_protection"]
+    assert clauses
+

@@ -716,6 +716,18 @@ def rule_price(doc, sentences):
             lower,
         ):
             continue
+        # "The supplier charges a restocking fee of 10% for returns", "A
+        # handling fee of EUR 20 applies to each transaction" and "The payment
+        # gateway charges a processing fee of 2%" quote merchant / tariff
+        # charges or registration clearances, not the price of goods or
+        # services under this Agreement.  Genuine contract prices (service fee
+        # of USD 500, fees split equally) still fire — none of these nouns
+        # appear in fixtures/generate_fixtures.py.
+        if re.search(
+            r"\b(?:processing|restocking|handling|registration)\s+fees?\b",
+            lower,
+        ):
+            continue
         flag = f"price: {detail}"
         if any(k in lower for k in ("in advance", "advance payment", "upon execution",
                                     "upfront", "payable in advance", "non-refundable")):
@@ -1335,6 +1347,37 @@ def rule_payment(doc, sentences):
             lower,
         ):
             continue
+        # "Payment may be made by bank transfer or credit card" states the
+        # methods a party may use to pay (an invoicing/collection detail), not
+        # a payment term fixing an amount, due date or tranche.  "We accept
+        # most major credit cards for payment" is the same genre with the
+        # credit-card noun pulled to the front.  Genuine payment terms under
+        # this rule name the buyer / invoice / purchase price and still fire
+        # (zero fixture lines mention "may be made by" or "for payment" —
+        # checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:payment|payments?)\s+may\s+be\s+made\s+by\b[^.]{0,40}"
+            r"\b(?:bank\s+transfer|credit\s+card|card\b|wire|cheque\w*|"
+            r"check\b|paypal)\b",
+            lower,
+        ) or re.search(
+            r"\baccept\w*\b[^.]{0,30}\b(?:credit\s+cards?|debit\s+cards?)\b"
+            r"[^.]{0,25}\bfor\s+payment\b",
+            lower,
+        ):
+            continue
+        # "The payment gateway charges a processing fee of 2%" describes a
+        # payment-services tariff (the gateway's charge), not a payment term
+        # between the contracting parties.  "The registration fee payable to
+        # the agency is EUR 200" is a statutory/agency clearance charge, and
+        # "Stamp duty on the deed is payable within 30 days" is a tax levy.
+        # Genuine payment terms (invoice/net/within frames) still fire.
+        if re.search(
+            r"\b(?:processing|registration)\s+fee\w*\b"
+            r"|\bstamp\s+duty\b[^.]{0,40}\bpayable\b",
+            lower,
+        ):
+            continue
         # find a specific financial term
         pct = _PERCENT_RE.search(sentence)
         amount = _AMOUNT_RE.search(sentence)
@@ -1598,6 +1641,20 @@ def rule_penalty(doc, sentences):
         ) and re.search(
             r"\b(?:licen[cs]e|permit|registration|parking|traffic|driver|"
             r"speeding|offen[cs]e|violation|conviction|endorsement\w*)\b",
+            lower,
+        ):
+            continue
+
+        # "The company faces a penalty of 4% of turnover for the breach" is a
+        # statutory / regulatory revenue-share sanction (a percentage of the
+        # undertaking's turnover), not a negotiated default penalty for a
+        # contractual breach.  A genuine contract penalty quantifies the
+        # penalty itself ("a late payment penalty of 2% per month") and keeps
+        # firing.  The statutory/regulator family above already covers
+        # "from the securities regulator" framings.
+        if re.search(
+            r"\bpenalt\w*\b[^.]{0,50}"
+            r"\b(?:\d+(?:\.\d+)?\s*%\s+of)?\s*turnover\b",
             lower,
         ):
             continue
@@ -2468,6 +2525,28 @@ def rule_confidentiality(doc, sentences):
             r"\bby\s+their\s+nature\b"
             r"|\btrade\s+secrets?\b[^.]{0,40}\b(?:are|is|shall\s+be|deem\w*)\b"
             r"[^.]{0,30}\bconfidential\b",
+            lower,
+        ):
+            continue
+        # Status / attribute statements describing information as confidential
+        # (a given state of affairs) are not agreed secrecy duties between the
+        # parties.  Frames: "The report remains confidential until
+        # publication" (a hold-until-release rule, no misuse restriction),
+        # "negotiation positions are confidential to the two teams" (an
+        # audience limitation), "Client information is treated as confidential
+        # under the policy" (a factual policy description) and "Confidential
+        # discussions took place at the summit" (a plain descriptive noun).
+        # Genuine obligations still fire — the fixture line "Confidential
+        # information shall remain confidential for 3 years after termination"
+        # (checked against fixtures/generate_fixtures.py) has no until/treated/
+        # to-audience/passive-noun frame.
+        if re.search(
+            r"\bconfidential\w*\b[^.]{0,35}\buntil\s+publication\b"
+            r"|\bconfidential\w*\b[^.]{0,40}\bto\b[^.]{0,35}"
+            r"\b(?:the|both|the\s+two|the\s+three)?\s*(?:parties?|teams?|"
+            r"companies?|organi[sz]ations?)\b"
+            r"|\btreat\w*d\s+as\s+confidential\b[^.]{0,30}\bunder\b"
+            r"|\bconfidential\s+discussions?\b",
             lower,
         ):
             continue
@@ -3954,6 +4033,22 @@ def rule_data_protection(doc, sentences):
             lower,
         ):
             continue
+        # "Payment may be made by bank transfer or credit card" uses the bare
+        # gate keyword "transfer" inside a payment-method statement (form of
+        # payment), not a personal-data movement.  Same negative leg as the
+        # accept-payment guard above so genuine "personal data" transfers
+        # still fire.
+        if re.search(
+            r"\bpayment\w*\s+may\s+be\s+made\s+by\b[^.]{0,40}"
+            r"\b(?:bank\s+transfer|wire\s+transfer|credit\s+card|card\b|"
+            r"cheque\w*|check\b|paypal)\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:personal|customer|consumer|user|employee|health|financial|"
+            r"banking|credit|identity|biometric)\s+data\b",
+            lower,
+        ):
+            continue
         # "The transfer window for players closes on 1 September" is a
         # sports-transfer market window (registration of players), not a
         # personal-data transfer.  The gate keyword "transfer" admits it, so
@@ -4327,6 +4422,29 @@ def rule_insurance(doc, sentences):
             ) and re.search(
                 r"\b(?:procure\w*|obtain\w*|purchase\w*|maintain\w*|carry|"
                 r"tak(?:e|ing|en)\s+out)\b",
+                lower,
+            ):
+                continue
+            # "The company holds directors and officers insurance" states that
+            # the company currently has a management-liability policy in force
+            # (a benefit/asset fact, no inter-party coverage obligation nor a
+            # procured coverage type).  The obligation verbs alone (maintain /
+            # procure / purchase / take out / obtain / carry) still signal a
+            # genuine coverage duty and are excluded from this guard — a
+            # fixture-style "shall maintain ... directors and officers
+            # liability insurance" keeps firing.  Zero fixture lines mention
+            # holding D&O insurance (checked against
+            # fixtures/generate_fixtures.py).
+            if re.search(
+                r"\b(?:directors?\s+and\s+officers?|d\s*&\s*o)\b[^.]{0,40}"
+                r"\bholds?\b[^.]{0,30}\binsurance\b"
+                r"|\bholds?\b[^.]{0,40}"
+                r"\b(?:directors?\s+and\s+officers?|d\s*&\s*o)\b[^.]{0,30}"
+                r"\binsurance\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:requir\w*|maintain\w*|procure\w*|obtain\w*|purchase\w*|"
+                r"take\s+out|shall|must|will)\b",
                 lower,
             ):
                 continue
