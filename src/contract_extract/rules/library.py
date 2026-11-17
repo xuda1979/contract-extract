@@ -509,7 +509,20 @@ def rule_acceptance(doc, sentences):
             r"|\bacceptance\s+of\s+(?:the\s+|a\s+|this\s+)?"
             r"(?:documentary\s+credit(?:s)?|letter\s+of\s+credit|bill(?:s)?\s+of\s+exchange|"
             r"promissory\s+note(?:s)?|draft(?:s)?|offer(?:s)?|tender(?:s)?|bid(?:s)?|"
-            r"purchase\s+order(?:s)?|quotation(?:s)?)\b",
+            r"purchase\s+order(?:s)?|quotation(?:s)?)\b"
+            # "The Bank's acceptance letter shall be presented together with
+            # the shipping documents" is documentary trade finance — a bank
+            # acceptance of a bill/draft, not acceptance of deliverables.
+            # The context is restricted to trade-finance tokens so a genuine
+            # acceptance letter tied to an acceptance window ("acceptance
+            # letter within 10 days of delivery of the Deliverables") still
+            # fires via the numeric-window patterns below.
+            r"|\bacceptance\s+letter\b[^.]{0,45}"
+            r"\b(?:bank\w*|documentary|letter\s+of\s+credit|ship\w*|"
+            r"bill\s+of\s+lading)\b"
+            r"|\b(?:bank\w*|documentary|letter\s+of\s+credit|ship\w*|"
+            r"bill\s+of\s+lading)\b"
+            r"[^.]{0,45}\bacceptance\s+letter\b",
             lower,
         ):
             continue
@@ -571,9 +584,16 @@ def rule_acceptance(doc, sentences):
         # (verb chain) is untouched.  Both word orders are covered.
         if re.search(
             r"\bto\s+inspect\b[^.]{0,45}\b(?:books?|records?|accounts?|"
-            r"book\s+(?:s?\w*)?s?\s+(?:and|&)?|audit\b|documentation)\b"
+            r"book\s+(?:s?\w*)?s?\s+(?:and|&)?|audit\b|documentation|premises|"
+            r"facilities|sites?|plants?|factories?)\b"
             r"|\b(?:books?|records?|accounts?|audit\s+right\w*|"
-            r"documentation)\b[^.]{0,45}\bto\s+inspect\b",
+            r"documentation|premises|facilities|sites?|plants?|factories?)\b"
+            r"[^.]{0,45}\bto\s+inspect\b"
+            r"|\b(?:premises|facilities|sites?|plants?|factories?|books?|"
+            r"records?|accounts?|documentation)\b[^.]{0,25}\bfor\s+inspection\b"
+            r"|\binspection\s+of\b[^.]{0,35}\b(?:the\s+|its\s+|their\s+|our\s+)?"
+            r"(?:premises|facilities|sites?|plants?|factories?|books?|records?|"
+            r"accounts?|documentation)\b",
             lower,
         ):
             continue
@@ -630,6 +650,17 @@ def rule_acceptance(doc, sentences):
             r"\bacceptance\s+tests?\b[^.]{0,45}"
             r"\bin\s+accordance\s+with\b[^.]{0,35}"
             r"\b(?:the\s+)?(?:test\s+plan|schedule\s+\d|exhibit\s+\d|appendix\s+\w+)\b",
+            lower,
+        ):
+            continue
+        # "The Buyer shall not unreasonably refuse to accept delivery of the
+        # Goods" is a party's obligation about accepting deliveries — a
+        # delivery/conduct rule, not a window in which deliverables are
+        # examined and accepted.  Genuine acceptance windows still fire.
+        if re.search(
+            r"\brefus\w*\b[^.]{0,35}\bto\s+accept\b[^.]{0,45}\bdeliver\w*\b"
+            r"|\bdeliver\w*\b[^.]{0,45}\brefus\w*\b[^.]{0,35}\bto\s+accept\b"
+            r"|\brefus\w*\bto\s+accept\b(?:ance)?\s+of\s+deliver",
             lower,
         ):
             continue
@@ -990,6 +1021,26 @@ def rule_penalty(doc, sentences):
             lower,
         ):
             continue
+        # "The parties agree that the penalty clause in clause 14 is reasonable
+        # and proportionate" is a recital/enforceability statement about a
+        # penalty clause, not a default penalty with rate or amount.  A
+        # quantified penalty ("a late payment penalty of 2% per month") still
+        # fires.
+        if re.search(
+            r"\bpenalt\w*\s+clause\b[^.]{0,60}"
+            r"\b(?:reasonable|proportionate|enforceable|valid|fair|"
+            r"not\s+(?:a\s+)?penalt\w*)\b"
+            r"|\b(?:reasonable|proportionate|enforceable|valid|fair)\b[^.]{0,60}"
+            r"\bpenalt\w*\s+clause\b",
+            lower,
+        ) and not (
+            _AMOUNT_RE.search(lower)
+            or re.search(
+                r"\b(?:\d+(?:\.\d+)?\s*%|interest\s+rate|per\s+month|per\s+day)\b",
+                lower,
+            )
+        ):
+            continue
         pct = _PERCENT_RE.search(sentence)
         amount = _AMOUNT_RE.search(sentence)
         risk = RiskLevel.MEDIUM
@@ -1348,6 +1399,22 @@ def rule_confidentiality(doc, sentences):
             lower,
         ):
             continue
+        # "The parties shall maintain the confidentiality of trade secrets as
+        # required by the Trade Secrets Act" is a statutory-compliance
+        # statement (honour trade-secret law), not a duty about the
+        # contract's own confidential information.  Genuine confidentiality
+        # obligations ("shall keep confidential for 3 years") still fire.
+        if re.search(
+            r"\bconfidential\w*\b[^.]{0,60}\btrade\s+secret\w*\b[^.]{0,60}"
+            r"\b(?:as\s+required|pursuant\s+to|under\s+(?:the\s+|applicable\s+|"
+            r"relevant\s+)?(?:law|act|statute|regulation|directive))\b"
+            r"|\btrade\s+secret\w*\b[^.]{0,60}\bconfidential\w*\b[^.]{0,60}"
+            r"\b(?:as\s+required|pursuant\s+to|under\s+(?:the\s+|applicable\s+|"
+            r"relevant\s+)?(?:law|act|statute|regulation|directive))\b"
+            r"|\bconfidential\w*\b[^.]{0,60}\b(?:as\s+required\s+by\s+law)\b",
+            lower,
+        ):
+            continue
         dur = _DURATION_RE.search(sentence)
         risk = RiskLevel.LOW
         flag = "confidentiality clause"
@@ -1511,6 +1578,27 @@ def rule_ip(doc, sentences):
         if re.search(
             r"\b(?:intellectual\s+property(?:\s+rights?)?)\b[^.]{0,60}"
             r"\b(?:means?|shall\s+mean|is\s+defined\s+as)\b",
+            lower,
+        ):
+            continue
+        # "The Parties acknowledge the ownership of Intellectual Property is
+        # set out in the Background IP schedule" is a recital pointing at a
+        # schedule for the definition of ownership — a cross-reference, not
+        # an ownership, transfer or licence clause.  Genuine ownership
+        # statements ("all IP created under this Agreement is owned by the
+        # Customer") still fire — the negative leg keeps assign/transfer/vest/
+        # grant/owned-by sentences live.
+        if re.search(
+            r"\bownership\b[^.]{0,60}\bintellectual\s+property\b[^.]{0,50}"
+            r"\b(?:set\s+out|described|specified|detailed|defined)\b[^.]{0,35}"
+            r"\b(?:schedule\w*|annex\w*|exhibit\w*|appendix\w*|background\w*)\b"
+            r"|\bintellectual\s+property\b[^.]{0,60}\bownership\b[^.]{0,50}"
+            r"\b(?:set\s+out|described|specified|detailed|defined)\b[^.]{0,35}"
+            r"\b(?:schedule\w*|annex\w*|exhibit\w*|appendix\w*|background\w*)\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:assign\w*|transfer\w*|vest\w*|grant\w*|owned\s+by|"
+            r"shall\s+be\s+owned)\b",
             lower,
         ):
             continue
@@ -1726,6 +1814,26 @@ def rule_renewal(doc, sentences):
         if re.search(
             r"\bdiscuss\w*\b[^.]{0,35}\brenew(?:al|s|ing|ed|able)?\b"
             r"|\brenew(?:al|s|ing|ed|able)?\b[^.]{0,35}\bdiscuss\w*\b",
+            lower,
+        ):
+            continue
+        # "Each party shall give written notice of renewal not less than 30
+        # days before expiry" sets a notice lead-time for deciding about
+        # renewal — a procedural notification duty, not a renewal of the
+        # term itself (no term is extended here).  The guard needs BOTH a
+        # notice signal AND a before-expiry framing, so a genuine
+        # notification-triggered renewal ("renews automatically unless the
+        # party gives notice") stays live via the negative leg.
+        if re.search(
+            r"\bnotice\b[^.]{0,45}\brenew(?:al|s|ing|ed|able)?\b[^.]{0,45}"
+            r"\b(?:before|prior\s+to)\b[^.]{0,30}\b(?:expir\w*|end\b|"
+            r"terminat\w*|anniversary|date)\b"
+            r"|\brenew(?:al|s|ing|ed|able)?\b[^.]{0,45}\bnotice\b[^.]{0,45}"
+            r"\b(?:before|prior\s+to)\b[^.]{0,30}\b(?:expir\w*|end\b|"
+            r"terminat\w*|anniversary|date)\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:automatically|shall\s+renew|renews(?:\s+for|\s+on|\s+automatically))\b",
             lower,
         ):
             continue
@@ -1985,6 +2093,24 @@ def rule_termination(doc, sentences):
             lower,
         ):
             continue
+        # "The Agreement shall terminate automatically on the Expiry Date
+        # without any further act" is a self-executing expiry statement (the
+        # term falls away by operation of time), not a party's right to
+        # terminate.  The guard needs BOTH an auto-expiry signal AND a
+        # termination/expiry marker so a genuine termination right ("Either
+        # party may terminate this Agreement") and a fixed-expiry fixture
+        # line ("shall terminate on the expiry of the sponsorship period",
+        # no "automatically") still fire.
+        if re.search(
+            r"\bautomatically\b[^.]{0,50}\bterminat\w*\b"
+            r"|\bterminat\w*\b[^.]{0,50}\bautomatically\b",
+            lower,
+        ) and re.search(
+            r"\b(?:expir\w*|expiry\s+date|without\s+(?:any\s+)?further\s+act|"
+            r"of\s+its\s+own\s+accord|upon\s+the\s+expiry)\b",
+            lower,
+        ):
+            continue
         # "Nothing in this clause shall limit the right of either party to
         # terminate for cause" is proviso-preservation boilerplate — it
         # protects a termination right that lives in ANOTHER clause, granting
@@ -2235,6 +2361,28 @@ def rule_exclusivity(doc, sentences):
             lower,
         ):
             continue
+        # "The exclusivity in clause 5 shall not apply to territories outside
+        # the EU" is a carve-out limiting an exclusivity grant's territorial
+        # scope — it narrows an exclusivity that lives in ANOTHER clause,
+        # granting nothing itself.  A genuine grant ("exclusive right to
+        # sell within the Territory") still fires — the negative leg keeps
+        # sentences with an actual "exclusive right / sell / license"
+        # operative verb live.
+        if re.search(
+            r"\bexclusivit\w*\b[^.]{0,60}"
+            r"\b(?:shall\s+not\s+apply|does\s+not\s+apply|not\s+apply|"
+            r"cease\s+to\s+apply)\b[^.]{0,50}"
+            r"\b(?:territor\w*|outside\b|region\w*|area\w*)\b"
+            r"|\b(?:this\s+|the\s+)exclusivit\w*\b[^.]{0,30}\bclause\b[^.]{0,50}"
+            r"\b(?:shall\s+not\s+apply|does\s+not\s+apply|not\s+apply)\b",
+            lower,
+        ) and not re.search(
+            r"\bexclusive\s+(?:right|licen[cs]e)\b"
+            r"|\b(?:sell|sale|distribut\w*|market\w*|supply|provide)\w*\b"
+            r"[^.]{0,25}\bexclusively\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.MEDIUM
         flag = "exclusivity clause"
         dur = _DURATION_RE.search(sentence)
@@ -2355,6 +2503,42 @@ def rule_data_protection(doc, sentences):
             r"\bprivacy\s+of\s+(?:the\s+|a\s+|its\s+|our\s+|their\s+)?"
             r"(?:negotiation\w*|strategy|proceedings?|deliberations?|discussions?|"
             r"commercial\s+information)\b",
+            lower,
+        ):
+            continue
+        # "Anonymised data shall not be treated as personal data under this
+        # Agreement" is a definitional carve-out (what does not count as
+        # personal data) — it narrows the term's scope, not a processing,
+        # transfer or breach obligation.  Genuine processing/transfer clauses
+        # still fire via the negative leg.
+        if re.search(
+            r"\banonymis\w*\s+data\b[^.]{0,45}\bnot\b[^.]{0,35}\bpersonal\s+data\b"
+            r"|\bpersonal\s+data\b[^.]{0,45}\bnot\b[^.]{0,35}\banonymis\w*\s+data\b"
+            r"|\bpersonal\s+data\b[^.]{0,35}\bnot\b[^.]{0,40}\banonymis\w*\b"
+            r"|\banonymis\w*\b[^.]{0,40}\bnot\b[^.]{0,35}\bpersonal\s+data\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:transfer(?:s|red|ring)?|disclos\w*|process(?:ed|ing)?\s+of|"
+            r"controller\b|processor\b|DPA\b|SCC\b|outside\s+(?:the\s+)?(?:EEA|EU)\b)\b",
+            lower,
+        ):
+            continue
+        # "The data subject's rights under Article 15 shall be respected" is a
+        # statutory-rights acknowledgment (honour GDPR access rights), not a
+        # processing, transfer or breach obligation between the parties.
+        # Genuine data clauses naming processing or transfers still fire.
+        if re.search(
+            r"\bdata\s+subject\w*\b[^.]{0,40}\bright\w*\b[^.]{0,40}"
+            r"\b(?:under|pursuant\s+to)\b[^.]{0,30}\b(?:article|section|clause|chapter)\b"
+            r"|\b(?:under|pursuant\s+to)\b[^.]{0,30}\b(?:article|section|clause|chapter)\b"
+            r"[^.]{0,40}\bright\w*\b[^.]{0,40}\bdata\s+subject\w*\b"
+            r"|\bright\w*\b[^.]{0,35}\bof\b[^.]{0,35}\bdata\s+subjects?\b"
+            r"[^.]{0,40}\b(?:under|pursuant\s+to)\b[^.]{0,30}"
+            r"\b(?:article|section|clause|chapter)\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:transfer(?:s|red|ring)?|disclos\w*|process(?:ed|ing)?\s+of|"
+            r"controller\b|processor\b|DPA\b|SCC\b|no\s+such\s+right)\b",
             lower,
         ):
             continue
@@ -2759,6 +2943,42 @@ def rule_insurance(doc, sentences):
                 r"|\b(?:information|particulars|details|data)\b[^.]{0,25}\binsurance\b"
                 r"[^.]{0,20}\b(?:with\s+each|upon\s+request|to\s+the|provide\w*|"
                 r"furnish\w*|supply\w*)\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|carry|obtain\w*|take\s+out)\b[^.]{0,40}"
+                r"\binsurance\b",
+                lower,
+            ):
+                continue
+            # "Liability shall have the meaning given to it in the Insurance
+            # Policies" is a defined-term pointer (a definitional cross-
+            # reference to policy documents), not an obligation to take out or
+            # maintain cover.  Genuine coverage obligations ("shall maintain
+            # professional indemnity insurance") still fire — the negative leg
+            # keeps maintain/procure/carry/obtain untouched.
+            if re.search(
+                r"\binsurance\s+polic(?:y|ies)\b[^.]{0,40}"
+                r"\b(?:meaning|definition\w*|interpreted|defined)\b"
+                r"|\b(?:meaning|definition\w*|interpreted|defined)\b[^.]{0,40}"
+                r"\binsurance\s+polic(?:y|ies)\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|carry|obtain\w*|take\s+out)\b[^.]{0,40}"
+                r"\binsurance\b",
+                lower,
+            ):
+                continue
+            # "The parties confirm that insurance cover is available at
+            # competitive rates" is a market-availability statement about
+            # coverage, not an inter-party obligation to maintain a policy.
+            # Genuine coverage obligations ("shall maintain professional
+            # indemnity insurance") still fire — the negative leg keeps
+            # maintain/procure/carry/obtain untouched.
+            if re.search(
+                r"\b(?:insurance\s+cover(?:age)?|cover(?:age)?\s+insurance)\b"
+                r"[^.]{0,45}\b(?:available|competitive|affordable)\b"
+                r"|\b(?:available|competitive|affordable)\b[^.]{0,45}"
+                r"\b(?:insurance\s+cover(?:age)?|cover(?:age)?\s+insurance)\b",
                 lower,
             ) and not re.search(
                 r"\b(?:maintain\w*|procure\w*|carry|obtain\w*|take\s+out)\b[^.]{0,40}"

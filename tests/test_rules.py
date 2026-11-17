@@ -2544,3 +2544,211 @@ def test_nothing_limits_right_to_terminate_not_a_grant():
         ["Either party may terminate this Agreement for cause by written notice."]
     ) if c.clause == "termination"]
     assert clauses, "genuine termination for cause must keep firing"
+
+
+def test_premises_inspection_not_acceptance_window():
+    # A right to inspect manufacturing premises / facilities (site audit or
+    # quality control) is not an acceptance window for deliverables.  A
+    # numeric acceptance window still fires.
+    for sentence in [
+        "The Supplier shall permit the Customer to inspect the manufacturing premises upon reasonable notice.",
+        "The Customer may visit the production facilities for inspection at any time.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "acceptance"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Customer shall have 10 days after delivery to inspect and accept each Deliverable."]
+    ) if c.clause == "acceptance"]
+    assert clauses, "deliverables acceptance window must keep firing"
+
+
+def test_bank_acceptance_letter_not_acceptance_window():
+    # A bank's "acceptance letter" under a documentary credit is trade
+    # finance (a payment instrument), not acceptance of deliverables.
+    # A genuine acceptance letter under an acceptance procedure still fires.
+    for sentence in [
+        "The Bank's acceptance letter shall be presented together with the shipping documents.",
+        "An acceptance letter from the issuing bank must accompany the bill of lading.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "acceptance"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Customer shall issue an acceptance letter within 10 days of delivery of the Deliverables."]
+    ) if c.clause == "acceptance"]
+    assert clauses, "deliverables acceptance letter must keep firing"
+
+
+def test_refuse_to_accept_delivery_not_acceptance_window():
+    # A duty not to refuse acceptance of delivery is a delivery-acceptance
+    # performance obligation, not a window in which deliverables are
+    # inspected.  A numeric acceptance window still fires.
+    for sentence in [
+        "The Buyer shall not unreasonably refuse to accept delivery of the Goods.",
+        "The Customer may not refuse delivery of conforming Goods.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "acceptance"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Customer shall have 10 days after delivery to inspect and accept each Deliverable."]
+    ) if c.clause == "acceptance"]
+    assert clauses, "deliverables acceptance window must keep firing"
+
+
+def test_penalty_clause_reasonableness_recital_not_penalty():
+    # A recital that a penalty clause is reasonable / proportionate / valid
+    # comments on an existing clause; it imposes no penalty itself.
+    # A quantified penalty still fires.
+    for sentence in [
+        "The Parties agree that the penalty clause in clause 14 is reasonable and proportionate.",
+        "The penalty clause is fair and enforceable as liquidated damages.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "penalty"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["A late payment penalty of 2% per month shall apply to overdue amounts."]
+    ) if c.clause == "penalty"]
+    assert clauses, "quantified late-payment penalty must keep firing"
+
+
+def test_trade_secrets_statute_not_confidentiality_obligation():
+    # Complying with a trade-secrets statute (as a matter of law) is not an
+    # inter-party confidentiality duty.  A genuine care-standard duty still
+    # fires.
+    for sentence in [
+        "The parties shall maintain the confidentiality of trade secrets as required by the Trade Secrets Act.",
+        "Trade secrets shall be kept confidential pursuant to applicable legislation.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "confidentiality"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Recipient shall keep the Confidential Information strictly confidential for 3 years."]
+    ) if c.clause == "confidentiality"]
+    assert clauses, "confidentiality duty must keep firing"
+
+
+def test_ip_ownership_recital_not_assignment():
+    # A recital acknowledging that IP ownership is set out in a schedule
+    # states where the deal terms live; it assigns / grants nothing.
+    # A genuine transfer still fires.
+    for sentence in [
+        "The Parties acknowledge the ownership of Intellectual Property is set out in the Background IP schedule.",
+        "Ownership of the intellectual property shall be as described in the Annex.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "ip"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["All intellectual property created under this Agreement shall be owned by the Customer."]
+    ) if c.clause == "ip"]
+    assert clauses, "IP ownership transfer must keep firing"
+
+
+def test_renewal_notice_lead_time_not_a_renewal():
+    # A notice-of-renewal lead time (how many days before expiry notice must
+    # be given) is notice mechanics, not a term renewal.  Auto-renewal still
+    # fires.
+    for sentence in [
+        "Each party shall give written notice of renewal not less than 30 days before expiry.",
+        "Notice of renewal shall be submitted prior to the end of the Initial Term.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "renewal"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["This Agreement shall automatically renew for successive 1 year terms."]
+    ) if c.clause == "renewal"]
+    assert clauses, "genuine auto-renewal must keep firing"
+
+
+def test_automatic_expiry_on_date_not_termination_right():
+    # "shall terminate automatically on the Expiry Date" is the natural end
+    # of the term (expiry by effluxion of time), not a party's termination
+    # right.  A genuine termination right still fires.
+    for sentence in [
+        "The Agreement shall terminate automatically on the Expiry Date without any further act.",
+        "On the Expiry Date this Agreement shall automatically terminate.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "termination"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Either party may terminate this Agreement forthwith if the other is subject to insolvency proceedings."]
+    ) if c.clause == "termination"]
+    assert clauses, "genuine insolvency termination must keep firing"
+
+
+def test_exclusivity_territorial_carve_out_not_a_grant():
+    # An exception stating exclusivity does not apply in certain territories
+    # narrows a grant made elsewhere; it grants nothing itself.  A genuine
+    # market grant still fires.
+    for sentence in [
+        "The exclusivity in clause 5 shall not apply to territories outside the EU.",
+        "This exclusivity clause shall not apply in the region.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "exclusivity"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Seller shall have the exclusive right to sell the Products in the Territory."]
+    ) if c.clause == "exclusivity"]
+    assert clauses, "market exclusivity grant must keep firing"
+
+
+def test_anonymised_data_not_personal_data():
+    # Stating that anonymised data is not personal data defines the scope of
+    # the data-protection regime; it effects no processing or transfer.
+    # A genuine transfer still fires.
+    for sentence in [
+        "Anonymised data shall not be treated as personal data under this Agreement.",
+        "Personal data does not include data that has been anonymised.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "data_protection"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Controller shall transfer the personal data to the Processor under the DPA."]
+    ) if c.clause == "data_protection"]
+    assert clauses, "data transfer must keep firing"
+
+
+def test_data_subject_rights_reference_not_data_obligation():
+    # Pointing at a data subject's statutory rights under an article is a
+    # reference, not a processing / transfer duty.  A genuine transfer still
+    # fires.
+    for sentence in [
+        "The data subject's rights under Article 15 shall be respected.",
+        "Rights of data subjects under the applicable chapter shall be preserved.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "data_protection"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Controller shall transfer the personal data to the Processor under the DPA."]
+    ) if c.clause == "data_protection"]
+    assert clauses, "data transfer must keep firing"
+
+
+def test_insurance_defined_term_pointer_not_coverage():
+    # A pointer to the meaning of "Liability" in the Insurance Policies is a
+    # defined-term cross-reference, not a coverage obligation.  A coverage
+    # obligation still fires.
+    for sentence in [
+        "Liability shall have the meaning given to it in the Insurance Policies.",
+        "The term Insurance shall be interpreted as defined in the insurance policies.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "insurance"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Supplier shall maintain professional indemnity insurance during the Term."]
+    ) if c.clause == "insurance"]
+    assert clauses, "coverage obligation must keep firing"
+
+
+def test_insurance_cover_availability_not_coverage():
+    # A statement that insurance cover is available (at competitive rates) is
+    # market commentary, not a duty to procure cover.  A coverage obligation
+    # still fires.
+    for sentence in [
+        "The parties confirm that insurance cover is available at competitive rates.",
+        "Coverage insurance is available in the market at reasonable cost.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "insurance"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Supplier shall maintain professional indemnity insurance during the Term."]
+    ) if c.clause == "insurance"]
+    assert clauses, "coverage obligation must keep firing"
