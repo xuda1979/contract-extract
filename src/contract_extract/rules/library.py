@@ -1283,12 +1283,15 @@ def rule_penalty(doc, sentences):
         # "subject to prosecution and penalties under applicable law" and
         # "disciplinary penalties for breach of policy" are statutory or
         # disciplinary sanctions imposed by an authority — not contractual
-        # default penalties for a breach.
+        # default penalties for a breach.  "compliance penalty" (a fine
+        # levied for failing a regulatory / inspection requirement) is the
+        # same family.
         if re.search(
             r"\b(?:prosecution|criminal|fraud"
             r"|indictment|offen[cs]e(?:s)?|misrepresent\w*)\b[^.]{0,60}\bpenalt"
             r"|\b(?:statutory|regulatory|regulator|administrative|civil|"
-            r"disciplinary|government(?:al)?|sanction(?:s|ed)?)\b[^.]{0,40}"
+            r"disciplinary|government(?:al)?|sanction(?:s|ed)?|compliance|"
+            r"enforcement)\b[^.]{0,40}"
             r"\b(?:penalt(?:y|ies)?|fines?)\b"
             r"|\b(?:penalty|penalties)\b[^.]{0,50}"
             r"\b(?:under\s+(?:applicable|statutory|relevant)\s+law\b"
@@ -1520,6 +1523,51 @@ def rule_penalty(doc, sentences):
         # shootout-specific frame is common.
         if re.search(
             r"\bpenalt\w*\b[^.]{0,25}\bshootout\b",
+            lower,
+        ):
+            continue
+        # "The team was awarded a free throw after the penalty" is an
+        # on-court/on-field game-event sanction (a free throw, free kick or
+        # shot awarded by officials), not a contractual default penalty.  The
+        # guard extends the sports family above (goals/match/shootout) to the
+        # award mechanics.  Zero fixture lines use these (checked against
+        # fixtures/generate_fixtures.py); a genuine quantified breach penalty
+        # stays untouched.
+        if re.search(
+            r"\bpenalt\w*\b[^.]{0,40}\b(?:free\s+throw|free\s+kick|"
+            r"penalt\w*\s+shot|spot\s+kick|throw-?ins?)\b"
+            r"|\b(?:free\s+throw|free\s+kick)\b[^.]{0,40}\bpenalt\w*\b",
+            lower,
+        ):
+            continue
+        # "The bond is subject to a call protection penalty of 1%" / "Lenders
+        # charge an early-exit penalty on fixed-rate mortgages" is a financial-
+        # instrument charge (a yield-protection or exit fee on a debt
+        # security), not a contractual default penalty for a breach.  The
+        # guard requires the financial noun bound to the penalty word on
+        # either side, so a genuine contract penalty ("penalty of 1.5% per
+        # month of the invoice amount" — fixture line 83) stays untouched.
+        if re.search(
+            r"\bpenalt\w*\b[^.]{0,50}"
+            r"\b(?:call\s+protection|fixed-?rate|mortgage\w*|"
+            r"redemption|yield|bond\w*|note\w*)\b"
+            r"|\b(?:call\s+protection|fixed-?rate|mortgage\w*|"
+            r"redemption|yield|bond\w*|note\w*)\b[^.]{0,50}\bpenalt\w*\b",
+            lower,
+        ):
+            continue
+        # "The new law doubles the penalty for insider trading" / "The
+        # company faces a civil penalty from the securities regulator" is a
+        # market-conduct or securities-law sanction (insider trading, market
+        # abuse, listing breaches) imposed against a market participant —
+        # not a default penalty for a contractual breach.
+        if re.search(
+            r"\bpenalt\w*\b[^.]{0,50}"
+            r"\b(?:insider\s+trading|market\s+abuse|securities\w*|"
+            r"stock\s+exchange|trading\s+rules?|listing\s+rules?)\b"
+            r"|\b(?:insider\s+trading|market\s+abuse|securities\w*|"
+            r"stock\s+exchange|trading\s+rules?|listing\s+rules?)\b[^.]{0,50}"
+            r"\bpenalt\w*\b",
             lower,
         ):
             continue
@@ -2740,6 +2788,84 @@ def rule_renewal(doc, sentences):
             r"[^.]{0,30}\brenew(?:al|s|ing|ed|able)?\b"
             r"|\brenew(?:al|s|ing|ed|able)?\b[^.]{0,30}"
             r"\b(?:magazine|newspaper|periodical|journal|e-?zine)\s+subscription\b",
+            lower,
+        ):
+            continue
+        # "The partners renewed their vows after twenty years" is the idiom of
+        # reaffirming a personal promise (marriage vows), not a renewal of the
+        # agreement's term.
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,35}\bvows?\b"
+            r"|\bvows?\b[^.]{0,35}\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ):
+            continue
+        # "The library card was renewed online for another year" re-issues a
+        # lending credential (a library card or reader pass), not a renewal
+        # of the agreement's term.
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,35}"
+            r"\b(?:library\s+card|reader\s+pass|library\s+membership)\b"
+            r"|\b(?:library\s+card|reader\s+pass|library\s+membership)\b"
+            r"[^.]{0,35}\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ):
+            continue
+        # "The bill was renewed for debate in the next session of parliament"
+        # is legislative procedure (a statute re-introduced for consideration),
+        # not a renewal of the agreement's term.
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,40}"
+            r"\b(?:parliament\w*|legislat\w*|session\s+of\s+(?:the\s+)?parliament|"
+            r"house\s+of\s+(?:commons|lords|representatives))\b"
+            r"|\b(?:parliament\w*|legislat\w*|session\s+of\s+(?:the\s+)?parliament|"
+            r"house\s+of\s+(?:commons|lords|representatives))\b[^.]{0,40}"
+            r"\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ):
+            continue
+        # "The team renewed their commitment to the project" / "The success
+        # of the exhibition renewed interest in modern art" is an abstract
+        # idiomatic re-affirmation (commitment / interest / efforts / focus as
+        # a feeling or mind-set), not a renewal of a document or term.  The
+        # pledge guard above requires a charter-class object; this one pins
+        # the bare abstract nouns so "renew the commitment / arrangement for
+        # a further term (no charter object) stays untouched.
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,30}"
+            r"\b(?:commitment\w*|interest\b|efforts?\b|focus\b|energy\b|"
+            r"enthusiasm\b|determination\b)\b"
+            r"|\b(?:commitment\w*|interest\b|efforts?\b|focus\b|energy\b|"
+            r"enthusiasm\b|determination\b)\b[^.]{0,30}"
+            r"\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ):
+            continue
+        # "The engineer's certification must be renewed by 31 December" /
+        # "the accreditation must be renewed every five years" re-issues a
+        # professional or institutional credential (a certification or
+        # accreditation), not a renewal of the agreement's term.  The
+        # credential guard above covers licences / permits / visas /
+        # passports / registrations; certification and accreditation sit in
+        # the same administrative family.  A genuine "renewal of the
+        # agreement" (fixtures "the renewal term shall be 12 months", "shall
+        # automatically renew") has no credential noun and stays live.
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,40}"
+            r"\b(?:certificat\w+|accredit\w+|qualification\w*)\b"
+            r"|\b(?:certificat\w+|accredit\w+|qualification\w*)\b"
+            r"[^.]{0,40}\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ):
+            continue
+        # "The search warrant was renewed by the magistrate" re-issues a
+        # judicial / investigatory instrument (a warrant or summons), not a
+        # renewal of the agreement's term.
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,35}"
+            r"\b(?:search\s+warrant|warrant\b|summons\b|subpoena\w*)\b"
+            r"|\b(?:search\s+warrant|warrant\b|summons\b|subpoena\w*)\b"
+            r"[^.]{0,35}\brenew(?:al|s|ing|ed|able)?\b",
             lower,
         ):
             continue

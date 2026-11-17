@@ -3994,3 +3994,146 @@ def test_asset_holder_insurance_not_insurance_requirement():
         ["The Seller shall maintain professional indemnity insurance."]
     ) if c.clause == "insurance"]
     assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_compliance_and_securities_penalties_not_penalty_clause():
+    # Statutory or market-conduct fines (compliance levies, insider-trading
+    # sanctions, securities-regulator penalties) are not negotiated default
+    # penalties for a contractual breach.
+    for sentence in [
+        "The plant faces a compliance penalty of USD 10,000.",
+        "The new law doubles the penalty for insider trading.",
+        "The company faces a civil penalty from the securities regulator.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "penalty"]
+        assert clauses == [], sentence
+    # A genuine quantified breach penalty still fires.
+    clauses = [c for c in _clauses(
+        ["In the event of breach, the defaulting party shall pay a penalty of"
+         " 1.5% per month of the invoice amount."]
+    ) if c.clause == "penalty"]
+    assert clauses
+
+
+def test_call_protection_and_early_exit_not_penalty_clause():
+    # Yield-protection / exit charges on financial instruments (bonds,
+    # fixed-rate mortgages) are product terms, not default penalties for a
+    # contractual breach.
+    for sentence in [
+        "The bond is subject to a call protection penalty of 1%.",
+        "Lenders charge an early-exit penalty on fixed-rate mortgages.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "penalty"]
+        assert clauses == [], sentence
+    # A genuine late-delivery penalty still fires.
+    clauses = [c for c in _clauses(
+        ["The delivery schedule is firm and penalties for late delivery apply at"
+         " the rate of 0.5% per day of the contract value."]
+    ) if c.clause == "penalty"]
+    assert clauses
+
+
+def test_free_throw_penalty_not_penalty_clause():
+    # On-field game-event sanctions (awarding a free throw after a foul) are
+    # sports mechanics, not contractual default penalties.
+    clauses = [c for c in _clauses(
+        "The team was awarded a free throw after the penalty."
+    ) if c.clause == "penalty"]
+    assert clauses == []
+    # A genuine penalty for milestone failure still fires.
+    clauses = [c for c in _clauses(
+        ["If the Consultant fails to meet a milestone, a penalty of 3% of the"
+         " fees applies per week."]
+    ) if c.clause == "penalty"]
+    assert clauses
+
+
+def test_vows_and_commitment_renewal_not_contract_renewal():
+    # Idiomatic re-affirmations (vows, commitment, interest, efforts) are not
+    # renewals of an agreement's term.
+    for sentence in [
+        "The partners renewed their vows after twenty years.",
+        "The team renewed their commitment to the project.",
+        "The success of the exhibition renewed interest in modern art.",
+        "She renewed her efforts after the setback.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "renewal"]
+        assert clauses == [], sentence
+    # A genuine auto-renewal term still fires.
+    clauses = [c for c in _clauses(
+        "This Agreement shall automatically renew for successive 1 year terms."
+    ) if c.clause == "renewal"]
+    assert clauses
+
+
+def test_library_card_and_registration_renewal_not_contract_renewal():
+    # Re-issuing a lending credential or an administrative registration is not
+    # a renewal of the agreement's term.
+    for sentence in [
+        "The library card was renewed online for another year.",
+        "The car registration was renewed for another twelve months.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "renewal"]
+        assert clauses == [], sentence
+    # A genuine further-term renewal still fires.
+    clauses = [c for c in _clauses(
+        ["Tenant may renew the lease for 2 further periods of 3 years each."]
+    ) if c.clause == "renewal"]
+    assert clauses
+
+
+def test_parliamentary_bill_renewal_not_contract_renewal():
+    # Legislative procedure (re-introducing a bill for debate) is not a
+    # renewal of the agreement's term.
+    clauses = [c for c in _clauses(
+        "The bill was renewed for debate in the next session of parliament."
+    ) if c.clause == "renewal"]
+    assert clauses == []
+    # A genuine auto-renewal term still fires.
+    clauses = [c for c in _clauses(
+        "The initial term is 7 years from the effective date, and shall"
+        " automatically renew for additional 5 year periods unless either"
+        " party gives written notice."
+    ) if c.clause == "renewal"]
+    assert clauses
+
+
+def test_certification_and_accreditation_renewal_not_contract_renewal():
+    # Re-issuing a professional or institutional credential (a certification,
+    # accreditation or qualification) is not a renewal of the agreement's term.
+    for sentence in [
+        "The engineer's certification must be renewed by 31 December.",
+        "The company renewed its ISO certification last week.",
+        "The school's accreditation must be renewed every five years.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "renewal"]
+        assert clauses == [], sentence
+    # A genuine renewal term still fires.
+    clauses = [c for c in _clauses(
+        "The renewal term shall be 12 months."
+    ) if c.clause == "renewal"]
+    assert clauses
+
+
+def test_search_warrant_renewal_not_contract_renewal():
+    # Re-issuing a judicial or investigatory instrument (a warrant or summons)
+    # is not a renewal of the agreement's term.
+    clauses = [c for c in _clauses(
+        "The search warrant was renewed by the magistrate."
+    ) if c.clause == "renewal"]
+    assert clauses == []
+    # A genuine term auto-renewal still fires.
+    clauses = [c for c in _clauses(
+        "Term is 24 months and auto-renews."
+    ) if c.clause == "renewal"]
+    assert clauses
+
+
+def test_saas_subscription_renewal_is_contract_renewal():
+    # A named SaaS subscription renewing automatically is still a genuine
+    # term-renewal provision (distinct from magazine/domain renewals).
+    clauses = [c for c in _clauses(
+        "This SaaS Subscription renews automatically each year."
+    ) if c.clause == "renewal"]
+    assert clauses
+    assert clauses[0].flag == "automatic renewal (auto-renew)"
