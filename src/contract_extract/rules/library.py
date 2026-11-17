@@ -224,6 +224,31 @@ def rule_duration(doc, sentences):
             lower,
         ):
             continue
+        # "The probation period of the employee shall be 3 months" is an HR
+        # trial window (probation review period), not the agreement's term.
+        # A genuine "term of the Licence" still fires.
+        if re.search(r"\bprobation(?:ary)?\s+(?:period|term)\b", lower):
+            continue
+        # "The statute of limitations period is 2 years" is the legal window
+        # for bringing a claim (fixed by law), not the agreement's term.
+        if re.search(
+            r"\b(?:statute\s+of\s+limitations|limitations?\s+period|limitation\s+period)\b",
+            lower,
+        ):
+            continue
+        # "The Contractor is liable for the repair of defective workmanship
+        # for a period of 12 months after practical completion" is a
+        # post-completion repair / snagging window (the construction DLP
+        # family), not the agreement's term.  A "term of the Lease" still
+        # fires.
+        if re.search(
+            r"\b(?:workmanship|snag\w*|remedial|rectification)\b[^.]{0,40}"
+            r"\b(?:repair\w*|remed\w*|defect\w*)\b"
+            r"|\b(?:repair\w*|remed\w*|defect\w*)\b[^.]{0,40}"
+            r"\b(?:workmanship|snag\w*|remedial|rectification)\b",
+            lower,
+        ):
+            continue
         m = _DUR_PAT1.search(sentence) or _DUR_PAT4.search(sentence) or _DUR_PAT5.search(sentence)
         if not m:
             continue
@@ -286,6 +311,21 @@ def rule_quantity(doc, sentences):
         if re.search(
             r"\bdistribut\w*\b[^.]{0,40}\b\d+(?:[.,]\d+)?\s+copies?\b"
             r"|\b\d+(?:[.,]\d+)?\s+copies?\b[^.]{0,40}\bdistribut\w*\b",
+            lower,
+        ):
+            continue
+        # "The report shall not exceed 5 pages" / "not be more than 500 pages
+        # in length" is a document-length limit for a deliverable, not a
+        # quantity of goods.  A genuine committed count ("a total of 10,000
+        # units", "12 events") still fires — the guard requires a page/length
+        # noun bound to a shall-not-exceed / no-more-than cap or a page-name
+        # helper.  Zero fixture lines use page caps (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bshall\s+not\s+exceed\b[^.]{0,25}\b\d+(?:[.,]\d+)?\s+pages?\b"
+            r"|\bno\s+more\s+than\b[^.]{0,25}\b\d+(?:[.,]\d+)?\s+pages?\b"
+            r"|\bnot\s+(?:be\s+)?more\s+than\b[^.]{0,25}\b\d+(?:[.,]\d+)?\s+pages?\b"
+            r"|\b\d+(?:[.,]\d+)?\s+pages?\s+in\s+length\b",
             lower,
         ):
             continue
@@ -369,6 +409,19 @@ def rule_price(doc, sentences):
             r"[^.]{0,45}\bshall\s+(?:not\s+)?(?:exceed|be\s+limited\s+to|be\s+capped\s+at)\b"
             r"|\b(?:cap\w*|limit\w*)\b[^.]{0,30}\b(?:reimburs\w*|expense\w*|"
             r"out[- ]of[- ]pocket\w*)\b",
+            lower,
+        ):
+            continue
+        # "A fee of USD 500 shall be charged for cancellation of the booking"
+        # is an administrative cancellation charge (a booking / reservation /
+        # event / account fee), not the price of goods or services.  Genuine
+        # prices ("the price of the Goods is USD 100 per unit") still fire.
+        # Zero fixture lines mention cancellation fees (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:fee|fees|charge\w*)\b[^.]{0,50}\bcancel(?:l|ll)?(?:ation|l?ed|l?ing)?\b"
+            r"|\bcancel(?:l|ll)?(?:ation|(\s+and\s+)?refund)?\b[^.]{0,50}"
+            r"\b(?:fee|fees|charge\w*|penalty)\b",
             lower,
         ):
             continue
@@ -813,6 +866,17 @@ def rule_payment(doc, sentences):
             r"\b(?:payment|payments?)\s+of\b"
             r"|\b(?:insurer|insurance\s+company|underwriter\w*|policy\b|"
             r"policyholder\w*)\b[^.]{0,45}\b(?:payment|payments?|pay\b)\b",
+            lower,
+        ):
+            continue
+        # "The Court awarded payment of USD 50,000 in damages" is a
+        # judgment/remedy quantification (what a court awards), not a payment
+        # term between the parties.  Genuine payment terms naming the buyer /
+        # invoice / purchase price still fire.
+        if re.search(
+            r"\b(?:court|tribunal|arbitrat\w+)\b[^.]{0,50}"
+            r"\b(?:award\w*|order\w*|grant\w*|adjudicat\w*)\b[^.]{0,50}"
+            r"\bpayment\b",
             lower,
         ):
             continue
@@ -1379,6 +1443,70 @@ def rule_liability(doc, sentences):
             lower,
         ):
             continue
+        # "The Company shall be liable for the accuracy / completeness of the
+        # information" holds a party responsible for the quality of the
+        # information it provides — an information-accuracy representation,
+        # not an agreed cap, disclaimer or exclusion.  Genuine caps and
+        # disclaimers still fire.
+        if re.search(
+            r"\bliable\s+for\s+(?:the\s+)?(?:accuracy|completeness|correctness)\b"
+            r"[^.]{0,35}\b(?:information\w*|data\b|statements?\b|reports?\b|"
+            r"representations?\b|warranties?)\b",
+            lower,
+        ):
+            continue
+        # "The Parent Company shall be liable for the obligations of its
+        # Subsidiary" is a parent guarantee / surety allocation (who answers
+        # for another entity's debts), not an agreed cap, disclaimer or
+        # exclusion imposed between parties.  Genuine caps and disclaimers
+        # still fire.
+        if re.search(
+            r"\bliable\s+for\s+(?:the\s+)?(?:obligations?|debts?|liabilities?)\s+of\b"
+            r"[^.]{0,25}\b(?:its|their|the|a)\s+(?:subsidiar\w+|affiliate\w*|"
+            r"group\s+compan\w+|parent\b|associate\w*)\b",
+            lower,
+        ):
+            continue
+        # "The parties accept liability under this clause in proportion to
+        # their respective shares" allocates liability proportionally among
+        # obligors (each answers for its own share) — a contribution /
+        # apportionment statement, not an agreed cap, disclaimer or
+        # exclusion.  Genuine caps and disclaimers still fire.
+        if re.search(
+            r"\bliable?\s+for\b[^.]{0,20}\b(?:in\s+proportion|proportionate\w*|"
+            r"according\s+to\s+(?:their|its)\s+respective)\b"
+            r"|\b(?:in\s+proportion|proportionate\w*)\b[^.]{0,30}"
+            r"\b(?:respective\s+)?(?:shares?|liabilities?|interests?|participations?)\b",
+            lower,
+        ):
+            continue
+        # "The Seller's liability shall reduce proportionately to the extent
+        # the Buyer contributed to the loss" is a comparative-fault reduction
+        # (the seller's share shrinks with the buyer's contributory conduct),
+        # not an agreed cap, disclaimer or exclusion.  Genuine caps and
+        # disclaimers still fire.  The gap between "reduce" and the
+        # contributory noun is kept generous ("... proportionately to the
+        # extent the Buyer contributed ...").
+        if re.search(
+            r"\blia(?:bility|ble)\b[^.]{0,50}\b(?:reduce\w*|reduction\w*|diminish\w*)"
+            r"\b[^.]{0,60}\b(?:contributed?\b|contributory\b|fault\b)\b"
+            r"|\b(?:contributed?\b|contributory\b|fault\b)\b[^.]{0,60}"
+            r"\b(?:reduce\w*|reduction\w*|diminish\w*)\b[^.]{0,50}\bliab\w*\b",
+            lower,
+        ):
+            continue
+        # "Liability is excluded to the extent permitted by law" is a
+        # statutorily-mandated saving provision (the exclusion only operates
+        # where the law allows) — a legal-qualifier statement, not an agreed
+        # cap, disclaimer or exclusion.  Genuine disclaimers ("The Licensor
+        # disclaims all warranties") still fire.
+        if re.search(
+            r"\b(?:excluded|exclusion|exclude\w*)\b[^.]{0,40}"
+            r"\bto\s+the\s+extent\b[^.]{0,35}\b(?:permitted\s+by|allowed\s+by|"
+            r"required\s+by)\b[^.]{0,35}\blaw\b",
+            lower,
+        ):
+            continue
         amount = _AMOUNT_RE.search(sentence)
         pct = _PERCENT_RE.search(sentence)
 
@@ -1486,6 +1614,22 @@ def rule_confidentiality(doc, sentences):
             r"\b(?:as\s+required|pursuant\s+to|under\s+(?:the\s+|applicable\s+|"
             r"relevant\s+)?(?:law|act|statute|regulation|directive))\b"
             r"|\bconfidential\w*\b[^.]{0,60}\b(?:as\s+required\s+by\s+law)\b",
+            lower,
+        ):
+            continue
+        # "The parties shall keep the terms of this settlement confidential" /
+        # "confidential terms of the settlement" keeps a dispute-resolution
+        # agreement's terms secret (settlement confidentiality), not the
+        # contract's own confidential information.  A genuine obligation on
+        # the parties' information ("information received during the course
+        # of negotiations shall remain confidential for 3 years") still fires
+        # — the guard requires a terms/details/contents-of-settlement noun
+        # pair, not a bare information mention.
+        if re.search(
+            r"\b(?:terms?|details?|contents?|existence|amount\w*)\s+of\b"
+            r"[^.]{0,40}\b(?:settlement|mediation)\b[^.]{0,40}\bconfidential\w*\b"
+            r"|\bconfidential\w*\b[^.]{0,40}\b(?:settlement|mediation)\b"
+            r"[^.]{0,40}\b(?:terms?|details?|contents?|existence)\b",
             lower,
         ):
             continue
@@ -1676,6 +1820,19 @@ def rule_ip(doc, sentences):
             lower,
         ):
             continue
+        # "The intellectual property clause in section 9 allocates ownership"
+        # is a cross-reference to an IP provision elsewhere (the substantive
+        # clause is set out in the section it points to), not a clause that
+        # allocates or transfers IP itself.  Genuine ownership statements
+        # ("all IP created under this Agreement is owned by the Customer")
+        # still fire.
+        if re.search(
+            r"\b(?:intellectual\s+property|ip)\s+(?:clause|provision|section|"
+            r"article|term)\b[^.]{0,50}\b(?:allocat\w*|contemplat\w*|address\w*|"
+            r"deal\w*|govern\w*)\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.LOW
         flag = None
         detail = None
@@ -1781,6 +1938,21 @@ def rule_renewal(doc, sentences):
             r"(?:warrant\w*|support)\b"
             r"|\b(?:warrant\w*|support)\s+(?:renewal|renew\w*)\b"
             r"|\brenew\w*\b[^.]{0,25}\b(?:warrant\w*|support)\b",
+            lower,
+        ):
+            continue
+        # "The patient must renew the prescription every 3 months" is a
+        # clinical / medical renewal (a prescription, vaccine or medication
+        # course), not a renewal of the agreement's term.  Genuine term
+        # renewals still fire.  Zero fixture lines mention prescriptions or
+        # medical recurrences (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,35}"
+            r"\b(?:prescription\w*|vaccination\w*|immunization\w*|"
+            r"medication\w*s?)\b"
+            r"|\b(?:prescription\w*|vaccination\w*|immunization\w*|"
+            r"medication\w*s?)\b[^.]{0,35}\brenew(?:al|s|ing|ed|able)?\b",
             lower,
         ):
             continue
@@ -2469,6 +2641,19 @@ def rule_exclusivity(doc, sentences):
             lower,
         ):
             continue
+        # "The right is exclusive to the holder" / "exclusive to the
+        # shareholder" is vested exclusively in a party as its own entitlement
+        # — a passive statement about who holds a right, not a market
+        # exclusivity grant to sell, license or distribute.  Genuine grants
+        # ("exclusive right to sell") still fire.  No fixture line uses
+        # "exclusive to" (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bexclusive\s+to\s+(?:the\s+|its\s+)?"
+            r"(?:holder\w*|owner\w*|shareholder\w*|title[ ]?holder\w*|"
+            r"beneficiar\w*|member\w*)\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.MEDIUM
         flag = "exclusivity clause"
         dur = _DURATION_RE.search(sentence)
@@ -2539,6 +2724,16 @@ def rule_data_protection(doc, sentences):
         # names a payment mechanism (bank transfer of funds), not a
         # personal-data transfer.
         if re.search(r"\bwire\s+transfer(?:s|red)?\b", lower):
+            continue
+        # "The transfer window for players closes on 1 September" is a
+        # sports-transfer market window (registration of players), not a
+        # personal-data transfer.  The gate keyword "transfer" admits it, so
+        # the guard pins the window noun.  Genuine data transfers ("personal
+        # data transferred outside the EEA") still fire.
+        if re.search(
+            r"\b(?:transfer(?:s|red)?|trading)\s+window\b",
+            lower,
+        ):
             continue
         # "transfer / assign this Agreement" is a contract-assignment or
         # novation right, not a personal-data transfer ("the Agreement" /

@@ -2886,3 +2886,253 @@ def test_insurance_cover_availability_not_coverage():
         ["The Supplier shall maintain professional indemnity insurance during the Term."]
     ) if c.clause == "insurance"]
     assert clauses, "coverage obligation must keep firing"
+
+
+def test_liability_information_accuracy_not_cap():
+    # Holding a party responsible for the accuracy/completeness of the
+    # information it provides is a representation, not an agreed cap,
+    # disclaimer or exclusion.  A genuine cap still fires.
+    for sentence in [
+        "The Company shall be liable for the accuracy of the information contained in this prospectus.",
+        "The Bidder shall be liable for the completeness of the data submitted.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "liability_cap"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Each party's aggregate liability shall not exceed the amounts paid by Client."]
+    ) if c.clause == "liability_cap"]
+    assert clauses, "aggregate cap must keep firing"
+
+
+def test_parent_guarantee_obligations_not_liability_cap():
+    # A parent guarantee ("liable for the obligations of its Subsidiary")
+    # allocates who answers for another entity's debts, not an agreed cap or
+    # exclusion.  A genuine disclaimer still fires.
+    for sentence in [
+        "The Parent Company shall be liable for the obligations of its Subsidiary.",
+        "The Guarantor is liable for the debts of the Borrower.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "liability_cap"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Licensor disclaims all warranties and shall not be liable for any damages."]
+    ) if c.clause == "liability_cap"]
+    assert clauses, "broad disclaimer must keep firing"
+
+
+def test_liability_proportional_allocation_not_cap():
+    # Allocating liability in proportion to each party's share (contribution
+    # / apportionment) is not an agreed cap, disclaimer or exclusion.  A
+    # genuine cap still fires.
+    for sentence in [
+        "The parties accept liability under this clause in proportion to their respective shares.",
+        "Each party is liable for its obligations in proportion to its participation.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "liability_cap"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Each party's aggregate liability shall not exceed the amounts paid by Client."]
+    ) if c.clause == "liability_cap"]
+    assert clauses, "aggregate cap must keep firing"
+
+
+def test_liability_comparative_fault_reduction_not_cap():
+    # A comparative-fault reduction ("liability shall reduce to the extent
+    # the Buyer contributed to the loss") is a tort apportionment, not an
+    # agreed cap or exclusion.  A genuine cap still fires.
+    for sentence in [
+        "The Seller's liability shall reduce proportionately to the extent the Buyer contributed to the loss.",
+        "Liability for the loss shall be reduced by the extent of the Buyer's contributory fault.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "liability_cap"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Manufacturer's aggregate liability shall not exceed the purchase price paid by Distributor."]
+    ) if c.clause == "liability_cap"]
+    assert clauses, "aggregate cap must keep firing"
+
+
+def test_liability_excluded_to_extent_permitted_not_cap():
+    # "liability is excluded to the extent permitted by law" is a
+    # legal-qualifier saving provision, not an agreed exclusion.  A genuine
+    # disclaimer still fires.
+    for sentence in [
+        "Liability is excluded to the extent permitted by law.",
+        "The exclusion of liability operates only to the extent allowed by applicable law.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "liability_cap"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Licensor disclaims all warranties and shall not be liable for any damages."]
+    ) if c.clause == "liability_cap"]
+    assert clauses, "broad disclaimer must keep firing"
+
+
+def test_probation_period_not_duration():
+    # An HR probation trial window is not the agreement's term.  A genuine
+    # agreement term still fires.
+    for sentence in [
+        "The probation period of the employee shall be 3 months.",
+        "The probationary term for new hires is 6 months.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "duration"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The term of this Agreement shall be for a period of 3 years from the effective date."]
+    ) if c.clause == "duration"]
+    assert clauses, "agreement term must keep firing"
+
+
+def test_statute_of_limitations_not_duration():
+    # The statutory window for bringing a claim is fixed by law, not the
+    # agreement's term.  A genuine agreement term still fires.
+    for sentence in [
+        "The statute of limitations period is 2 years.",
+        "The limitation period for warranty claims shall be 12 months.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "duration"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The term of this Agreement shall be for a period of 3 years from the effective date."]
+    ) if c.clause == "duration"]
+    assert clauses, "agreement term must keep firing"
+
+
+def test_workmanship_repair_window_not_duration():
+    # A post-completion snagging / repair window for defective workmanship is
+    # not the agreement's term.  A genuine lease term still fires.
+    for sentence in [
+        "The Contractor is liable for the repair of defective workmanship for a period of 12 months after practical completion.",
+        "Defects in the workmanship shall be remedied within a 6 month rectification period.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "duration"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The term of the Lease shall be 5 years."]
+    ) if c.clause == "duration"]
+    assert clauses, "lease term must keep firing"
+
+
+def test_prescription_renewal_not_contract_renewal():
+    # Renewing a clinical prescription is medical, not a renewal of the
+    # agreement's term.  A genuine auto-renewal still fires.
+    for sentence in [
+        "The patient must renew the prescription every 3 months.",
+        "The vaccination shall be renewed each year.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "renewal"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["This Agreement shall automatically renew for successive 1 year terms."]
+    ) if c.clause == "renewal"]
+    assert clauses, "auto-renewal must keep firing"
+
+
+def test_court_awarded_payment_not_payment_terms():
+    # A court judgment quantifying damages ("the Court awarded payment") is
+    # not a payment term between the parties.  A genuine payment term still
+    # fires.
+    for sentence in [
+        "The Court awarded payment of USD 50,000 in damages.",
+        "The arbitral tribunal ordered payment of the claim within 30 days.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "payment"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Buyer shall pay the purchase price of USD 500,000 within 30 days of the invoice."]
+    ) if c.clause == "payment"]
+    assert clauses, "payment terms must keep firing"
+
+
+def test_document_page_limit_not_quantity():
+    # A page-length cap for a deliverable is not a quantity of goods.  A
+    # genuine committed quantity still fires.
+    for sentence in [
+        "The report shall not exceed 5 pages.",
+        "The submission shall not be more than 500 pages in length.",
+        "No more than 20 pages of annexes may be included.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "quantity"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Buyer shall purchase a total of 10,000 units of the Products during each Contract Year."]
+    ) if c.clause == "quantity"]
+    assert clauses, "committed unit quantity must keep firing"
+
+
+def test_player_transfer_window_not_data_transfer():
+    # A sports player-transfer market window is not a personal-data transfer.
+    # A genuine cross-border data transfer still fires.
+    for sentence in [
+        "The transfer window for players closes on 1 September.",
+        "The trading window for registrations opens in January.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "data_protection"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["Any data transferred outside the EEA shall be subject to standard contractual clauses."]
+    ) if c.clause == "data_protection"]
+    assert clauses, "cross-border transfer must keep firing"
+
+
+def test_ip_clause_reference_not_ip_ownership():
+    # A cross-reference to where the IP clause sits ("the IP clause in
+    # section 9 allocates ownership") grants nothing itself.  A genuine
+    # assignment still fires.
+    for sentence in [
+        "The intellectual property clause in section 9 allocates ownership of foreground IP.",
+        "The IP provision in clause 7 deals with ownership of pre-existing tools.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "ip"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Supplier grants the Customer an exclusive license to use the Software."]
+    ) if c.clause == "ip"]
+    assert clauses, "licence grant must keep firing"
+
+
+def test_cancellation_fee_not_price():
+    # An administrative cancellation charge for a booking/reservation is not
+    # the price of goods or services.  A genuine price still fires.
+    for sentence in [
+        "A fee of USD 500 shall be charged for cancellation of the booking.",
+        "The hotel shall charge a cancellation fee of EUR 100 for late cancellations.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "price"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The price of the Goods shall be USD 100 per unit delivered."]
+    ) if c.clause == "price"]
+    assert clauses, "goods price must keep firing"
+
+
+def test_right_exclusive_to_holder_not_exclusivity():
+    # "The right is exclusive to the holder" is a passive statement about who
+    # holds a right, not a market-exclusivity grant.  A genuine exclusive
+    # right still fires.
+    for sentence in [
+        "The right of first refusal is exclusive to the holder.",
+        "The option is exclusive to the shareholder.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "exclusivity"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["The Distributor shall have the exclusive right to sell the Products within the Territory."]
+    ) if c.clause == "exclusivity"]
+    assert clauses, "exclusive right to sell must keep firing"
+
+
+def test_settlement_terms_confidential_not_confidentiality_clause():
+    # Keeping the terms/details of a settlement confidential is dispute-
+    # resolution confidentiality, not the contract's own confidential
+    # information.  A genuine confidentiality obligation still fires.
+    for sentence in [
+        "The parties shall keep the terms of this settlement confidential.",
+        "The existence and details of the mediation shall remain confidential.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "confidentiality"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["All confidential information shall remain confidential for a period of 3 years after termination."]
+    ) if c.clause == "confidentiality"]
+    assert clauses, "confidentiality obligation must keep firing"
