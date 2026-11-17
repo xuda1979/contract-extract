@@ -159,6 +159,19 @@ def rule_duration(doc, sentences):
             lower,
         ):
             continue
+        # "The court imposed a prison term of 5 years" / "a jail term of 3
+        # years" is a criminal-sentence length, not the agreement's term.
+        # Zero fixture lines mention prison/jail/imprison (checked against
+        # fixtures/generate_fixtures.py); a genuine "term of the Agreement"
+        # still fires.
+        if re.search(
+            r"\b(?:prison|jail|imprison(?:ment)?)\b[^.]{0,40}"
+            r"\b(?:term|sentence|period|duration)\b"
+            r"|\b(?:term|sentence|period|duration)\b[^.]{0,40}"
+            r"\b(?:prison|jail|imprison(?:ment)?)\b",
+            lower,
+        ):
+            continue
         # "The duration of copyright protection shall be 70 years after the
         # author's death" is a statutory IP-protection term (fixed by law, not
         # negotiated) — extending the instrument guard above to statutory
@@ -448,6 +461,40 @@ def rule_quantity(doc, sentences):
             r"\b\d+(?:[.,]\d+)?\s+units?\b"
             r"|\b\d+(?:[.,]\d+)?\s+units?\b[^.]{0,30}\bbatch\b[^.]{0,30}\bcontain(?:s|ing)?\b"
             r"|\bminimum\s+order\s+quantity\b",
+            lower,
+        ):
+            continue
+        # "One serving of the cereal contains 200 units of vitamin D", "the
+        # patient received 2 units of blood" count nutritional or medical
+        # units, not contractual goods.  "The apartment block comprises 12
+        # units" counts dwellings; "5,000 units of inventory", "30 units of
+        # credit transfer" and "1,000 units per hour" are stock, academic or
+        # capacity measures — none is a committed purchase quantity.  Genuine
+        # purchase commitments ("Buyer shall purchase a total of 10,000 units
+        # of the Products", fixture line 41) still fire — the guard requires a
+        # non-commercial noun frame ("units of X" with an inanimate substance,
+        # dwelling or capacity context).  Zero fixture lines match (checked
+        # against fixtures/generate_fixtures.py; "units of the Products" and
+        # "units per year" fixture frames are unaffected).
+        if re.search(
+            r"\b\d+(?:[.,]\d+)?\s+units?\s+of\b[^.]{0,35}"
+            r"\b(?:vitamin\w*|blood|inventory|stock|storage\s+capacity|"
+            r"credit\w*\s+transfer|rental\w*|dwelling\w*|bedroom\w*|apartment\w*)\b",
+            lower,
+        ):
+            continue
+        # "The apartment block comprises 12 units" counts dwellings (the
+        # comprises-verb frame) and "the generator has a rated capacity of
+        # 1,000 units per hour" is an equipment throughput rate (units-per-
+        # hour), neither a committed purchase quantity.  Zero fixture lines
+        # use "comprises" or "per hour" (checked against
+        # fixtures/generate_fixtures.py); "purchase a minimum of 1,000 units
+        # per year" (fixture 147) has no comprises/per-hour frame and still
+        # fires.
+        if re.search(
+            r"\bcompris(?:es|ing|ed)\b[^.]{0,30}\b\d+(?:[.,]\d+)?\s+units?\b"
+            r"|\b\d+(?:[.,]\d+)?\s+units?\s+per\s+hour\b"
+            r"|\bcapa(?:city|bilit)\w*\b[^.]{0,30}\b\d+(?:[.,]\d+)?\s+units?\b",
             lower,
         ):
             continue
@@ -1025,6 +1072,30 @@ def rule_acceptance(doc, sentences):
             r"|\bterms?\s+of\s+acceptance\b[^.]{0,40}"
             r"\b(?:set\s+out|defined?|specified?|request\s+for\s+proposal)\b"
             r"|\brequest\s+for\s+proposal\b[^.]{0,40}\bacceptance\b",
+            lower,
+        ):
+            continue
+        # "Annual inspection of the boiler is mandatory under the fire code",
+        # "the police carried out an inspection of the premises", "the health
+        # inspector visited the restaurant for a routine inspection" describe
+        # administrative or statutory inspections (safety, police, health,
+        # technical, factory) — not acceptance of contract deliverables.
+        # "Acceptance of the resignation takes effect immediately" accepts a
+        # person's resignation, not goods or services.  Genuine deliverable
+        # acceptance ("Provider must complete acceptance inspection of the
+        # venue", fixture line 268) still fires — the guard requires a
+        # specific non-deliverable inspection noun or the resignation frame.
+        # Zero fixture lines pair acceptance with these nouns (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\binspections?\b[^.]{0,40}"
+            r"\b(?:boiler|fire\s+code|auditor|factory|health\s+inspector|"
+            r"technical|police|routine|annual|regulatory|premises?)\b"
+            r"|\b(?:boiler|fire\s+code|auditor|factory|health\s+inspector|"
+            r"technical|police|routine|annual|regulatory)\b[^.]{0,40}"
+            r"\binspections?\b"
+            r"|\bacceptance\s+of\s+(?:the\s+)?(?:resignation|retirement|"
+            r"nomination|invitation)\b",
             lower,
         ):
             continue
@@ -1673,9 +1744,12 @@ def rule_liability(doc, sentences):
         # Insurance-requirement sentences ("professional indemnity insurance",
         # "general liability insurance with limits of at least USD 1M") are
         # coverage obligations handled by rule_insurance, not party-to-party
-        # liability caps.  A genuine indemnity obligation ("indemnifies",
-        # "hold harmless") still fires.
-        if "insurance" in lower and not re.search(
+        # liability caps.  The verb/agent forms covered include "insured" /
+        # "insurer" / "insuring" ("the company insured its directors against
+        # liability claims", "the bank insured the loan against the default
+        # risk"), which carry no liability-cap semantics.  A genuine indemnity
+        # obligation ("indemnifies", "hold harmless") still fires.
+        if re.search(r"\binsur\w*\b", lower) and not re.search(
             r"\bindemnif|hold\s+harmless", lower
         ):
             continue
@@ -1691,6 +1765,17 @@ def rule_liability(doc, sentences):
         if re.search(r"\bforce\s+majeure\b", lower):
             continue
         if re.search(r"\bliable\s+for\s+its\s+own\b", lower):
+            continue
+        # "The employer may be liable for harassment by its staff" states a
+        # general vicarious-employer exposure to a tort committed by staff,
+        # not an agreed liability cap; "Occupiers are liable to visitors under
+        # the Occupiers Liability Act" restates a statutory duty of the
+        # occupier.  Zero fixture lines use harassment/occupier (checked
+        # against fixtures/generate_fixtures.py); genuine caps, disclaimers
+        # and indemnities still fire.
+        if re.search(r"\bliab\w*\b[^.]{0,60}\bharass\w*\b", lower):
+            continue
+        if re.search(r"\boccupiers?\b[^.]{0,60}\bliab\w*\b", lower):
             continue
         # "Each party shall be liable for the acts and omissions of its own
         # personnel" allocates responsibility for one's own conduct — the
@@ -3541,6 +3626,21 @@ def rule_exclusivity(doc, sentences):
             lower,
         ):
             continue
+        # "The exclusivity arrangement came to an end last quarter" reports
+        # the expiry of a past exclusivity arrangement (an event statement,
+        # not a grant of exclusive rights).  "The club offers exclusive
+        # access to members only" is a membership-perk tier, not a market
+        # exclusivity grant.  Genuine grants ("exclusive right to sell" /
+        # "sole distributor") still fire.  Zero fixture lines use "exclusive
+        # access" or "exclusivity arrangement" (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bexclusivity\s+arrangement\b[^.]{0,40}"
+            r"\b(?:came?\s+to\s+an\s+end|ended?|expired?|terminated?|ended\b)\b"
+            r"|\bexclusive\s+access\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.MEDIUM
         flag = "exclusivity clause"
         dur = _DURATION_RE.search(sentence)
@@ -3875,6 +3975,36 @@ def rule_data_protection(doc, sentences):
         if re.search(
             r"\brights?\b[^.]{0,35}\bset\s+out\b[^.]{0,35}\bgdpr\b"
             r"|\bgdpr\b[^.]{0,35}\bset\s+out\b[^.]{0,35}\brights?\b",
+            lower,
+        ):
+            continue
+        # "The parties shall exchange data in XML format between the servers"
+        # / "the system transfers data electronically to the central database"
+        # describe IT-infrastructure data exchange (interfaces, formats,
+        # databases) — not a personal-data processing or transfer obligation.
+        # "The applicant is entitled to 30 units of credit transfer" is an
+        # academic credits measure, not a data movement (the quantity half is
+        # handled by rule_quantity's units-of guard above; this guard stops
+        # the bare "credit transfer" keyword from firing here).  Genuine
+        # personal-data transfers ("personal data transferred outside the
+        # EEA") still fire — the guard requires the technical or academic
+        # frames, and the infrastructure frame is blocked only when no
+        # personal/customer/… data noun is present.  Zero fixture lines match
+        # (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:exchange|transfer|transfers|transferred|sends?|send)\b[^.]{0,45}"
+            r"\bdata\b[^.]{0,35}"
+            r"\b(?:server\w*|database\w*|format\w*|xml\b|system\w*)\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:personal|customer|consumer|user|employee|health|financial|"
+            r"banking|credit|identity|biometric)\s+data\b",
+            lower,
+        ):
+            continue
+        if re.search(r"\bcredit\w*\s+transfer\b", lower) and not re.search(
+            r"\b(?:personal|customer|consumer|user|employee|health|financial|"
+            r"banking|credit|identity|biometric)\s+data\b",
             lower,
         ):
             continue
@@ -4490,6 +4620,52 @@ def rule_insurance(doc, sentences):
                 r"\btravel\s+insurance\b[^.]{0,40}"
                 r"\b(?:included?|offer\w*|availab\w+)\b"
                 r"[^.]{0,40}\b(?:ticket\w*|price\b|fare\w*|package\w*)\b",
+                lower,
+            ):
+                continue
+            # "Cargo insurance is included in the freight cost" / "Shipping
+            # insurance is included in the quoted price" are cost allocations
+            # (which party's price already absorbs the premium), not an
+            # insurance-clause obligation.  Genuine coverage obligations
+            # ("shall maintain ... insurance") still fire — the guard requires
+            # the included-in-cost binding frame.
+            if re.search(
+                r"\b(?:cargo|freight|shipping|marine|goods?)\s+insurance\b"
+                r"[^.]{0,40}\b(?:included?|cover(?:ed)?\s+by)\b"
+                r"[^.]{0,40}\b(?:cost\w*|price\b|quote\w*|packing\w*)\b",
+                lower,
+            ):
+                continue
+            # "The insured event must be reported within 30 days" is a
+            # claims-reporting instruction (when to notify the insurer), not a
+            # coverage obligation binding the parties.  The broker/claim frame
+            # guard above requires "claim/broker" tokens; this catches the
+            # "insured event" phrasing.
+            if re.search(r"\binsured\s+event\b[^.]{0,40}\breport(?:ed|ing)?\b", lower):
+                continue
+            # "The policy covers the insured up to EUR 1,000,000" states a
+            # policy's sum-insured limit, not an inter-party obligation to
+            # hold cover.  The guard requires the "insured ... up to ...
+            # currency" sum frame; a genuine coverage obligation ("This policy
+            # covers personal accident insurance for members") has no "insured
+            # ... up to ... <currency>" frame and still fires.
+            if re.search(
+                r"\binsured?\b[^.]{0,45}\bup\s+to\b[^.]{0,20}"
+                r"\b(?:usd|eur|gbp|jpy|cny|myr|sgd)\b",
+                lower,
+            ):
+                continue
+            # "The company insured its directors against liability claims" and
+            # "The bank insured the loan against the default risk" are
+            # non-contractual cover arrangements taken by one party on its own
+            # personnel / credit exposure, not an inter-party insurance
+            # obligation.  The guard requires the insured+person/loan+against
+            # frame.
+            if re.search(
+                r"\binsured?\b[^.]{0,40}"
+                r"\b(?:directors?|officers?|employees?|personnel\b|staff\b|"
+                r"loan\w*|mortgage\w*|credit\w*|receivable\w*)\b"
+                r"[^.]{0,35}\bagainst\b",
                 lower,
             ):
                 continue

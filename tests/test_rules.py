@@ -4137,3 +4137,210 @@ def test_saas_subscription_renewal_is_contract_renewal():
     ) if c.clause == "renewal"]
     assert clauses
     assert clauses[0].flag == "automatic renewal (auto-renew)"
+
+
+# ---------------------------------------------------------------------------
+# Round 39 — FP guard regression tests
+# ---------------------------------------------------------------------------
+
+
+def test_duration_prison_term_not_contract_term():
+    # A criminal-sentence length (prison/jail/imprisonment term) is not the
+    # agreement's term.
+    for sentence in [
+        "The court imposed a prison term of 5 years.",
+        "The offender was given a jail term of 3 years.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "duration"]
+        assert clauses == [], sentence
+    # A genuine agreement term still fires.
+    clauses = [c for c in _clauses(
+        "The term of this Agreement shall be for a period of 2 years."
+    ) if c.clause == "duration"]
+    assert clauses
+
+
+def test_quantity_units_of_vitamin_or_blood_not_quantity():
+    # Nutritional/medical units ("units of vitamin D", "units of blood") are
+    # not committed purchase quantities.
+    for sentence in [
+        "One serving of the cereal contains 200 units of vitamin D.",
+        "The patient received 2 units of blood during the operation.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "quantity"]
+        assert clauses == [], sentence
+    # A genuine purchase commitment still fires.
+    clauses = [c for c in _clauses(
+        "Buyer shall purchase a total of 10,000 units of the Products."
+    ) if c.clause == "quantity"]
+    assert clauses
+
+
+def test_quantity_dwellings_inventory_capacity_not_quantity():
+    # Counting dwellings, inventory stock, or throughput capacity is not a
+    # committed purchase quantity.
+    for sentence in [
+        "The apartment block comprises 12 units, each with two bedrooms.",
+        "The warehouse can store up to 5,000 units of inventory.",
+        "The generator has a rated capacity of 1,000 units per hour.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "quantity"]
+        assert clauses == [], sentence
+    # A genuine per-year purchase commitment still fires.
+    clauses = [c for c in _clauses(
+        "Distributor shall purchase a minimum of 1,000 units per year."
+    ) if c.clause == "quantity"]
+    assert clauses
+
+
+def test_acceptance_administrative_inspection_not_acceptance():
+    # Administrative/statutory inspections (boiler, health, police, fire code,
+    # technical, factory) are not acceptance of contract deliverables.
+    for sentence in [
+        "Annual inspection of the boiler is mandatory under the fire code.",
+        "During the inspection, the auditor found no discrepancies.",
+        "The inspection of the factory took place on 30 June.",
+        "Registration requires a technical inspection every two years.",
+        "The health inspector visited the restaurant for a routine inspection.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "acceptance"]
+        assert clauses == [], sentence
+    # A genuine deliverable acceptance inspection still fires.
+    clauses = [c for c in _clauses(
+        "During the event, Provider must complete acceptance inspection of"
+        " the venue jointly with Client within 7 days."
+    ) if c.clause == "acceptance"]
+    assert clauses
+
+
+def test_acceptance_of_resignation_not_acceptance():
+    # Accepting a person's resignation is not acceptance of goods or services.
+    clauses = [c for c in _clauses(
+        "Acceptance of the resignation takes effect immediately."
+    ) if c.clause == "acceptance"]
+    assert clauses == []
+    # A genuine acceptance obligation still fires.
+    clauses = [c for c in _clauses(
+        "The Buyer shall give its acceptance of the Goods in writing."
+    ) if c.clause == "acceptance"]
+    assert clauses
+
+
+def test_liability_harassment_or_occupier_not_liability():
+    # A general vicarious-employer exposure to staff harassment, or a
+    # statutory occupier duty, is not an agreed liability cap.
+    for sentence in [
+        "The employer may be liable for harassment by its staff.",
+        "Occupiers are liable to visitors under the Occupiers Liability Act.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "liability_cap"]
+        assert clauses == [], sentence
+    # A genuine liability cap still fires.
+    clauses = [c for c in _clauses(
+        "The Supplier's aggregate liability shall not exceed the Purchase"
+        " Price paid under this Agreement."
+    ) if c.clause == "liability_cap"]
+    assert clauses
+
+
+def test_liability_insured_party_cover_not_liability():
+    # "The company insured its directors" / "the bank insured the loan" are
+    # cover arrangements taken by one party, not liability caps.
+    for sentence in [
+        "The company insured its directors against liability claims.",
+        "The bank insured the loan against the default risk.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "liability_cap"]
+        assert clauses == [], sentence
+    # A genuine indemnity obligation still fires.
+    clauses = [c for c in _clauses(
+        "The Supplier shall indemnify and hold harmless the Buyer."
+    ) if c.clause == "liability_cap"]
+    assert clauses
+
+
+def test_exclusivity_arrangement_ended_or_exclusive_access_not_exclusivity():
+    # Reporting that a past exclusivity arrangement ended, or a membership
+    # "exclusive access" perk, is not a market exclusivity grant.
+    for sentence in [
+        "The exclusivity arrangement came to an end last quarter.",
+        "The club offers exclusive access to members only.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "exclusivity"]
+        assert clauses == [], sentence
+    # A genuine exclusive right still fires.
+    clauses = [c for c in _clauses(
+        "The Distributor is granted the exclusive right to sell the"
+        " Products in the Territory."
+    ) if c.clause == "exclusivity"]
+    assert clauses
+
+
+def test_data_protection_technical_or_credit_transfer_not_data():
+    # IT-infrastructure data exchange and academic credit transfer involve no
+    # personal-data processing or transfer obligation.
+    for sentence in [
+        "The system transfers data electronically to the central database.",
+        "The parties shall exchange data in XML format between the servers.",
+        "The applicant is entitled to 30 units of credit transfer.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "data_protection"]
+        assert clauses == [], sentence
+    # A genuine cross-border personal-data transfer still fires.
+    clauses = [c for c in _clauses(
+        "Personal data may be transferred outside the EEA only with"
+        " appropriate safeguards."
+    ) if c.clause == "data_protection"]
+    assert clauses
+
+
+def test_insurance_included_in_cost_not_insurance():
+    # Cost-allocation statements ("cargo insurance included in the freight
+    # cost") are not insurance-clause obligations.
+    for sentence in [
+        "Cargo insurance is included in the freight cost.",
+        "Shipping insurance is included in the quoted price.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "insurance"]
+        assert clauses == [], sentence
+    # A genuine professional-indemnity coverage obligation still fires.
+    clauses = [c for c in _clauses(
+        "Provider shall carry professional indemnity insurance throughout"
+        " the term."
+    ) if c.clause == "insurance"]
+    assert clauses
+
+
+def test_insurance_insured_event_or_sum_limit_not_insurance():
+    # A claims-reporting instruction ("insured event ... reported") or a
+    # policy sum-insured limit ("covers the insured up to EUR") is not an
+    # inter-party coverage obligation.
+    for sentence in [
+        "The insured event must be reported within 30 days.",
+        "The policy covers the insured up to EUR 1,000,000.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "insurance"]
+        assert clauses == [], sentence
+    # A genuine insurance-requirement obligation still fires.
+    clauses = [c for c in _clauses(
+        "The Supplier shall maintain professional indemnity insurance"
+        " with limits of at least USD 1,000,000."
+    ) if c.clause == "insurance"]
+    assert clauses
+
+
+def test_insurance_directors_or_loan_cover_not_insurance():
+    # Cover taken by one party on its own personnel/credit exposure is not an
+    # inter-party insurance obligation.
+    for sentence in [
+        "The company insured its directors against liability claims.",
+        "The bank insured the loan against the default risk.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "insurance"]
+        assert clauses == [], sentence
+    # A genuine coverage obligation still fires.
+    clauses = [c for c in _clauses(
+        "The Lessee shall insure the Goods against loss or damage during"
+        " transit."
+    ) if c.clause == "insurance"]
+    assert clauses
