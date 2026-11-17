@@ -329,6 +329,31 @@ def rule_quantity(doc, sentences):
             lower,
         ):
             continue
+        # "The batch size is 100 units" / "the lot size is 50 units" state a
+        # production/sampling lot definition (a descriptive measure of a
+        # batch), not a committed quantity of goods.  The noun "size" ties
+        # the number to a specification, not to an order commitment.  Genuine
+        # quantities ("Buyer shall purchase 10,000 units") still fire; zero
+        # fixture lines use "batch/lot/sample size" with a unit count
+        # (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:batch|lot|sample|parcel|consignment)\s+size\b"
+            r"[^.]{0,25}\b\d+(?:[.,]\d+)?\s+units?\b"
+            r"|\b\d+(?:[.,]\d+)?\s+units?\b"
+            r"[^.]{0,25}\b(?:batch|lot|sample|parcel|consignment)\s+size\b",
+            lower,
+        ):
+            continue
+        # "The document is 30 pages long" is a description of a deliverable's
+        # length (a specification, not a count of goods).  The existing page
+        # guard covers "in length" / cap forms; this adds the bare "pages
+        # long" adjective form.  Zero fixture lines join a page count to
+        # "long".
+        if re.search(
+            r"\b\d+(?:[.,]\d+)?\s+pages?\s+long\b",
+            lower,
+        ):
+            continue
         m = re.search(
             rf"\b{_NUMTOKEN}\s+units?\b"
             rf"|\b{_NUMTOKEN}\s+items?\b"
@@ -386,6 +411,21 @@ def rule_price(doc, sentences):
             lower,
         ):
             continue
+        # "stock price / share price / market price / retail price" are
+        # securities-market or consumer-market prices, not the price agreed
+        # for goods or services under this contract.  A "transfer price" is
+        # an intra-group accounting rate (per-unit cost allocation between
+        # related entities), not a contract purchase price.  Genuine contract
+        # prices ("the price of the Goods is USD 100 per unit", "Supply price
+        # is USD 12.00 per unit") still fire — the guard requires the
+        # market-noun prefix, so "per unit" sentence-final pricing is
+        # untouched.  Zero fixture lines use these prefixes (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:stock|share|market|retail|transfer|spot|listed|quoted)\s+price\b",
+            lower,
+        ):
+            continue
         # "average price of comparable products" is a market benchmark, not a
         # contract price; "notes payable" on a balance sheet is an accounting
         # line item, not money owed under this Agreement.  Neither phrase
@@ -422,6 +462,19 @@ def rule_price(doc, sentences):
             r"\b(?:fee|fees|charge\w*)\b[^.]{0,50}\bcancel(?:l|ll)?(?:ation|l?ed|l?ing)?\b"
             r"|\bcancel(?:l|ll)?(?:ation|(\s+and\s+)?refund)?\b[^.]{0,50}"
             r"\b(?:fee|fees|charge\w*|penalty)\b",
+            lower,
+        ):
+            continue
+        # "The domain name renewal fee is USD 12 per year" / "a renewal fee of
+        # USD 50 applies for the membership" quote the fee charged to re-issue
+        # an account, registration or credential — an administrative billing
+        # amount, not the price of goods or services under this Agreement.
+        # The renewal-rule guards already suppress the renewal meaning; this
+        # guard suppresses the price meaning.  Genuine prices ("the price of
+        # the Goods is USD 100 per unit") still fire — the guard requires the
+        # "renewal fee" noun.
+        if re.search(
+            r"\brenewal\s+fees?\b",
             lower,
         ):
             continue
@@ -1598,6 +1651,32 @@ def rule_liability(doc, sentences):
             lower,
         ):
             continue
+        # "Criminal liability attaches to fraud under section 1" / "statutory
+        # liability", "tax / VAT liability" name a legal regime under which a
+        # person is prosecuted or assessed (criminal, fiscal or statutory
+        # exposure), not an agreed cap, disclaimer or exclusion between the
+        # parties.  Genuine caps and disclaimers still fire.  Zero fixture
+        # lines join liability to a criminal/tax/penal noun (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:criminal|statutory|fiscal|tax|vat|penal)\s+liability\b"
+            r"|\bliability\b[^.]{0,30}\b(?:offence|offense)\b",
+            lower,
+        ):
+            continue
+        # "The data subject has no liability for the controller's breach" is
+        # a data-protection rights statement (who is accountable for what
+        # under the GDPR), not an agreed cap, disclaimer or exclusion between
+        # the parties.  Genuine caps and disclaimers still fire — the guard
+        # requires the "data subject" noun, so a data-protection breach
+        # exposure ("seller's liability for unauthorised processing of
+        # personal data") stays.
+        if re.search(
+            r"\bdata\s+subject\w*\b[^.]{0,40}\bliab\w*\b"
+            r"|\bliab\w*\b[^.]{0,40}\bdata\s+subject\w*\b",
+            lower,
+        ):
+            continue
         amount = _AMOUNT_RE.search(sentence)
         pct = _PERCENT_RE.search(sentence)
 
@@ -2185,6 +2264,19 @@ def rule_renewal(doc, sentences):
             lower,
         ) and not re.search(
             r"\b(?:shall|will|may|must|automatically)\b",
+            lower,
+        ):
+            continue
+        # "The magazine subscription renews unless cancelled" renews a consumer
+        # periodical subscription (a magazine, newspaper or journal the reader
+        # buys), not a renewal of the agreement's term.  The guard pins the
+        # periodical noun, so "This SaaS Subscription renews automatically"
+        # (a genuine term-renewal anchor) stays live.
+        if re.search(
+            r"\b(?:magazine|newspaper|periodical|journal|e-?zine)\s+subscription\b"
+            r"[^.]{0,30}\brenew(?:al|s|ing|ed|able)?\b"
+            r"|\brenew(?:al|s|ing|ed|able)?\b[^.]{0,30}"
+            r"\b(?:magazine|newspaper|periodical|journal|e-?zine)\s+subscription\b",
             lower,
         ):
             continue
@@ -2892,6 +2984,14 @@ def rule_data_protection(doc, sentences):
             lower,
         ):
             continue
+        # "A transfer price of USD 100 per MWh applies between the entities"
+        # is an intra-group accounting rate (the recorded value for goods or
+        # energy moved between related entities), not a personal-data
+        # transfer.  The bare gate keyword "transfer" admits it, so the guard
+        # pins the "transfer price" noun.  Genuine data transfers ("personal
+        # data transferred outside the EEA") still fire.
+        if re.search(r"\btransfer\s+price\b", lower):
+            continue
         # "transfer / assign this Agreement" is a contract-assignment or
         # novation right, not a personal-data transfer ("the Agreement" /
         # "this Agreement" word orders both covered).  "Any data transferred
@@ -2977,6 +3077,20 @@ def rule_data_protection(doc, sentences):
         ) and not re.search(
             r"\b(?:transfer(?:s|red|ring)?|disclos\w*|process(?:ed|ing)?\s+of|"
             r"controller\b|processor\b|DPA\b|SCC\b|no\s+such\s+right)\b",
+            lower,
+        ):
+            continue
+        # "The data subject has no liability for the controller's breach" is a
+        # GDPR liability-allocation statement (who answers for a breach is a
+        # statutory rights narrative), not a processing, transfer or breach
+        # obligation between the parties.  The gate keywords "data subject" +
+        # "controller" admit it, so the guard pins the no-liability frame.
+        # Genuine processor liability ("The Processor shall be liable for a
+        # breach of this DPA") still fires — it names the Processor as the
+        # obligor, not the data subject.
+        if re.search(
+            r"\bdata\s+subject\w*\b[^.]{0,45}"
+            r"\b(?:no|not|shall\s+not|not\s+be)\b[^.]{0,15}\bliab\w*\b",
             lower,
         ):
             continue

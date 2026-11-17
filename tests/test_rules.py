@@ -3321,3 +3321,131 @@ def test_insurance_market_movements_not_insurance_obligation():
         ["Provider shall carry professional indemnity insurance throughout the term."]
     ) if c.clause == "insurance"]
     assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_batch_or_lot_size_definition_not_a_quantity():
+    # A batch/lot/sample "size" states a production or sampling specification
+    # (how many units make up a batch), not a committed quantity of goods.
+    for sentence in [
+        "The batch size is 100 units.",
+        "The lot size for each run shall be 50 units.",
+        "A sample size of 400 units was inspected.",
+        "The document is 30 pages long.",
+        "The report shall be 12 pages long.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "quantity"]
+        assert clauses == [], sentence
+    # A genuine committed quantity of goods still fires.
+    clauses = [c for c in _clauses(
+        ["Buyer shall purchase a total of 10,000 units under this Agreement."]
+    ) if c.clause == "quantity"]
+    assert clauses and clauses[0].risk.value == "LOW"
+
+
+def test_market_or_securities_prices_not_a_contract_price():
+    # Stock/share/market/retail/transfer prices price securities, markets or
+    # intra-group transfers — not goods or services under this contract.
+    for sentence in [
+        "The stock price closed at USD 45 per share.",
+        "The retail price of the product is USD 19.99.",
+        "The share price shall not fall below EUR 10.",
+        "A transfer price of USD 100 per MWh applies between the entities.",
+        "The market price of the raw material reached CNY 5,000",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "price"]
+        assert clauses == [], sentence
+    # A genuine contract price still fires.
+    clauses = [c for c in _clauses(
+        ["The price of the first batch shall be EUR 5,000 per unit."]
+    ) if c.clause == "price"]
+    assert clauses and clauses[0].risk.value in ("LOW", "MEDIUM", "HIGH")
+
+
+def test_price_transfer_pricing_not_a_data_protection_obligation():
+    # Intra-group "transfer price" is an accounting rate for goods moved
+    # between related entities, not a personal-data transfer.
+    for sentence in [
+        "A transfer price of USD 100 per MWh applies between the entities.",
+        "The transfer price for the components shall be agreed annually.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "data_protection"]
+        assert clauses == [], sentence
+    # A genuine cross-border personal-data transfer still fires.
+    clauses = [c for c in _clauses(
+        ["Any data transferred outside the EEA requires appropriate safeguards."]
+    ) if c.clause == "data_protection"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_criminal_or_statutory_liability_not_a_liability_cap():
+    # Criminal/tax/statutory liability names a legal regime under which a
+    # person is prosecuted or assessed — not an agreed cap, disclaimer or
+    # exclusion between the parties.
+    for sentence in [
+        "Criminal liability attaches to fraud under section 1.",
+        "The employee remains liable for statutory liability under the Act.",
+        "Tax liability on the benefit shall be borne by the employee.",
+        "Liability for the offence is imposed on the operator.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "liability_cap"]
+        assert clauses == [], sentence
+    # A genuine agreed liability cap still fires.
+    clauses = [c for c in _clauses(
+        ["The aggregate liability of the Seller shall not exceed USD 1,000,000."]
+    ) if c.clause == "liability_cap"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_data_subject_liability_statement_not_a_clause():
+    # "The data subject has no liability" allocates GDPR accountability — not
+    # a processing/transfer obligation (data rule) nor an agreed cap
+    # (liability rule).
+    for sentence in [
+        "The data subject has no liability for the controller's breach.",
+        "Data subjects shall not bear any liability for processing carried out.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "data_protection"]
+        assert clauses == [], sentence
+        clauses = [c for c in _clauses(sentence) if c.clause == "liability_cap"]
+        assert clauses == [], sentence
+    # Genuine obligations still fire.
+    clauses = [c for c in _clauses(
+        ["Any data transferred outside the EEA requires appropriate safeguards."]
+    ) if c.clause == "data_protection"]
+    assert clauses
+    clauses = [c for c in _clauses(
+        ["The aggregate liability of the Seller shall not exceed USD 1,000,000."]
+    ) if c.clause == "liability_cap"]
+    assert clauses
+
+
+def test_periodical_subscription_renewal_not_a_term_renewal():
+    # A magazine/newspaper periodical subscription renews a reader's
+    # subscription, not the agreement's term.  The genuine SaaS-term renewal
+    # anchor still fires.
+    for sentence in [
+        "The magazine subscription renews unless cancelled.",
+        "The newspaper subscription shall renew automatically each year.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "renewal"]
+        assert clauses == [], sentence
+    clauses = [c for c in _clauses(
+        ["This SaaS Subscription renews automatically each month unless the customer cancels with notice of 30 days."]
+    ) if c.clause == "renewal"]
+    assert clauses and clauses[0].risk.value == "MEDIUM"
+
+
+def test_renewal_fee_not_a_contract_price():
+    # A domain/membership renewal fee is an administrative billing amount
+    # charged to re-issue an account, not the price of goods/services.
+    for sentence in [
+        "The domain name renewal fee is USD 12 per year.",
+        "A renewal fee of USD 50 applies for the membership.",
+    ]:
+        clauses = [c for c in _clauses(sentence) if c.clause == "price"]
+        assert clauses == [], sentence
+    # A genuine contract price still fires.
+    clauses = [c for c in _clauses(
+        ["Supply price is USD 12.00 per unit."]
+    ) if c.clause == "price"]
+    assert clauses and clauses[0].risk.value in ("LOW", "MEDIUM", "HIGH")
