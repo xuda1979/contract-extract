@@ -5822,3 +5822,75 @@ def test_insurance_benefits_admin_and_schedule_not_coverage_duty():
     ) if c.clause == "insurance"]
     assert len(clauses) == 4
 
+
+def test_renewal_grant_consumer_loan_renewals_not_term_renewal():
+    # Round 52.  Re-awarding study / research funding (grants, scholarships,
+    # fellowships, bursaries), consumer re-ordering / top-up / redemption
+    # transactions (re-orders, top-up cards, gift cards, checkout, after
+    # purchase), and banking-product rollovers (loans, mortgages, credit
+    # facilities) are not renewals of the agreement's term.
+    assert [c for c in _clauses(
+        "Grant funding is renewable based on the reviewer's recommendation.",
+        "The scholarship award is renewable annually.",
+        "Fellowship appointments are renewable for a further twelve months.",
+        "The research grant will be renewed upon the submission of a new proposal.",
+        "Bursaries are renewable for a second year of study.",
+        "Your subscription will be renewed automatically when your new phone re-orders the plan.",
+        "Renew the data plan by purchasing a top-up card.",
+        "Gift cards are renewed when the balance is topped up.",
+        "Renew your service plan at the checkout.",
+        "You may renew the plan via the app after purchase.",
+        "The loan is renewable upon request at the end of the term.",
+        "Bank loans are renewable on a year-by-year basis.",
+        "The farmer's mortgage was renewed for another five years.",
+        "The credit facility is renewable at the bank's discretion.",
+    ) if c.clause == "renewal"] == []
+    # Genuine term renewals still fire, including instrument-named funding /
+    # loan renewals (the negative legs protect the named instrument).
+    clauses = [c for c in _clauses(
+        "This Agreement shall automatically renew for successive 1 year terms.",
+        "This Grant Agreement shall automatically renew for successive terms unless either party gives notice.",
+        "This Loan Agreement renews automatically each year.",
+        "The parties may renew this agreement by mutual consent.",
+        "This Service Agreement shall be renewed for successive one-year periods.",
+        "The Provider may renew the lease for a further term of three years.",
+        "This SaaS Subscription renews automatically each month unless the customer cancels with notice of 30 days.",
+    ) if c.clause == "renewal"]
+    assert len(clauses) >= 6
+
+
+def test_insurance_industry_benefit_sum_and_claims_not_coverage_duty():
+    # Round 52.  Industry / regulatory observations (regulated by, stocks
+    # outperformed, quarterly returns, sector employs), product-benefit
+    # statements (protects buyers / family, covers legal costs, provides a
+    # payout to beneficiaries), bare references to a sum insured / sum
+    # assured, and claims-handling narration ("the insurer will review the
+    # claim") are not inter-party coverage obligations.
+    assert [c for c in _clauses(
+        "Insurance companies are regulated by the FCA.",
+        "Insurance stocks outperformed the index.",
+        "Firms filed quarterly returns with the insurance regulator.",
+        "The sector employs over 100,000 people in insurance services.",
+        "Title insurance protects buyers against title defects.",
+        "Insurance protects your family in times of need.",
+        "Litigation insurance covers legal costs.",
+        "Term insurance provides a payout to your beneficiaries.",
+        "The policy document states the sum insured for each item.",
+        "The sum insured under the policy is EUR 500,000.",
+        "The certificate quotes a sum assured of USD 10,000.",
+        "The insurer will review her claim next week.",
+    ) if c.clause == "insurance"] == []
+    # Genuine coverage duties still fire, including a procured sum-insured
+    # obligation (the obligation verbs are excluded from the negative legs).
+    clauses = [c for c in _clauses(
+        "The company shall maintain general liability insurance of $1 million for the term of this Agreement.",
+        "The Provider shall obtain insurance with a sum insured of at least USD 1,000,000.",
+        "The Supplier shall take out insurance with a sum insured sufficient to cover the replacement value of the Goods.",
+        "The Contractor must obtain and maintain public liability insurance throughout the term.",
+        "Each party shall maintain professional indemnity insurance in force during the Agreement.",
+        "Provider shall carry professional indemnity insurance throughout the term.",
+    ) if c.clause == "insurance"]
+    assert len(clauses) >= 5
+    assert any("professional liability" in c.flag for c in clauses), \
+        "professional indemnity coverage must fire at higher risk"
+

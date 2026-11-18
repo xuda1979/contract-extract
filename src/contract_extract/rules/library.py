@@ -4366,8 +4366,10 @@ def rule_renewal(doc, sentences):
         # renewable at the bank's discretion" describe a banking product's
         # rollover option, not a renewal of the agreement's term.  The negative
         # leg keeps a genuine loan-agreement renewal live ("This Loan Agreement
-        # renews automatically each year").  Zero fixture lines mention loans /
-        # mortgages / credit facilities in a renewal context (checked against
+        # renews automatically each year").  "term" is deliberately NOT in the
+        # leg — "at the end of the term" is generic loan-speak, not a named
+        # instrument.  Zero fixture lines mention loans / mortgages / credit
+        # facilities in a renewal context (checked against
         # fixtures/generate_fixtures.py).
         if re.search(
             r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,45}"
@@ -4378,7 +4380,7 @@ def rule_renewal(doc, sentences):
             r"\brenew(?:al|s|ing|ed|able)?\b",
             lower,
         ) and not re.search(
-            r"\b(?:agreement|contract|lease|licen[cs]e|term)\b",
+            r"\b(?:agreement|contract|lease|licen[cs]e)\b",
             lower,
         ):
             continue
@@ -6860,6 +6862,8 @@ def rule_insurance(doc, sentences):
             # insurance regulator" / "The sector employs over 100,000 people in
             # insurance services" are industry / regulatory observations about
             # the insurance business, not a coverage obligation on a party.
+            # The reverse leg covers keyword-after-insurance word order
+            # ("The sector employs over 100,000 people in insurance services").
             # Obligation verbs are excluded so a genuine duty naming a
             # regulator ("shall obtain insurance from an FCA-regulated
             # insurer") stays live.  Zero fixture lines pair insurance with
@@ -6869,7 +6873,8 @@ def rule_insurance(doc, sentences):
                 r"\binsurance\b[^.]{0,45}"
                 r"\b(?:regulat\w+|stocks?\b|sector\b|index\b|"
                 r"outperform\w*|(?:quarterly|annual)\w*\s+return\w*\b)\b"
-                r"|\b(?:regulat\w+)\b[^.]{0,45}\binsurance\b",
+                r"|\b(?:regulat\w+|sector\b|stocks?\b|outperform\w*|index\b)\b"
+                r"[^.]{0,45}\binsurance\b",
                 lower,
             ) and not re.search(
                 r"\b(?:oblig\w*|shall|must|will|require\w*|maintain\w*|"
@@ -6891,10 +6896,10 @@ def rule_insurance(doc, sentences):
             if re.search(
                 r"\binsurance\b[^.]{0,35}"
                 r"\b(?:protect\w+|provid\w+|offer\w*|cover\w*)\b[^.]{0,30}"
-                r"\b(?:buyers?|famili\w*|beneficiar\w*|legal\s+cost\w*|"
+                r"\b(?:buyers?|famil\w*|beneficiar\w*|legal\s+cost\w*|"
                 r"loved\s+ones\b|defect\w*|policyholder\w*|insured\b|"
                 r"claimant\w*|estate\b)\b"
-                r"|\b(?:buyers?|famili\w*|beneficiar\w*|legal\s+cost\w*|"
+                r"|\b(?:buyers?|famil\w*|beneficiar\w*|legal\s+cost\w*|"
                 r"loved\s+ones\b|defect\w*|policyholder\w*|insured\b|"
                 r"claimant\w*|estate\b)\b[^.]{0,30}"
                 r"\b(?:protect\w+|provid\w+|offer\w*|cover\w*)\b[^.]{0,30}"
