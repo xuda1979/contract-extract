@@ -4269,6 +4269,54 @@ def rule_renewal(doc, sentences):
             lower,
         ):
             continue
+        # "Event passes renewed at the gate" / "annual passes renewed early /
+        # membership card renewals / the festival pass renewal window" /
+        # "members renew their passes" re-issue an admission credential (an
+        # event pass, membership card or entrance admission), not a renewal of
+        # the agreement's term.  The negative leg keeps any genuine renewal
+        # that names the agreement / contract / lease / licence / term /
+        # subscription live.  Zero fixture lines mention event passes or
+        # membership cards (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?s?\b[^.]{0,35}"
+            r"\b(?:pass(?:es)?|membership\s+card\w*|admission\w*)\b"
+            r"|\b(?:pass(?:es)?|membership\s+card\w*|admission\w*)\b"
+            r"[^.]{0,35}\brenew(?:al|s|ing|ed|able)?s?\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:agreement|contract|lease|licen[cs]e|term|subscription)\b",
+            lower,
+        ):
+            continue
+        # "Your subscription will auto-renew unless you cancel / opt out", "the
+        # free trial converts to auto-renewal", "subscribers are billed at each
+        # auto-renewal", "renews monthly at $9.99" are consumer recurring
+        # billing notices, not a renewal of the agreement's term.  The negative
+        # leg (agreement / contract / lease / licence / term / notice / price /
+        # fee) keeps genuine term renewals live — the fixture "This SaaS
+        # Subscription renews automatically each month unless the customer
+        # cancels with notice of 30 days" (fixture line 162) carries "notice"
+        # and stays untouched, and a contract renewal price ("the renewal price
+        # shall be $1,000") is protected by "price".  Bare "subscription" is
+        # deliberately NOT in the leg so consumer billing statements still
+        # fall in (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bauto\s*[-]?renew(?:al|s|ing|ed|able)?\b[^.]{0,40}"
+            r"\b(?:unless\s+you\s+(?:cancel|opt\s+out)|opt\s+out\b|billed\b|"
+            r"free\s+trial\b|account\s+settings\b|in\s+the\s+app\b)\b"
+            r"|\b(?:unless\s+you\s+(?:cancel|opt\s+out)|opt\s+out\b|billed\b|"
+            r"free\s+trial\b|account\s+settings\b|in\s+the\s+app\b)\b"
+            r"[^.]{0,40}\bauto\s*[-]?renew(?:al|s|ing|ed|able)?\b"
+            r"|\brenew(?:al|s|ing|ed|able)?\b[^.]{0,55}\bbilling\s+date\b"
+            r"|\bbilling\s+date\b[^.]{0,55}\brenew(?:al|s|ing|ed|able)?\b"
+            r"|\brenew(?:al|s|ing|ed|able)?\b[^.]{0,30}\$\s?\d"
+            r"|\$\s?\d[^.]{0,30}\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:agreement|contract|lease|licen[cs]e|term|notice|price|fee)\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.LOW
         flag = "renewal clause"
         if re.search(r"automatic|auto-renew|auto\s+renew|renews\s+automatically|renew\s+automatically|quarterly|automatically\s+renew", lower):
@@ -6693,6 +6741,52 @@ def rule_insurance(doc, sentences):
                 r"\b(?:vessel|ship\w*|boat\w*|marine\w*|carrier)\b[^.]{0,50}"
                 r"\bhull\s+and\s+machinery\b"
                 r"|\bhull\s+and\s+machinery\b",
+                lower,
+            ):
+                continue
+            # "The cafeteria plan administrator sends insurance summaries" /
+            # "insurance enrollments are visible in the benefits portal" /
+            # "the plan administrator lists insurance options for new hires"
+            # are benefits-administration facts (an HR administrator
+            # describing what the enrolment system does), not an inter-party
+            # obligation to hold or procure coverage.  A genuine coverage
+            # obligation naming a policy type and a maintaining verb still
+            # fires — the negative leg keeps maintain / procure / carry /
+            # obtain untouched.  Zero fixture lines combine the benefits
+            # administration frame with insurance (checked against
+            # fixtures/generate_fixtures.py).
+            if re.search(
+                r"\binsurance\b[^.]{0,45}"
+                r"\b(?:summar\w*|enroll(?:ed|s|ing|ment)?\w*|enrol(?:m|ed|s|ing)?\w*|"
+                r"option\w*|portal\w*|administrator\w*)\b"
+                r"|\b(?:summar\w*|enroll(?:ed|s|ing|ment)?\w*|enrol(?:m|ed|s|ing)?\w*|"
+                r"option\w*|portal\w*|administrator\w*)\b[^.]{0,45}\binsurance\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|carry|obtain\w*)\b[^.]{0,40}"
+                r"\binsurance\b",
+                lower,
+            ):
+                continue
+            # "The schedule of coverages shows the sum insured per item" /
+            # "the schedule lists the sums insured under the plan" state
+            # declarative schedule contents (a coverage schedule or benefits
+            # schedule listing sums insured), not an inter-party coverage
+            # obligation.  A genuine "shall maintain ... insurance" duty tied
+            # to a schedule ("the schedule shall show the required sum
+            # insured") still fires — the negative leg keeps maintain /
+            # procure / carry / obtain untouched.  Zero fixture lines combine
+            # schedule with sum insured (checked against
+            # fixtures/generate_fixtures.py).
+            if re.search(
+                r"\bschedule\w*\b[^.]{0,45}"
+                r"\b(?:sums?\s+insured|sum\s+assured)\b"
+                r"|\b(?:sums?\s+insured|sum\s+assured)\b[^.]{0,45}"
+                r"\bschedule\w*\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|carry|obtain\w*)\b[^.]{0,40}"
+                r"\binsurance\b",
                 lower,
             ):
                 continue

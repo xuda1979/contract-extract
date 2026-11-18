@@ -5765,3 +5765,60 @@ def test_insurance_scope_and_claims_story_not_coverage_duty():
     ) if c.clause == "insurance"]
     assert len(clauses) == 3
 
+
+def test_consumer_admission_and_auto_renewal_not_term_renewal():
+    # Round 51.  Re-issuing an admission credential (event pass, membership
+    # card) and consumer recurring-billing notices (auto-renewal unless you
+    # cancel / opt out, billed at each auto-renewal, free trial, account
+    # settings, in the app, billing date, a monthly price) are not renewals
+    # of the agreement's term.
+    assert [c for c in _clauses(
+        "Event passes renewed at the gate for returning attendees.",
+        "Membership card renewals are processed online.",
+        "Annual passes renewed early get a discount.",
+        "The festival pass renewal window opens in March.",
+        "Members renew their passes every spring.",
+        "Your subscription will auto-renew each month unless you cancel.",
+        "Subscribers are billed at each auto-renewal.",
+        "The free trial converts to auto-renewal after 30 days.",
+        "Our plans auto-renew silently unless you opt out.",
+        "Auto-renewal is turned off by default in the app.",
+        "The app subscription renews monthly at $9.99.",
+        "Renewal of your plan happens automatically on the billing date.",
+    ) if c.clause == "renewal"] == []
+    # Genuine term renewals still fire, including the fixture-anchored
+    # auto-renewal and lease-renewal sentences.
+    clauses = [c for c in _clauses(
+        "This Agreement shall automatically renew for successive 1 year terms.",
+        "This SaaS Subscription renews automatically each month unless the customer cancels with notice of 30 days.",
+        "The initial term of this Agreement shall be 3 years, renewable.",
+        "Either party may elect to renew this Agreement for an additional two-year term by written notice.",
+        "Tenant may renew the lease for a further 12 months.",
+        "The renewal term shall be 12 months.",
+    ) if c.clause == "renewal"]
+    assert len(clauses) >= 5
+
+
+def test_insurance_benefits_admin_and_schedule_not_coverage_duty():
+    # Round 51.  Benefits-administration facts (an administrator sending
+    # insurance summaries, enrolments in a benefits portal, insurance options
+    # for new hires) and declarative schedule contents (a schedule listing
+    # sums insured) are not inter-party coverage obligations.
+    assert [c for c in _clauses(
+        "The cafeteria plan administrator sends insurance summaries.",
+        "The benefits administrator periodically reviews insurance enrollment.",
+        "Insurance enrollments are visible in the benefits portal.",
+        "The plan administrator lists insurance options for new hires.",
+        "The schedule of coverages shows the sum insured per item.",
+        "The schedule lists the sums insured under the plan.",
+    ) if c.clause == "insurance"] == []
+    # Genuine coverage duties still fire, including a maintenance
+    # obligation naming a covered scope.
+    clauses = [c for c in _clauses(
+        "The company shall maintain general liability insurance of $1 million for the term of this Agreement.",
+        "The Seller must take out insurance against loss of the Goods until delivery.",
+        "The contractor shall maintain public liability insurance covering damage to property.",
+        "Provider shall carry professional indemnity insurance throughout the term.",
+    ) if c.clause == "insurance"]
+    assert len(clauses) == 4
+
