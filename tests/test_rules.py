@@ -5894,3 +5894,47 @@ def test_insurance_industry_benefit_sum_and_claims_not_coverage_duty():
     assert any("professional liability" in c.flag for c in clauses), \
         "professional indemnity coverage must fire at higher risk"
 
+
+def test_data_protection_statutes_training_and_guidance_not_covenant():
+    # Round 53.  Statutory privacy-rights statements (the law protects the
+    # personal data of citizens), data-protection literacy / compliance
+    # activities (employees trained on data protection, the regulator issued
+    # guidelines), and a merchant point-of-sale payment-method statement
+    # ("Payment can be made by ... bank transfer at the store") are not
+    # inter-party personal-data processing or transfer obligations.
+    assert [c for c in _clauses(
+        "The law protects the personal data of citizens.",
+        "Employees were trained on data protection in the workshop.",
+        "The regulator issued guidelines on data protection.",
+        "Payment can be made by credit card or bank transfer at the store.",
+    ) if c.clause == "data_protection"] == []
+    # A genuine cross-border transfer of personal data still fires, as does a
+    # GDPR processing covenant (the new guards exclude obligation/movement
+    # frames rather than any mention of personal data).
+    clauses = [c for c in _clauses(
+        "Personal data may be transferred outside the EEA with consent.",
+        "The Processor shall process personal data in accordance with the GDPR.",
+    ) if c.clause == "data_protection"]
+    assert len(clauses) == 2
+    assert any("cross-border" in c.flag for c in clauses)
+
+
+def test_insurance_claims_payout_and_recommendation_not_coverage_duty():
+    # Round 53.  A past claims-payout episode ("The insurance company paid his
+    # medical bills promptly") and a sales / advisory recommendation ("The
+    # travel agency recommends insurance for every booking") are not
+    # inter-party coverage obligations.
+    assert [c for c in _clauses(
+        "The insurance company paid his medical bills promptly.",
+        "The travel agency recommends insurance for every booking.",
+    ) if c.clause == "insurance"] == []
+    # Genuine coverage duties still fire (obligation verbs are excluded from
+    # the negative legs).
+    clauses = [c for c in _clauses(
+        "The Supplier shall maintain insurance.",
+        "The company shall maintain general liability insurance of $1 million for the term of this Agreement.",
+        "The Provider shall obtain insurance with a sum insured of at least USD 1,000,000.",
+        "The Contractor must obtain and maintain public liability insurance throughout the term.",
+    ) if c.clause == "insurance"]
+    assert len(clauses) >= 4
+

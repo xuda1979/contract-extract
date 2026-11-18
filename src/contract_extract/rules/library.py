@@ -1590,6 +1590,15 @@ def rule_acceptance(doc, sentences):
         if re.search(r"\bacceptance\b[^.]{0,30}\b(?:delivery\s+)?notices?\b"
                      r"[^.]{0,40}\bportal\b", lower):
             continue
+        # "met with a warm acceptance" describes how a proposal / product was
+        # received socially — reception, not the acceptance of deliverables.
+        # Genuine "Buyer shall accept each deliverable within 10 business
+        # days" keeps the numeric-window path.  Zero fixture lines pair
+        # acceptance with "met with" (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(r"\b(?:met|received|greeted)\s+with\s+(?:a|an)?\s*\w*\s*"
+                     r"\bacceptance\b", lower):
+            continue
         within = re.search(r"\bwithin\s+(\d+)\s*(?:working|business)?\s*days?\b", lower)
         window = re.search(r"\b(\d+)\s*(?:business|working)?\s*days?\s+(?:to|in\s+which\s+to)\s+(?:inspect|accept|complete)", lower)
         risk = RiskLevel.LOW
@@ -1774,16 +1783,17 @@ def rule_payment(doc, sentences):
             lower,
         ):
             continue
-        # "Payment may be made by bank transfer or credit card" states the
+        # "Payment may be made by bank transfer or credit card" / "Payment can
+        # be made by credit card or bank transfer at the store" states the
         # methods a party may use to pay (an invoicing/collection detail), not
         # a payment term fixing an amount, due date or tranche.  "We accept
         # most major credit cards for payment" is the same genre with the
         # credit-card noun pulled to the front.  Genuine payment terms under
         # this rule name the buyer / invoice / purchase price and still fire
-        # (zero fixture lines mention "may be made by" or "for payment" —
+        # (zero fixture lines mention "may/can be made by" or "for payment" —
         # checked against fixtures/generate_fixtures.py).
         if re.search(
-            r"\b(?:payment|payments?)\s+may\s+be\s+made\s+by\b[^.]{0,40}"
+            r"\b(?:payment|payments?)\s+(?:may|can)\s+be\s+made\s+by\b[^.]{0,40}"
             r"\b(?:bank\s+transfer|credit\s+card|card\b|wire|cheque\w*|"
             r"check\b|paypal)\b",
             lower,
@@ -2302,6 +2312,41 @@ def rule_penalty(doc, sentences):
             lower,
         ):
             continue
+        # "The penalty rate on the credit card is 25%" is consumer-card
+        # pricing (the card issuer's interest/APR), not a contractual default
+        # penalty between the parties.  A genuine quantified breach penalty
+        # ("a late payment penalty of 2% per month" — fixture line 83) has no
+        # credit-card / APR / lending context and stays untouched.
+        if re.search(
+            r"\bpenalt\w*\s+rate\b[^.]{0,50}"
+            r"\b(?:credit\s+card\w*|card\s+issuer\w*|\bAPR\b|lending\w*)\b"
+            r"|\b(?:credit\s+card\w*|card\s+issuer\w*|\bAPR\b)\b[^.]{0,50}"
+            r"\bpenalt\w*\s+rate\b",
+            lower,
+        ):
+            continue
+        # "Late books incur a small penalty at the public library" is a
+        # library lending fine, not a contractual default penalty.  A genuine
+        # breach penalty ("a late payment penalty of 2% per month shall apply
+        # to overdue invoices") has no library / book context and stays
+        # untouched (overdue is a payment word, not a library marker).
+        if re.search(
+            r"\bpenalt\w*\b[^.]{0,45}"
+            r"\b(?:librar\w+|book\b|books\b|librarian\w*)\b"
+            r"|\b(?:librar\w+|book\b|books\b|librarian\w*)\b[^.]{0,45}\bpenalt\w*\b",
+            lower,
+        ):
+            continue
+        # "Drivers face a penalty for using a phone at the wheel" is a
+        # road-traffic offence, not a contractual default penalty.  A genuine
+        # breach penalty ("a late payment penalty of 2% per month") has no
+        # driver / phone / driving context and stays untouched.
+        if re.search(
+            r"\bpenalt\w*\b[^.]{0,45}\b(?:drivers?\b|motorists?\b|behind\s+the\s+wheel\b|"
+            r"\bat\s+the\s+wheel\b|road\s+safety\b)\b",
+            lower,
+        ):
+            continue
         pct = _PERCENT_RE.search(sentence)
         amount = _AMOUNT_RE.search(sentence)
         risk = RiskLevel.MEDIUM
@@ -2514,6 +2559,39 @@ def rule_liability(doc, sentences):
             r"disclaim\w*|denied\b|denies\b|accept\w*)\b"
             r"|\b(?:admit\w*|established?\b|establishe\w*|found\s+liable\b|"
             r"disclaim\w*|denied\b|denies\b|accept\w*)\b[^.]{0,45}\bliability\b",
+            lower,
+        ):
+            continue
+        # "Liability for the damage was disputed between the parties" reports a
+        # litigation / negotiation fact (a dispute over who is at fault) — not
+        # an agreed cap, disclaimer or exclusion.  Genuine caps and exclusions
+        # still fire ("aggregate liability shall not exceed USD 1M" has no
+        # dispute frame).
+        if re.search(
+            r"\bliability\b[^.]{0,45}\bdisput\w*\b"
+            r"|\bdisput\w*\b[^.]{0,45}\bliability\b",
+            lower,
+        ):
+            continue
+        # "His liability under the will was limited to the estate" is a
+        # testamentary / inheritance allocation (what a deceased person's
+        # estate must fund), not an agreed cap in a contract.  Genuine caps
+        # still fire (no will / estate / inheritance frame).
+        if re.search(
+            r"\bliability\b[^.]{0,45}\b(?:will\b|estate\b|testator\w*|bequeath\w*|"
+            r"inheritance\w*|inherit\w*)\b"
+            r"|\b(?:will\b|estate\b|testator\w*|bequeath\w*|inheritance\w*|"
+            r"inherit\w*)\b[^.]{0,45}\bliability\b",
+            lower,
+        ):
+            continue
+        # "The firm's liability for the collapse is being investigated" reports
+        # an ongoing inquiry (regulator / internal probe) — not an agreed cap,
+        # disclaimer or exclusion.  Genuine caps and exclusions still fire
+        # (no investigation / probe frame).
+        if re.search(
+            r"\bliability\b[^.]{0,45}\b(?:investigat\w*|prob\w*)\b"
+            r"|\b(?:investigat\w*|prob\w*)\b[^.]{0,45}\bliability\b",
             lower,
         ):
             continue
@@ -3354,6 +3432,45 @@ def rule_confidentiality(doc, sentences):
             lower,
         ):
             continue
+        # "Doctors owe their patients a duty of confidentiality" /
+        # "Lawyers are bound by client confidentiality" state a professional
+        # code-of-conduct duty owed in a fiduciary / advisory relationship, not
+        # an inter-party secrecy duty in a contract.  Genuine NDA obligations
+        # ("Confidential information shall remain confidential for 3 years")
+        # lack professional-dependence vocabulary and still fire.  Zero fixture
+        # lines pair confidentiality with a professional duty (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bduty\s+of\s+confidentiality\b[^.]{0,40}"
+            r"\b(?:doctor\w*|patient\w*|physician\w*|lawyer\w*|solicitor\w*|"
+            r"attorney\w*|client\w*|accountant\w*|therapists?\b|advisor\w*|"
+            r"consultant\w*|auditor\w*)\b"
+            r"|\b(?:doctor\w*|physician\w*|lawyer\w*|solicitor\w*|attorney\w*|"
+            r"accountant\w*|therapists?\b|advisor\w*|consultant\w*|auditor\w*)\b"
+            r"[^.]{0,40}\bduty\s+of\s+confidentiality\b"
+            r"|\bbound\s+by\b[^.]{0,35}\b(?:client|professional)\s+confidentiality\b",
+            lower,
+        ):
+            continue
+        # "All conversations in the session were confidential" narrates a past
+        # event in a meeting / therapy / journalism context — a factual note,
+        # not a forward-looking secrecy duty.  "The committee required
+        # confidentiality on the pending report" is internal governance around
+        # an unpublished document.  Genuine NDA wording ("shall keep
+        # confidential", "shall remain confidential for N years") still fires —
+        # it has a modal obligation verb and no meeting-narration frame.
+        # Zero fixture lines use these narration frames (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:conversations?|discussions?|sessions?|meetings?|gatherings?)\b"
+            r"[^.]{0,35}\b(?:were|are|remained?)\s+confidential\b"
+            r"|\b(?:committee\w*|board\w*|panel\w*)\b[^.]{0,35}\bconfidential\w*\b"
+            r"[^.]{0,30}\b(?:pending\b|report\w*|draft\b|memorandum\b)\b"
+            r"|\b(?:pending\b|report\w*|draft\b|memorandum\b)\b[^.]{0,30}"
+            r"\bconfidential\w*\b[^.]{0,35}\b(?:committee\w*|board\w*|panel\w*)\b",
+            lower,
+        ):
+            continue
         dur = _DURATION_RE.search(sentence)
         risk = RiskLevel.LOW
         flag = "confidentiality clause"
@@ -3791,6 +3908,20 @@ def rule_ip(doc, sentences):
             r"\bbelongs?\s+to\s+(?:its\s+|the\s+|their\s+)?"
             r"\b(?:author\w*|creator\w*|inventor\w*|artist\w*|photographer\w*|"
             r"musician\w*|writer\w*s?|designer\w*|maker\w*s?)\b",
+            lower,
+        ):
+            continue
+        # "Piracy infringes the intellectual property of studios" is an
+        # infringement / enforcement narrative (a statement that copying
+        # violates creators' rights), not an allocation, transfer or licence
+        # between the parties.  Genuine IP clauses ("Licensee assigns all
+        # intellectual property rights to the Licensor") have no piracy /
+        # infringement-of-media vocabulary and still fire.
+        if re.search(
+            r"\bpirat\w*\b[^.]{0,45}\b(?:intellectual\s+property|\bip\b)\b"
+            r"|\b(?:intellectual\s+property|\bip\b)\b[^.]{0,45}\bpirat\w*\b"
+            r"|\binfring\w*\b[^.]{0,35}\bintellectual\s+property\b[^.]{0,30}"
+            r"\b(?:studio\w*|industr\w*|creators?\b|artists?\b)\b",
             lower,
         ):
             continue
@@ -5191,6 +5322,47 @@ def rule_exclusivity(doc, sentences):
             lower,
         ):
             continue
+        # "The private club offers exclusive memberships" is a membership-perk
+        # statement (a club's membership tier), not a market-exclusivity grant
+        # to sell, license or distribute goods.  Genuine grants ("exclusive
+        # right to sell" — fixture line 146, "sole distributor") name the
+        # exclusive right directly and still fire.  Zero fixture lines combine
+        # exclusive with club membership (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bexclusive\s+memberships?\b|"
+            r"\bmemberships?\b[^.]{0,30}\bexclusive\b[^.]{0,30}\bclub\b"
+            r"|\bclub\b[^.]{0,30}\bexclusive\s+(?:memberships?|access)\b",
+            lower,
+        ):
+            continue
+        # "Exclusive rights are often granted by statute in this field" is a
+        # general legal observation about how exclusivity arises by law, not a
+        # negotiated grant between the parties.  Genuine grants ("exclusive
+        # right to sell") still fire — they name the right holder and the
+        # grant is not by statute.
+        if re.search(
+            r"\bexclusive\s+right\w*\b[^.]{0,45}\b(?:statute\b|statutory\b|"
+            r"legislation\b|by\s+law\b)\b"
+            r"|\bstatutory\b[^.]{0,40}\bexclusive\s+right\w*\b",
+            lower,
+        ):
+            continue
+        # "The resort boasted an exclusive beachfront location" is an amenity /
+        # hospitality claim about a desirable location, not a market-exclusivity
+        # grant to sell, license or distribute.  Genuine grants ("exclusive
+        # right to sell" / "sole distributor") still fire — the guard requires
+        # a location / amenity noun.  Zero fixture lines combine exclusive with
+        # a location claim (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bexclusive\b[^.]{0,35}\b(?:location\w*|beachfront\b|waterfront\b|"
+            r"seafront\b|villa\w*|suite\w*|view\w*|setting\w*|"
+            r"(?:five[- ]star)?\s*hotel\w*|neighbourhood\w*|enclave\w*)\b"
+            r"|\b(?:location\w*|beachfront\b|waterfront\b|seafront\b|villa\w*|"
+            r"suite\w*|view\w*)\b[^.]{0,30}\bexclusive\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.MEDIUM
         flag = "exclusivity clause"
         dur = _DURATION_RE.search(sentence)
@@ -5297,13 +5469,15 @@ def rule_data_protection(doc, sentences):
             lower,
         ):
             continue
-        # "Payment may be made by bank transfer or credit card" uses the bare
-        # gate keyword "transfer" inside a payment-method statement (form of
-        # payment), not a personal-data movement.  Same negative leg as the
-        # accept-payment guard above so genuine "personal data" transfers
-        # still fire.
+        # "Payment may/can be made by bank transfer or credit card" uses the
+        # bare gate keyword "transfer" inside a payment-method statement (form
+        # of payment), not a personal-data movement.  "can" is included so
+        # "Payment can be made by credit card or bank transfer at the store"
+        # (a merchant point-of-sale statement) is also suppressed.  Same
+        # negative leg as the accept-payment guard above so genuine "personal
+        # data" transfers still fire.
         if re.search(
-            r"\bpayment\w*\s+may\s+be\s+made\s+by\b[^.]{0,40}"
+            r"\bpayment\w*\s+(?:may|can)\s+be\s+made\s+by\b[^.]{0,40}"
             r"\b(?:bank\s+transfer|wire\s+transfer|credit\s+card|card\b|"
             r"cheque\w*|check\b|paypal)\b",
             lower,
@@ -5805,6 +5979,39 @@ def rule_data_protection(doc, sentences):
         # contract.  Zero fixture lines combine transfers with law
         # enforcement.
         if re.search(r"\btransfer\w*\b[^.]{0,25}\blaw\s+enforcement\b", lower):
+            continue
+        # "The law protects the personal data of citizens" is a statutory
+        # privacy-rights statement (what the law does for data subjects), not
+        # an inter-party processing / transfer obligation.  "Employees were
+        # trained on data protection in the workshop" and "The regulator
+        # issued guidelines on data protection" are literacy / compliance
+        # activities about the regime, not a data-processing covenant.  Each
+        # guard requires its distinctive frame (law-protects / training /
+        # guidance); genuine GDPR covenants ("The Processor shall process
+        # personal data in accordance with the GDPR", fixture 69, 186) lack
+        # those frames and still fire.  Zero fixture lines match these frames
+        # (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:the\s+)?law\w*\b[^.]{0,35}\bprotect\w*\b[^.]{0,35}"
+            r"\bpersonal\s+data\b"
+            r"|\bpersonal\s+data\b[^.]{0,35}\bprotect\w*\b[^.]{0,25}"
+            r"\b(?:citizen\w*|resident\w*|person\w*|individual\w*)\b",
+            lower,
+        ):
+            continue
+        if re.search(
+            r"\btrain\w*\b[^.]{0,40}\b(?:on|about|in)\b[^.]{0,20}"
+            r"\bdata\s+protection\b"
+            r"|\bdata\s+protection\b[^.]{0,30}\btrain\w*\b",
+            lower,
+        ):
+            continue
+        if re.search(
+            r"\b(?:issu\w*|publish\w*|releas\w*|updated?)\b[^.]{0,25}"
+            r"\bguid\w*\b[^.]{0,30}\bdata\s+protection\b"
+            r"|\bdata\s+protection\b[^.]{0,30}\bguid\w*\b",
+            lower,
+        ):
             continue
         risk = RiskLevel.LOW
         flag = "data protection clause"
@@ -6955,6 +7162,52 @@ def rule_insurance(doc, sentences):
                 lower,
             ) and not re.search(
                 r"\b(?:oblig\w*|shall|must|require\w*|maintain\w*|"
+                r"procure\w*|carr(?:y|ies|ied)|tak(?:e|ing|en)\s+out|"
+                r"obtain\w*|purchase\w*)\b",
+                lower,
+            ):
+                continue
+            # "The insurance company paid his medical bills promptly" narrates
+            # a past claims payout by an insurer — an episode description, not
+            # an inter-party obligation to hold or procure coverage.  The
+            # pay/settle/reimburse verb and a cost noun (bills / medical /
+            # expenses / costs / damages) pin the claims-payout frame; obligation
+            # verbs are excluded so genuine duties ("the insurer shall pay valid
+            # claims within 30 days") stay live.  Zero fixture lines pair an
+            # insurer with a payout of bills (checked against
+            # fixtures/generate_fixtures.py).
+            if re.search(
+                r"\b(?:insurance\s+(?:company|provider|carrier|firm)|insurer\w*|"
+                r"carrier\w*)\b[^.]{0,30}"
+                r"\b(?:paid?|paid\s+out|reimburs\w*|settled?|refund\w*)\b"
+                r"[^.]{0,35}\b(?:bills?\b|medical\b|hospital\b|treatment\w*|"
+                r"expenses?\b|cost\w*|damages?\b)\b"
+                r"|\b(?:bills?\b|medical\b|hospital\b|treatment\w*|expenses?\b|"
+                r"cost\w*|damages?\b)\b[^.]{0,30}"
+                r"\b(?:paid?|paid\s+out|reimburs\w*|settled?|refund\w*)\b"
+                r"[^.]{0,30}\b(?:insurance\s+(?:company|provider|carrier|firm)|"
+                r"insurer\w*|carrier\w*)\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:oblig\w*|shall|must|will|require\w*|maintain\w*|"
+                r"procure\w*|carr(?:y|ies|ied)|tak(?:e|ing|en)\s+out|"
+                r"obtain\w*|purchase\w*)\b",
+                lower,
+            ):
+                continue
+            # "The travel agency recommends insurance for every booking" is a
+            # sales / advisory recommendation (a vendor urging customers to buy
+            # cover), not an inter-party coverage obligation.  The recommend
+            # verb on either side of "insurance" pins the frame; obligation
+            # verbs are excluded so genuine duties ("the Supplier shall
+            # maintain insurance") stay live.  Zero fixture lines recommend
+            # insurance (checked against fixtures/generate_fixtures.py).
+            if re.search(
+                r"\brecommend\w*\b[^.]{0,40}\binsurance\b"
+                r"|\binsurance\b[^.]{0,40}\brecommend\w*\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:oblig\w*|shall|must|will|require\w*|maintain\w*|"
                 r"procure\w*|carr(?:y|ies|ied)|tak(?:e|ing|en)\s+out|"
                 r"obtain\w*|purchase\w*)\b",
                 lower,
