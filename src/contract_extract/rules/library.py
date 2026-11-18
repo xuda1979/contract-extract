@@ -327,6 +327,56 @@ def rule_duration(doc, sentences):
             lower,
         ):
             continue
+        # "Planning permission is valid for a period of 5 years" and "The
+        # transport permit is valid for a period of 2 years" state the
+        # effective lifetime of a planning approval or transport credential
+        # issued by an authority, not the negotiated term of the agreement.
+        # Genuine agreement terms still fire — the guard requires the
+        # administrative-permission noun bound to a "valid for" validity
+        # marker (there is no "valid for a period of" fixture line).
+        if re.search(
+            r"\b(?:planning\s+permission|transport\s+permit|planning\s+approval)\b"
+            r"[^.]{0,35}\bvalid\s+for\b"
+            r"|\bvalid\s+for\b[^.]{0,35}"
+            r"\b(?:planning\s+permission|transport\s+permit|planning\s+approval)\b",
+            lower,
+        ):
+            continue
+        # "The electoral term of the committee is 4 years" is the tenure of a
+        # governing body (an elected office), not the agreement's term.
+        # Genuine "term of the Agreement" sentences have no electoral noun.
+        if re.search(
+            r"\belectoral\b[^.]{0,45}\bterm\b"
+            r"|\bterm\b[^.]{0,45}\belectoral\b",
+            lower,
+        ):
+            continue
+        # "The loan term is 5 years with a fixed rate" describes a banking /
+        # mortgage product (a loan priced at a fixed interest rate), not the
+        # agreement's term.  The guard requires the fixed-rate marker so a
+        # genuine "The loan term is 10 years." (fixture line 234, no banking
+        # marker) still fires as a term.
+        if re.search(
+            r"\bloan\s+term\b[^.]{0,40}\bfixed[- ]?rate\b"
+            r"|\bfixed[- ]?rate\b[^.]{0,40}\bloan\s+term\b",
+            lower,
+        ):
+            continue
+        # "The protection period of the database right is 15 years" is the
+        # statutory lifetime of a sui-generis database right (fixed by the
+        # Database Directive), not a negotiated agreement term.  The
+        # statutory-IP guard above covers copyright/patent/trademark
+        # "protection"; the database-right frame has "protection" before the
+        # noun, so a separate guard is required.  Zero fixture lines mention
+        # database rights (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:term|period|duration|protection\s+period)\s+of\b[^.]{0,30}"
+            r"\b(?:database\s+right|sui[- ]generis)\b"
+            r"|\b(?:database\s+right|sui[- ]generis)\b[^.]{0,30}"
+            r"\b(?:term|period|duration|protection\s+period)\b",
+            lower,
+        ):
+            continue
         m = _DUR_PAT1.search(sentence) or _DUR_PAT4.search(sentence) or _DUR_PAT5.search(sentence)
         if not m:
             continue
@@ -535,6 +585,51 @@ def rule_quantity(doc, sentences):
             lower,
         ):
             continue
+        # "The store sold 5,000 units last quarter" reports a sales result
+        # (units sold in a period), not a quantity one party commits to
+        # purchase.  Genuine commitments ("Buyer shall purchase a total of
+        # 10,000 units", fixture 41) never use "sold" — the word-boundary
+        # keeps "unsold" (fixture 281 "repurchase unsold inventory") out.
+        if re.search(
+            r"\b(?:sold|sells?|sale\w*)\b[^.]{0,45}"
+            r"\b\d+(?:[.,]\d+)?\s+units?\b"
+            r"|\b\d+(?:[.,]\d+)?\s+units?\b[^.]{0,45}"
+            r"\b(?:sold|sells?|sale\w*)\b",
+            lower,
+        ):
+            continue
+        # "The ship carries 4,000 units of cargo" counts freight volume (units
+        # of cargo in transit), not a contracted goods quantity.  The
+        # units-of-substance guard already covers vitamin/blood/inventory
+        # frames; "cargo"/"freight"/"container" extend it to logistics
+        # contexts.  Zero fixture lines use these (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b\d+(?:[.,]\d+)?\s+units?\s+of\b[^.]{0,35}"
+            r"\b(?:cargo|freight|container\w*)\b",
+            lower,
+        ):
+            continue
+        # "The plant assembled 10,000 units in December" reports a production
+        # output (units turned out by a factory), not a quantity commitment
+        # between the parties.  Genuine purchase commitments still fire — they
+        # tie units to a purchase verb, not a production verb.  "Total units
+        # produced in 2024 were 50,000" is the same output statement with the
+        # count at the end of the sentence.  The production verbs are spelled
+        # out (not "produc\w*") so the noun "Products" in a genuine
+        # commitment ("Buyer shall purchase a total of 10,000 units of the
+        # Products", fixture line 41) is never matched.
+        if re.search(
+            r"\b(?:assembl\w*|manufactur\w*|produced|produces|producing|"
+            r"production|output)\b[^.]{0,45}\b\d+(?:[.,]\d+)?\s+units?\b"
+            r"|\b\d+(?:[.,]\d+)?\s+units?\b[^.]{0,45}"
+            r"\b(?:assembl\w*|manufactur\w*|produced|produces|producing|"
+            r"production|output)\b"
+            r"|\btotal\s+units?\b[^.]{0,45}\bproduc\w*\b[^.]{0,45}"
+            r"\b(?:were|was|is|are|amount\w*ed\s+to)\s+\d+(?:[.,]\d+)?\b",
+            lower,
+        ):
+            continue
         # "A minimum quantity of 1,000 units must be ordered" is an internal
         # ordering rule, not a quantity commitment between the parties.
         # Fixture 147's "Distributor shall purchase a minimum of 1,000 units
@@ -666,6 +761,22 @@ def rule_price(doc, sentences):
         # "renewal fee" noun.
         if re.search(
             r"\brenewal\s+fees?\b",
+            lower,
+        ):
+            continue
+        # "Charging extra attracts a 5% late fee from the bank" is a bank
+        # customer-charges frame (the bank levies the fee on the customer's
+        # account), not the price of goods or services under this Agreement.
+        # The penalty-rule guard already suppresses the penalty side; this
+        # guards the bare-% price route.  Zero fixture lines pair a late fee
+        # with a bank / account context (checked against
+        # fixtures/generate_fixtures.py) — genuine prices still fire.
+        if re.search(
+            r"\blate\s+fee\w*\b[^.]{0,50}"
+            r"\b(?:from\s+the\s+bank|charged\s+by\s+(?:the\s+)?bank\b|"
+            r"by\s+the\s+bank|at\s+the\s+bank)\b"
+            r"|\b(?:bank\s+charges?|bank\s+fees?\b|bank's?\s+fees?\b|"
+            r"account\s+charges?)\b[^.]{0,45}\blate\s+fee\w*\b",
             lower,
         ):
             continue
@@ -1010,6 +1121,58 @@ def rule_acceptance(doc, sentences):
             r"request\w*|submission\w*)\b"
             r"|\b(?:application\w*|registration\w*|enrollment\w*|enrolment\w*|"
             r"request\w*|submission\w*)\b[^.]{0,35}\baccept(?:ed|s|ing)?\b",
+            lower,
+        ):
+            continue
+        # "She received an acceptance letter from the university" is an
+        # admissions / academic decision (a study offer), not a deliverables
+        # acceptance.  The trade-finance letter guard above requires a bank /
+        # shipping context, so an academic or recruiting context is guarded
+        # here.  Genuine deliverable acceptance windows keep firing — no
+        # fixture line mixes acceptance letters with universities or
+        # employers (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\baccept(?:ance|ed|ing)?\s+(?:of\s+)?letter\w*\b[^.]{0,40}"
+            r"\b(?:university|college|school|employer|tenant|institution)\b"
+            r"|\b(?:university|college|school|employer|tenant|institution)\b"
+            r"[^.]{0,40}\baccept(?:ance|ed|ing)?\s+(?:of\s+)?letter\w*\b",
+            lower,
+        ):
+            continue
+        # "Acceptance of the settlement was confirmed by the parties" is a
+        # dispute-resolution milestone (a settlement / mediation /
+        # compromise), not acceptance of deliverables.  No fixture uses
+        # "acceptance of" with a settlement noun.
+        if re.search(
+            r"\bacceptance\s+of\s+(?:the\s+|a\s+|this\s+)?"
+            r"(?:settlement\w*|mediation\w*|compromise\w*|mediation\s+agreement)\b"
+            r"|\b(?:settlement\w*|mediation\w*|compromise\w*)\b[^.]{0,35}"
+            r"\bacceptance\b",
+            lower,
+        ):
+            continue
+        # "His acceptance speech lasted ten minutes" is an events / oratory
+        # description (a speech given when taking on a role), not a
+        # deliverables acceptance.
+        if re.search(
+            r"\bacceptance\s+(?:speech|oration|presentation)\b"
+            r"|\b(?:speech|oration|presentation)\b[^.]{0,30}\bacceptance\b",
+            lower,
+        ):
+            continue
+        # "Acceptance sampling is used for quality control" is a statistical /
+        # quality-management technique, not a contract acceptance clause.
+        if re.search(
+            r"\bacceptance\s+sampling\b"
+            r"|\bsampling\b[^.]{0,30}\bacceptance\b",
+            lower,
+        ):
+            continue
+        # "University acceptance rates fell this year" is an admissions
+        # statistics report, not a deliverables acceptance.
+        if re.search(
+            r"\bacceptance\s+rates?\b"
+            r"|\brates?\b[^.]{0,30}\bacceptance\b",
             lower,
         ):
             continue
@@ -1387,6 +1550,35 @@ def rule_payment(doc, sentences):
             r"\b(?:court|tribunal|arbitrat\w+)\b[^.]{0,50}"
             r"\b(?:award\w*|order\w*|grant\w*|adjudicat\w*)\b[^.]{0,50}"
             r"\bpayment\b",
+            lower,
+        ):
+            continue
+        # "The settlement payment of USD 1 million was court-ordered" is a
+        # judgment / remedy event (a court-ordered compensatory payment), not
+        # a payment term agreed between the parties — the court frame comes
+        # AFTER the payment noun.  Genuine payment terms naming the buyer /
+        # invoice / purchase price still fire (zero fixture lines pair a
+        # payment with "court-ordered" — checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:payment|payments?)\b[^.]{0,50}"
+            r"\bcourt[- ]ordered\b"
+            r"|\bcourt[- ]ordered\b[^.]{0,50}"
+            r"\b(?:payment|payments?)\b",
+            lower,
+        ):
+            continue
+        # "She makes a payment of USD 50 to the charity each month" is a
+        # donor's recurring contribution to a charitable body, not a payment
+        # term owed between contracting parties.  Genuine payment terms under
+        # this rule name the buyer / invoice / purchase price and still fire
+        # (zero fixture lines mention charities or donations — checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:payment|payments?|pay\b)[^.]{0,50}"
+            r"\b(?:charity|charities|donat\w*|non[- ]profit\w*)\b"
+            r"|\b(?:charity|charities|donat\w*|non[- ]profit\w*)\b[^.]{0,50}"
+            r"\b(?:payment|payments?|pay\b)\b",
             lower,
         ):
             continue
@@ -1903,6 +2095,30 @@ def rule_penalty(doc, sentences):
             r"\bpenalt\w*\b[^.]{0,45}"
             r"\b(?:game\w*|team\w*|point\w*|win\w*|los\w*|score\w*)\b"
             r"|\b(?:game\w*|team\w*|point\w*|win\w*|los\w*)\b[^.]{0,45}\bpenalt\w*\b",
+            lower,
+        ):
+            continue
+        # "Charging extra attracts a 5% late fee from the bank" is a bank's
+        # customer-charges frame (the bank levies the fee on the customer's
+        # account), not a contractual default penalty between the parties.
+        # A genuine breach fee ("a late payment fee of 2% per month" — fixture
+        # line 83) stays untouched because it has no bank / account context.
+        if re.search(
+            r"\b(?:late\s+fee|late\s+fees|late\s+payment|penalt\w*)\b[^.]{0,50}"
+            r"\b(?:from\s+the\s+bank|charged\s+by\s+(?:the\s+)?bank\b|by\s+the\s+bank)\b"
+            r"|\b(?:bank\s+charges?|bank\s+fee|bank's?\s+fee|account\s+charges?)\b"
+            r"[^.]{0,45}\b(?:late\s+fee|late\s+fees|penalt\w*)\b",
+            lower,
+        ):
+            continue
+        # "The penalty rate charged by the central bank rose to 4%" is a
+        # monetary-policy benchmark (the central bank's policy rate), not a
+        # contractual default penalty.  A genuine quantified breach penalty
+        # ("a late payment penalty of 2% per month") has no central-bank
+        # context and stays untouched.
+        if re.search(
+            r"\bpenalt\w*\s+rate\b[^.]{0,50}\bcentral\s+bank\b"
+            r"|\bcentral\s+bank\b[^.]{0,50}\bpenalt\w*\s+rate\b",
             lower,
         ):
             continue
@@ -3001,6 +3217,26 @@ def rule_ip(doc, sentences):
             lower,
         ):
             continue
+        # "The trademark application is still pending" / "The patent was filed
+        # in 2020" report the administrative status of a filing with the IP
+        # registry (pending, filed, granted, refused, lapsed) — a fact about
+        # the application, not a transfer, grant or ownership allocation of
+        # existing IP between the parties.  Genuine assignments ("the patent
+        # rights ... are assigned to the Customer") and licence grants (fixture
+        # lines 219, 314) do not use the application-status frame and still
+        # fire.  Zero fixture lines report application status (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:trademark|patent)\s+application\b[^.]{0,40}"
+            r"\b(?:pending|filed|granted|refused|rejected|abandoned|"
+            r"prosecut\w*|examined|published)\b"
+            r"|\b(?:trademark|patent)\b[^.]{0,25}\b(?:filed|granted|refused|"
+            r"rejected|abandoned|lapsed)\b"
+            r"|\b(?:filed|granted|refused|rejected|abandoned|lapsed)\b"
+            r"[^.]{0,25}\b(?:trademark|patent)\b",
+            lower,
+        ):
+            continue
         if re.search(
             r"\b(?:intellectual\s+property|ip)\s+(?:clause|provision|section|"
             r"article|term)\b[^.]{0,50}\b(?:allocat\w*|contemplat\w*|address\w*|"
@@ -3060,9 +3296,14 @@ def rule_ip(doc, sentences):
         # branch below; genuine clauses ("all right, title and interest ...
         # belong to the Customer" — fixture line 147) still fire because they
         # name the Customer as recipient, not an author/creator/inventor.
+        # "Copyright in the photographs belongs to the artist" is the same
+        # statutory default for creators of works (an artist, photographer,
+        # musician or other maker owns what they create under copyright law)
+        # — not an allocation between the parties.
         if re.search(
             r"\bbelongs?\s+to\s+(?:its\s+|the\s+|their\s+)?"
-            r"\b(?:author\w*|creator\w*|inventor\w*)\b",
+            r"\b(?:author\w*|creator\w*|inventor\w*|artist\w*|photographer\w*|"
+            r"musician\w*|writer\w*s?|designer\w*|maker\w*s?)\b",
             lower,
         ):
             continue
@@ -3360,6 +3601,21 @@ def rule_renewal(doc, sentences):
             r"\b(?:library\s+card|reader\s+pass|library\s+membership)\b"
             r"|\b(?:library\s+card|reader\s+pass|library\s+membership)\b"
             r"[^.]{0,35}\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ):
+            continue
+        # "The conference badge was renewed at the desk" / "the seatbelt
+        # buckle was renewed during servicing" re-issue or replace a physical
+        # object (a badge, tag, buckle or other pass-item), not a renewal of
+        # the agreement's term.  The guard pins the passive "was renewed"
+        # frame with an inanimate physical-object noun, so "the lease was
+        # renewed for a further term" — a genuine term renewal — stays live
+        # (lease is not in the noun list).
+        if re.search(
+            r"\b(?:badge|buckle|tag|key\s+card|fob|sticker|lanyard)\b"
+            r"[^.]{0,35}\brenew(?:al|s|ing|ed|able)?\b"
+            r"|\brenew(?:al|s|ing|ed|able)?\b[^.]{0,35}"
+            r"\b(?:badge|buckle|tag|key\s+card|fob|sticker|lanyard)\b",
             lower,
         ):
             continue

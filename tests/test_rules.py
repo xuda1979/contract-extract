@@ -4986,3 +4986,202 @@ def test_termination_effluxion_of_time_not_termination():
         "Either party may terminate this Agreement by giving 30 days written notice."
     ) if c.clause == "termination"]
     assert clauses
+
+
+def test_duration_planning_permission_validity_not_contract_term():
+    # A permit / approval validity statement ("Planning permission is valid
+    # for a period of 5 years") states how long an administrative authorisation
+    # stays in force, not the term of the parties' agreement.
+    for s in (
+        "Planning permission is valid for a period of 5 years.",
+        "The transport permit is valid for a period of 2 years.",
+        "The retention period for tax records is 6 years.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "duration"] == [], s
+    # A genuine agreement term still fires.
+    clauses = [c for c in _clauses(
+        "The term of this Agreement shall be for a period of 2 years."
+    ) if c.clause == "duration"]
+    assert clauses
+
+
+def test_duration_statutory_validity_periods_not_contract_term():
+    # Statutory / administrative validity periods (embargo, claim filing,
+    # service life, database protection) are not the parties' contractual term.
+    for s in (
+        "The embargo period shall last 5 years.",
+        "The period for filing a claim is 2 years.",
+        "The protection period of the database right is 15 years.",
+        "The service life of the battery is 10 years.",
+        "The school term runs for 9 months each year.",
+        "The electoral term of the committee is 4 years.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "duration"] == [], s
+    # A genuine agreement term still fires.
+    clauses = [c for c in _clauses(
+        "The term of this Agreement shall be for a period of 2 years."
+    ) if c.clause == "duration"]
+    assert clauses
+
+
+def test_duration_loan_term_with_fixed_rate_not_contract_term():
+    # A banking / mortgage product ("The loan term is 5 years with a fixed
+    # rate") is priced credit, not the term of the parties' agreement.  The
+    # guard requires the fixed-rate marker so a genuine "The loan term is 10
+    # years." (fixture line 234, no banking marker) still fires.
+    assert [c for c in _clauses(
+        "The loan term is 5 years with a fixed rate."
+    ) if c.clause == "duration"] == []
+    clauses = [c for c in _clauses("The loan term is 10 years.")]
+    assert any(c.clause == "duration" for c in clauses)
+
+
+def test_acceptance_letter_and_university_not_acceptance_window():
+    # An admissions/employment letter ("an acceptance letter from the
+    # university", "accepted for publication") is institutional, not a
+    # deliverables acceptance window.
+    for s in (
+        "She received an acceptance letter from the university.",
+        "The paper was accepted for publication after peer review.",
+        "The manuscript was accepted for the journal.",
+        "The patient was accepted into the hospital ward.",
+        "The court accepted the expert evidence.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "acceptance"] == [], s
+    # A genuine deliverables acceptance window still fires.
+    clauses = [c for c in _clauses(
+        "The inspection and acceptance of the Deliverables shall occur within 10 days after delivery."
+    ) if c.clause == "acceptance"]
+    assert clauses
+
+
+def test_acceptance_settlement_and_speech_not_acceptance_window():
+    # Settlement/mediation acceptance, an acceptance speech and acceptance
+    # sampling/rates are non-deliverable uses of the noun.
+    for s in (
+        "Acceptance of the settlement was confirmed by the parties.",
+        "His acceptance speech lasted ten minutes.",
+        "Acceptance sampling is used for quality control.",
+        "University acceptance rates fell this year.",
+        "The venue accepted our booking for the event.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "acceptance"] == [], s
+    # A genuine deliverable acceptance window still fires.
+    clauses = [c for c in _clauses(
+        "The inspection and acceptance of the Deliverables shall occur within 10 days after delivery."
+    ) if c.clause == "acceptance"]
+    assert clauses
+
+
+def test_ip_trademark_application_pending_not_ip_clause():
+    # A filing-status statement ("The trademark application is still
+    # pending", "The patent was filed in 2020") reports registry
+    # administration, not an IP allocation between the parties.
+    for s in (
+        "The trademark application is still pending.",
+        "The patent was filed in 2020.",
+        "The design right lapsed for non-payment of fees.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "ip"] == [], s
+    # A genuine IP assignment still fires.
+    clauses = [c for c in _clauses(
+        "All intellectual property created by Provider shall be owned by Client upon full payment."
+    ) if c.clause == "ip"]
+    assert clauses
+
+
+def test_ip_copyright_belongs_to_artist_not_ip_clause():
+    # A statutory default ownership statement naming the creator ("Copyright
+    # in the photographs belongs to the artist") is not an allocation between
+    # the parties.
+    for s in (
+        "Copyright in the photographs belongs to the artist.",
+        "The intellectual property in this report belongs to the author.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "ip"] == [], s
+    # A genuine all-right-title-interest clause naming a party still fires.
+    clauses = [c for c in _clauses(
+        "All intellectual property created by Provider shall be owned by Client upon full payment."
+    ) if c.clause == "ip"]
+    assert clauses
+
+
+def test_renewal_badge_and_buckle_replacement_not_renewal():
+    # Re-issuing/replacing a physical object (a conference badge, a seatbelt
+    # buckle) is maintenance, not a renewal of the agreement's term.
+    for s in (
+        "The conference badge was renewed at the desk.",
+        "The seatbelt buckle was renewed during servicing.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "renewal"] == [], s
+    # A genuine term renewal still fires.
+    clauses = [c for c in _clauses(
+        "This Agreement shall automatically renew for successive 1 year terms."
+    ) if c.clause == "renewal"]
+    assert clauses
+
+
+def test_quantity_sold_or_produced_units_not_quantity():
+    # Sales results and production output ("sold 5,000 units", "produced
+    # 50,000 units") report outcomes, not committed purchase quantities.
+    for s in (
+        "The store sold 5,000 units last quarter.",
+        "Total units produced in 2024 were 50,000.",
+        "The plant assembled 10,000 units in December.",
+        "The ship carries 4,000 units of cargo.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "quantity"] == [], s
+    # A genuine purchase-quantity commitment still fires.
+    clauses = [c for c in _clauses(
+        "Buyer shall purchase a total of 10,000 units of the Products during each Contract Year."
+    ) if c.clause == "quantity"]
+    assert clauses
+
+
+def test_payment_court_ordered_or_charity_not_payment_term():
+    # A court-ordered settlement payment and a charity donation describe the
+    # source/destination of a money transfer, not an obligation to pay under
+    # the Agreement.
+    for s in (
+        "The settlement payment of USD 1 million was court-ordered.",
+        "She makes a payment of USD 50 to the charity each month.",
+        "Payment of dividends shall be made quarterly to shareholders.",
+        "Payment of wages is handled by the payroll department.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "payment"] == [], s
+    # A genuine payment obligation still fires.
+    clauses = [c for c in _clauses(
+        "The invoice must be paid within 14 days of receipt."
+    ) if c.clause == "payment"]
+    assert clauses
+
+
+def test_penalty_bank_fee_and_sports_penalty_not_penalty_clause():
+    # Banking late fees ("attracts a late fee from the bank") and sports
+    # penalties (offside, penalty kick) are not default penalties for a
+    # contractual breach.
+    for s in (
+        "Charging extra attracts a 5% late fee from the bank.",
+        "The penalty rate charged by the central bank rose to 4%.",
+        "The team was penalized for offside in the 40th minute.",
+        "A penalty shootout decided the final.",
+        "Tax penalties accrue on late filings.",
+        "Penalty rates apply to Sunday work under the award.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "penalty"] == [], s
+    # A genuine contractual default penalty still fires.
+    clauses = [c for c in _clauses(
+        "Seller shall pay a penalty of 10% of the contract price for late delivery."
+    ) if c.clause == "penalty"]
+    assert clauses
+
+
+def test_price_bank_late_fee_not_contract_price():
+    # A bank's late-fee rate ("a 5% late fee from the bank") is a banking
+    # charge, not the price of the goods/services under the Agreement.
+    assert [c for c in _clauses(
+        "Charging extra attracts a 5% late fee from the bank."
+    ) if c.clause == "price"] == []
+    # A genuine per-unit price still fires.
+    clauses = [c for c in _clauses("The Purchase Price is USD 100 per unit.")]
+    assert any(c.clause == "price" for c in clauses)
