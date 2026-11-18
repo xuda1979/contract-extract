@@ -1282,9 +1282,10 @@ def rule_acceptance(doc, sentences):
         # before "acceptance".  Zero fixture lines use that frame.
         if re.search(
             r"\b(?:social|public\b|market\b|widespread|cultural|societal|"
-            r"political|general|popular|broader?)\s+acceptance\b"
+            r"political|general|popular|broader?|audience)\s+acceptance\b"
             r"|\bacceptance\b[^.]{0,30}\b(?:social|public\b|market\b|"
-            r"widespread|cultural|societal|political|general|popular|broader?)\b",
+            r"widespread|cultural|societal|political|general|popular|"
+            r"broader?|audience)\b",
             lower,
         ):
             continue
@@ -1549,6 +1550,45 @@ def rule_acceptance(doc, sentences):
             r"|\bwithout\s+acceptance\b[^.]{0,35}\boffers?\b",
             lower,
         ):
+            continue
+        # "acceptance into" tracks admission to a programme / institution /
+        # group ("acceptance into the apprenticeship scheme", "acceptance
+        # into the college") — a status decision, not contract deliverables.
+        # Zero fixture lines use "acceptance into" (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(r"\bacceptance\b[^.]{0,20}\binto\b", lower):
+            continue
+        # "acceptance of the minutes" records approval of meeting minutes /
+        # committee notes — corporate-housekeeping, not deliverable
+        # acceptance.  Genuine "acceptance of the goods/works/deliverables"
+        # still fires (no minutes frame).  Zero fixture lines use it.
+        if re.search(r"\bacceptance\b[^.]{0,25}\b(?:the\s+)?minutes\b", lower):
+            continue
+        # "acceptance of a cheque / check" is a payment instrument being
+        # honoured by a bank, not the acceptance of works or services.
+        # Zero fixture lines combine acceptance with cheque/check.
+        if re.search(r"\bacceptance\b[^.]{0,25}\b(?:a|the)\s+cheque\b"
+                     r"|\bacceptance\b[^.]{0,25}\b(?:a|the)\s+check\b", lower):
+            continue
+        # "favorable acceptance from critics" describes how a work was
+        # received by reviewers — reception, not contractual acceptance.
+        # Zero fixture lines pair acceptance with critics/reviewers.
+        if re.search(r"\bacceptance\b[^.]{0,25}\b(?:from|by)\b[^.]{0,25}"
+                     r"\b(?:critics?|reviewers?|audiences?)\b", lower):
+            continue
+        # "subject to acceptance by the board" is a governance pre-condition
+        # (board approval), not a deliverables acceptance window.  Genuine
+        # "acceptance by the Customer within X days" keeps the numeric-window
+        # path.  Zero fixture lines use the board frame.
+        if re.search(r"\bsubject\s+to\s+acceptance\s+by\b[^.]{0,25}"
+                     r"\b(?:board|committee|management|directors?)\b", lower):
+            continue
+        # "acceptance of delivery notices" via a tracking portal is an
+        # administrative acknowledgement of dispatch paperwork, not the
+        # acceptance of the delivered goods themselves.  Zero fixture lines
+        # combine acceptance with delivery notices.
+        if re.search(r"\bacceptance\b[^.]{0,30}\b(?:delivery\s+)?notices?\b"
+                     r"[^.]{0,40}\bportal\b", lower):
             continue
         within = re.search(r"\bwithin\s+(\d+)\s*(?:working|business)?\s*days?\b", lower)
         window = re.search(r"\b(\d+)\s*(?:business|working)?\s*days?\s+(?:to|in\s+which\s+to)\s+(?:inspect|accept|complete)", lower)
@@ -2853,6 +2893,40 @@ def rule_liability(doc, sentences):
             lower,
         ):
             continue
+        # "limited liability company / partnership / LLC" is a business-entity
+        # formation term ("Delta Ltd. is a limited liability company"), not a
+        # negotiated liability cap.  The _CAP_MARK "limited" keyword alone
+        # triggered the fire; the entity frame disambiguates.  Zero fixture
+        # lines contain "limited liability company/partnership/llc" (checked
+        # against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\blimited\s+liability\s+(?:company|partnership|corporation)\b"
+            r"|\bll[cC]\b[^.]{0,20}\b(?:company|incorporated|limited)\b",
+            lower,
+        ):
+            continue
+        # "Assume liability for" in past/present narrative ("the carrier
+        # assumed liability for the lost cargo", "tenants assume liability
+        # for damage") states who bears an existing risk, not a quantified
+        # cap.  Genuine undertakings ("The Buyer shall assume liability for
+        # the goods after delivery") still fire — the guard requires no
+        # modal (shall/will/must/may).  Zero fixture lines pair assumed
+        # liability with a modal (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:assumed?|takes?|take\s+on)\b[^.]{0,30}\bliabilit\w*\s+for\b",
+            lower,
+        ) and not re.search(r"\b(?:shall|will|must|may)\b", lower):
+            continue
+        # "discharged in bankruptcy" is insolvency law — a debt being wiped
+        # out by a bankruptcy order, phrased with liability vocabulary, not a
+        # contractual liability cap.  Zero fixture lines combine discharge
+        # with bankruptcy.
+        if re.search(
+            r"\bdischarg\w*\b[^.]{0,35}\bbankrupt\w*\b"
+            r"|\bbankrupt\w*\b[^.]{0,35}\bdischarg\w*\b",
+            lower,
+        ):
+            continue
         amount = _AMOUNT_RE.search(sentence)
         pct = _PERCENT_RE.search(sentence)
 
@@ -3229,6 +3303,54 @@ def rule_confidentiality(doc, sentences):
             r"\bduty\s+of\s+confidentiality\b"
             r"|\bduty\s+of\s+confidentiality\b[^.]{0,40}"
             r"\b(?:bank\w*|banking\w*|customer\w*|institution\w*)\b",
+            lower,
+        ):
+            continue
+        # "Confidential sources" is journalism shorthand for anonymous
+        # informants (whistle-blowers, leakers), not a commercial secrecy
+        # duty between contracting parties.  Zero fixture lines use
+        # "confidential sources" (checked against fixtures/
+        # generate_fixtures.py).
+        if re.search(r"\bconfidential\s+sources?\b", lower):
+            continue
+        # "The application is kept confidential for 18 months before the
+        # patent office publishes it" is IP-filing publication timing, not a
+        # secrecy obligation owed to a counterparty.  The publication /
+        # expiry-month frame distinguishes it from genuine NDA terms.
+        # Zero fixture lines combine confidential with a patent/publication
+        # frame.
+        if re.search(
+            r"\b(?:patent\w*|trademark\w*)\b[^.]{0,45}\bconfidential\w*\b"
+            r"[^.]{0,40}\b(?:publication\b|published\b|months?\b|grant\w*\b)",
+            lower,
+        ):
+            continue
+        # "Personal data is confidential" states a present-tense fact about
+        # how information is treated, not a forward-looking secrecy duty.
+        # Genuine NDA wording ("personal data shall remain confidential for
+        # 3 years after termination", "personal data is confidential and
+        # shall be safeguarded") still fires — the guard requires the
+        # present-tense copula and no "shall" modal anywhere in the
+        # sentence.  Zero fixture lines match the copula frame without
+        # "shall" (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bpersonal\s+data\b[^.]{0,30}\b(?:is|are|remains?)\b[^.]{0,25}"
+            r"\bconfidential\b",
+            lower,
+        ) and not re.search(r"\bshall\b", lower):
+            continue
+        # "confidential information shared between patient and doctor" is
+        # clinical confidentiality (a physician's record-keeping duty), the
+        # same family as the doctor-patient guard above but written with the
+        # relational "between ... and ..." frame.  Zero fixture lines use the
+        # patient-doctor frame.
+        if re.search(
+            r"\bconfidential\w*\b[^.]{0,35}\bbetween\b[^.]{0,30}"
+            r"\b(?:patients?|clients?)\b[^.]{0,20}\band\b[^.]{0,20}"
+            r"\b(?:doctors?|physicians?|therapists?)\b"
+            r"|\bbetween\b[^.]{0,35}\b(?:patients?|clients?)\b[^.]{0,20}"
+            r"\band\b[^.]{0,20}\b(?:doctors?|physicians?|therapists?)\b"
+            r"[^.]{0,35}\bconfidential\w*\b",
             lower,
         ):
             continue
@@ -4473,6 +4595,16 @@ def rule_termination(doc, sentences):
             lower,
         ):
             continue
+        # "served a termination notice" / "service of termination" is process
+        # law — handing a legal notice to a party (tenant, employee, opposing
+        # litigant) in an already-terminated or litigated relationship, not a
+        # standing termination right in this agreement.  "May terminate for
+        # convenience" fixture lines (45/85/106/118/251/317/360) never use
+        # "served", so they stay live; the guard is anchored on the past-tense
+        # served verb form.
+        if re.search(r"\bserved\b[^.]{0,45}\bterminat\w*\b"
+                     r"|\bterminat\w*\b[^.]{0,45}\bserved\b", lower):
+            continue
         risk = RiskLevel.LOW
         flag = "termination clause"
         if "withdraw" in lower and "for convenience" in lower:
@@ -5486,6 +5618,33 @@ def rule_data_protection(doc, sentences):
             r"banking|credit|identity|biometric)\s+data\b",
             lower,
         ):
+            continue
+        # "Personal data is processed fairly / lawfully / transparently"
+        # recites a privacy-law fact about how data is handled, without a
+        # compliance undertaking.  Genuine GDPR covenant ("all personal data
+        # shall be processed in accordance with GDPR") still fires — the guard
+        # requires the fairness adverb and excludes the "shall" frame.  Zero
+        # fixture lines match the adverb frame without "shall" (checked
+        # against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:personal|customer|consumer|user|employee|health|financial|"
+            r"banking|credit|identity|biometric)\s+data\b[^.]{0,35}\b(?:is|are|"
+            r"gets?|becomes?)\b[^.]{0,30}\b(?:fairly|lawfully|transparently|"
+            r"honestly)\s+(?:processed?\w*|handled?\w*|used?\b|collected?\w*)\b"
+            r"|\b(?:personal|customer|consumer|user|employee|health|financial|"
+            r"banking|credit|identity|biometric)\s+data\b[^.]{0,35}\b(?:is|are|"
+            r"gets?|becomes?)\b[^.]{0,30}\b(?:processed?\w*|handled?\w*|used?\b|"
+            r"collected?\w*)\b[^.]{0,20}\b(?:fairly|lawfully|transparently|"
+            r"honestly)\b",
+            lower,
+        ) and not re.search(r"\bshall\b", lower):
+            continue
+        # "Transfers to law enforcement" describes reporting disclosures to
+        # police / regulators (a statutory cooperation duty), not a
+        # cross-border data transfer of personal data regulated by the
+        # contract.  Zero fixture lines combine transfers with law
+        # enforcement.
+        if re.search(r"\btransfer\w*\b[^.]{0,25}\blaw\s+enforcement\b", lower):
             continue
         risk = RiskLevel.LOW
         flag = "data protection clause"

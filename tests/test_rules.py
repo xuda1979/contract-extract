@@ -5629,3 +5629,93 @@ def test_unemployment_claim_and_lapsed_policy_not_coverage_duty():
         "The Company shall procure third party liability insurance with a limit of at least 1,000,000 dollars.",
     ) if c.clause == "insurance"]
     assert len(clauses) == 2
+
+
+def test_acceptance_of_status_documents_not_deliverables_acceptance():
+    # Round 49.  "Acceptance into" (admission to a programme), approval of
+    # meeting minutes, honoured payment instruments, critical reception and
+    # board governance pre-conditions are all status decisions — not
+    # deliverables-acceptance windows.
+    assert [c for c in _clauses(
+        "Her acceptance into the nursing programme was confirmed in May.",
+        "The board recorded the acceptance of the minutes from the last meeting.",
+        "The bank confirmed acceptance of the cheque on Friday.",
+        "The novel won favorable acceptance from critics after its launch.",
+        "The proposal is subject to acceptance by the board before any funds are released.",
+        "Acceptance of delivery notices is tracked on the courier portal.",
+        "Audience acceptance of the pilot episode surprised the network executives.",
+    ) if c.clause == "acceptance"] == []
+    # Genuine deliverables-acceptance windows still fire.
+    clauses = [c for c in _clauses(
+        "The Customer shall have 10 days to inspect and accept each deliverable.",
+        "The Company shall not unreasonably withhold acceptance of the Deliverables within 10 days of delivery.",
+    ) if c.clause == "acceptance"]
+    assert len(clauses) == 2
+
+
+def test_served_termination_not_standing_termination_right():
+    # Round 49.  "Served a termination notice" is process law — handing a
+    # legal notice to a tenant in an already-litigated relationship, not a
+    # standing termination right in this agreement.
+    assert [c for c in _clauses(
+        "The eviction notice was served on the tenant along with the termination of the lease.",
+        "The landlord served a termination for convenience on the contractor last week.",
+    ) if c.clause == "termination"] == []
+    # Genuine termination rights still fire, including for convenience.
+    clauses = [c for c in _clauses(
+        "Either party may terminate this Agreement for convenience upon 30 days written notice.",
+        "The Company may terminate this Agreement immediately upon default of the Supplier.",
+    ) if c.clause == "termination"]
+    assert len(clauses) == 2
+
+
+def test_journalism_and_clinical_confidentiality_not_secrecy_duty():
+    # Round 49.  Confidential sources (journalism), patent filing
+    # publication timing and the patient-doctor relationship are secrecy
+    # contexts outside any inter-party commercial duty.
+    assert [c for c in _clauses(
+        "The journalist refused to name her confidential sources.",
+        "The patent application is kept confidential for 18 months before publication.",
+        "Information exchanged between patient and doctor stays confidential.",
+    ) if c.clause == "confidentiality"] == []
+    # Genuine confidentiality duties still fire, including "is/are
+    # confidential" framed as a forward-looking undertaking.
+    clauses = [c for c in _clauses(
+        "Each party shall keep the other's information confidential for 3 years after termination.",
+        "The Receiving Party shall hold all personal data confidential and shall not disclose it.",
+        "Personal data is confidential and shall be safeguarded like any other secret information.",
+    ) if c.clause == "confidentiality"]
+    assert len(clauses) == 3
+
+
+def test_entity_and_past_narrative_liability_not_cap():
+    # Round 49.  Business-entity formation ("limited liability company"),
+    # past-tense risk attribution ("assumed liability for") and insolvency
+    # discharge are not negotiated liability caps.
+    assert [c for c in _clauses(
+        "Delta Ltd. is a limited liability company registered in Delaware.",
+        "The carrier assumed liability for the lost cargo during transit.",
+        "The debt was discharged in bankruptcy last year.",
+    ) if c.clause == "liability_cap"] == []
+    # Genuine caps and modal-framed liability assumptions still fire.
+    clauses = [c for c in _clauses(
+        "The aggregate liability of the Contractor shall not exceed the total fees paid under this Agreement.",
+        "The Buyer shall assume liability for the goods after delivery.",
+    ) if c.clause == "liability_cap"]
+    assert len(clauses) == 2
+
+
+def test_present_tense_data_facts_not_compliance_duty():
+    # Round 49.  "Personal data is processed fairly/lawfully" and transfers
+    # to law enforcement state privacy facts / statutory cooperation, not a
+    # data-protection covenant between the parties.
+    assert [c for c in _clauses(
+        "Personal data is processed fairly and lawfully by our analytics team.",
+        "The system transfers records to law enforcement upon request.",
+    ) if c.clause == "data_protection"] == []
+    # Genuine GDPR undertakings still fire (the "shall" frame is exempted).
+    clauses = [c for c in _clauses(
+        "All personal data shall be processed in accordance with the GDPR by the Processor.",
+        "The parties agree that personal data shall not be transferred outside the EEA without consent.",
+    ) if c.clause == "data_protection"]
+    assert len(clauses) == 2
