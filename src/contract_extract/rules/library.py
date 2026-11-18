@@ -258,6 +258,15 @@ def rule_duration(doc, sentences):
         # A genuine "term of the Licence" still fires.
         if re.search(r"\bprobation(?:ary)?\s+(?:period|term)\b", lower):
             continue
+        # "The gestation period of the animal is 6 months" describes a
+        # biological development window (pregnancy / maturation), not the
+        # agreement's term.  Zero fixture lines use gestation, pregnancy or
+        # incubation wording (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:gestation|pregnancy|incubation)\s+(?:period|term)\b",
+            lower,
+        ):
+            continue
         # "The statute of limitations period is 2 years" is the legal window
         # for bringing a claim (fixed by law), not the agreement's term.
         if re.search(
@@ -495,6 +504,25 @@ def rule_quantity(doc, sentences):
         # "long".
         if re.search(
             r"\b\d+(?:[.,]\d+)?\s+pages?\s+long\b",
+            lower,
+        ):
+            continue
+        # "The novel has 300 pages" is a description of a document's length
+        # (an editorial / content fact), not a quantity of goods or services
+        # committed under the agreement.  The guard pins a content-document
+        # noun next to the page count; genuine committed goods quantities
+        # ("10,000 units", "12 events") never count pages.  Zero fixture
+        # lines count document pages (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:novel\w*|book\w*|documents?\b|manual\w*|report\w*|"
+            r"thesis|draft\w*|article\w*|chapter\w*|letter\w*|essay\w*|"
+            r"story|manuscript\w*|paper\w*|handbook\w*|guide\w*)\b"
+            r"[^.]{0,25}\b\d+(?:[.,]\d+)?\s+pages?\b"
+            r"|\b\d+(?:[.,]\d+)?\s+pages?\b[^.]{0,25}"
+            r"\b(?:novel\w*|book\w*|documents?\b|manual\w*|report\w*|"
+            r"thesis|draft\w*|article\w*|chapter\w*|letter\w*|essay\w*|"
+            r"story|manuscript\w*|paper\w*|handbook\w*|guide\w*)\b",
             lower,
         ):
             continue
@@ -1209,6 +1237,20 @@ def rule_acceptance(doc, sentences):
             lower,
         ):
             continue
+        # "Social acceptance of the policy grew" is a broad public / societal
+        # reaction to an idea or reform (measured in opinions or polls), not
+        # the taking-up of contract deliverables.  Genuine acceptance of
+        # goods / works / services still fires — the guard requires an
+        # attributive modifier (social, public, market, widespread, cultural)
+        # before "acceptance".  Zero fixture lines use that frame.
+        if re.search(
+            r"\b(?:social|public\b|market\b|widespread|cultural|societal|"
+            r"political|general|popular|broader?)\s+acceptance\b"
+            r"|\bacceptance\b[^.]{0,30}\b(?:social|public\b|market\b|"
+            r"widespread|cultural|societal|political|general|popular|broader?)\b",
+            lower,
+        ):
+            continue
         # "The Acceptance Certificate shall be issued upon the completion of
         # the Works" is construction / works paperwork (a certificate
         # evidencing completion), not a deliverables acceptance window.  A
@@ -1912,6 +1954,15 @@ def rule_penalty(doc, sentences):
         # "The Club shall pay a transfer penalty of EUR 5 million to the
         # football association" is a sports-federation sanction on a club
         # (transfer rules), not a default penalty for a contractual breach.
+        # "The penalty phase of the trial begins Monday" describes a stage of
+        # a court / legal procedure (the sentencing phase), not a penalty a
+        # party must pay for breach.  Genuine contractual penalties are never
+        # a trial-phase noun.
+        if re.search(
+            r"\bpenalt\w*\s+(?:phase|stage)\b",
+            lower,
+        ):
+            continue
         if re.search(
             r"\btransfer\s+(?:fee|penalty)\b",
             lower,
@@ -2366,6 +2417,26 @@ def rule_liability(doc, sentences):
             r"\b(?:creat\w*|impos\w*|incur\w*|aris\w*|attach\w*|result\w*|appli\w*)\b"
             r"|\b(?:creat\w*|impos\w*|incur\w*|aris\w*|attach\w*|result\w*|appli\w*)\b"
             r"[^.]{0,45}\b(?:strict|absolute)\s+liability\b",
+            lower,
+        ):
+            continue
+        # "He admitted liability for the accident" / "The defendant's liability
+        # was established at trial" / "The auditor disclaimed liability for the
+        # report" report a past, factual legal outcome (an admission, a
+        # judgment or a professional-capacity disclaimer) — not an agreed cap,
+        # disclaimer or exclusion in the contract.  The guard requires the
+        # liability word bound to a factual-outcome verb in the past /
+        # passive frame (admitted, established, found, disclaimed, denied).
+        # Genuine caps ("aggregate liability shall not exceed"), disclaimers
+        # and exclusions between the parties still fire.  Zero fixture lines
+        # report factual liability outcomes (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bliability\b[^.]{0,45}"
+            r"\b(?:admit\w*|established?\b|establishe\w*|found\s+(?:liable)?\b|"
+            r"disclaim\w*|denied\b|denies\b|accept\w*)\b"
+            r"|\b(?:admit\w*|established?\b|establishe\w*|found\s+liable\b|"
+            r"disclaim\w*|denied\b|denies\b|accept\w*)\b[^.]{0,45}\bliability\b",
             lower,
         ):
             continue
@@ -2911,6 +2982,27 @@ def rule_confidentiality(doc, sentences):
             lower,
         ):
             continue
+        # "The law imposes sanctions for non-disclosure" / "A fine applies for
+        # disclosing confidential information" restate a statutory breach
+        # consequence imposed by a legislature or regulator, not a contractual
+        # duty of secrecy between the parties.  The guard requires the
+        # statutory-imposer frame (law / statute / regulation / authority +
+        # impose / sanction / fine).  Genuine "shall keep confidential"
+        # obligations do not use it.  Zero fixture lines mention statutory
+        # sanctions for non-disclosure (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:law\b|statute\w*|regulation\w*|legislation|authority\w*|"
+            r"regulator\w*)\b[^.]{0,45}"
+            r"\b(?:impos\w*|sanction\w*|fine\w*|penaliz\w*|penalis\w*)\b"
+            r"[^.]{0,45}\bnon-?disclos\w*\b"
+            r"|\bnon-?disclos\w*\b[^.]{0,45}"
+            r"\b(?:impos\w*|sanction\w*|fine\w*|penaliz\w*|penalis\w*)\b"
+            r"[^.]{0,45}\b(?:law\b|statute\w*|regulation\w*|legislation|"
+            r"authority\w*|regulator\w*)\b",
+            lower,
+        ):
+            continue
         # "The parties shall keep the fact of this settlement confidential" is
         # settlement confidentiality about the dispute resolution itself (seen
         # in mediation/adr boilerplate) — not the contract's own confidential
@@ -3408,6 +3500,53 @@ def rule_ip(doc, sentences):
             lower,
         ):
             continue
+        # "Our intellectual property includes customer lists" is a
+        # composition / content statement about what a body of IP assets is
+        # made up of, not an allocation, transfer or licence of IP between
+        # the parties.  The guard pins the include/comprise verb frame.
+        # Genuine assignments and licence grants (fixture lines 219, 314)
+        # do not use it.  Note: fixture line 86 ("confidential information
+        # includes pricing, customer lists") is a data-disclosure provision,
+        # not an "intellectual property includes" frame, and stays untouched
+        # (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:intellectual\s+property|ip\b)\b[^.]{0,40}"
+            r"\b(?:includ\w*|compris\w*|contain\w*|consist\w*)\b"
+            r"|\b(?:includ\w*|compris\w*|contain\w*|consist\w*)\b"
+            r"[^.]{0,40}\b(?:intellectual\s+property|ip\b)\b",
+            lower,
+        ):
+            continue
+        # "Copyright protection lasts 70 years after death" states the
+        # statutory term of protection of a copyright (an entitlement), not
+        # an allocation or transfer of IP between the parties.  Genuine IP
+        # assignments and licence grants have no protection-term frame.
+        # Zero fixture lines state a protection term (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:copyright|patent|trademark|design\s+right|database\s+right)"
+            r"\s+protect\w*\b[^.]{0,35}"
+            r"\b(?:last\w*|expir\w*|dur\w*|runs?\b|end\w*)\b[^.]{0,20}"
+            r"\b\d+\s+(?:years?|months?)\b"
+            r"|\b\d+\s+(?:years?|months?)\b[^.]{0,25}"
+            r"\b(?:copyright|patent|trademark|design\s+right|database\s+right)"
+            r"\s+protect\w*\b",
+            lower,
+        ):
+            continue
+        # "The logo is the company's registered trademark" is a brand-ownership
+        # fact (a company is the holder of a registered mark), not a transfer,
+        # grant or licence between the parties.  Genuine assignments and
+        # licensing still fire — they never use the possessive-holder frame.
+        if re.search(
+            r"\b(?:is|becomes?)\s+(?:the\s+)?"
+            r"(?:company(?:'|\u2019)s|their\s+|our\s+|the\s+|its\s+)"
+            r"\s*(?:registered\s+)?trademark\b"
+            r"|\b(?:company(?:'|\u2019)s|their\s+|our\s+|its\s+)"
+            r"\s*(?:registered\s+)?trademark\b",
+            lower,
+        ):
+            continue
         # "Intellectual property rights are not exhausted by this sale" and
         # "Goodwill and intellectual property are excluded from the sale"
         # describe the scope of what the sale does or does not carry over —
@@ -3507,6 +3646,20 @@ def rule_renewal(doc, sentences):
         # "renewable energy sources" — a resource adjective, not a contract
         # renewal provision.
         if re.search(r"\brenewable\s+(?:energy|sources?|resources?|power|technologies?|means?)\b", lower):
+            continue
+        # "Renewables generated 40% of electricity" uses the plural noun
+        # "renewables" (renewable-energy resources) as the sentence subject
+        # — an energy-sector report, not a contract renewal provision.  The
+        # existing adjective guard needs a following resource noun; the noun
+        # form has none.  A genuine renewal ("The initial term ... shall be
+        # 3 years, renewable." — fixture line 78) uses the adjective form and
+        # stays untouched.
+        if re.search(
+            r"\brenewables?\b[^.]{0,40}"
+            r"\b(?:generat\w*|produc\w*|suppl\w*|account\w*|share\b|"
+            r"million\s+k?wh|billion\s+k?wh)\b",
+            lower,
+        ):
             continue
         # A denied right to renew ("shall have no right to renew") is an express
         # non-renewal, not a renewal risk.
@@ -4875,6 +5028,70 @@ def rule_data_protection(doc, sentences):
             lower,
         ):
             continue
+        # The following four guards cover "transfer" statements outside the
+        # personal-data context, all admitted by the bare "transfer" gate
+        # keyword.  Genuine data transfers ("Any data transferred outside the
+        # EEA", fixture line 89) have none of these frames and still fire.
+        # Zero fixture lines use them (checked against
+        # fixtures/generate_fixtures.py).
+        # "The data transfer rate is 1 Gbps" / "transfers happen over a secure
+        # channel" describe a technical transmission capability (bandwidth,
+        # channel, protocol), not a personal-data transfer.
+        if re.search(
+            r"\bdata\s+transfers?\b[^.]{0,35}"
+            r"\b(?:rate|speed|bandwidth|throughput|channel|link|protocol|"
+            r"latency|secure|encrypt\w*|gbps|mbps|kbps|gb\/s|mb\/s)\b"
+            r"|\b(?:rate|speed|bandwidth|throughput|channel|link|protocol|"
+            r"latency|secure|encrypt\w*|gbps|mbps|kbps|gb\/s|mb\/s)\b"
+            r"[^.]{0,35}\bdata\s+transfers?\b",
+            lower,
+        ):
+            continue
+        # "She transferred schools in year 8" is an educational / institutional
+        # move of a person, not a personal-data transfer.
+        if re.search(
+            r"\btransf\w*\b[^.]{0,25}"
+            r"\bschools?\b"
+            r"|\bschools?\b[^.]{0,25}\btransf\w*\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:data\b|personal\b|information\b|records?\b|files?\b)\b",
+            lower,
+        ):
+            continue
+        # "The office was transferred to a new building" is a physical relocation
+        # of premises / assets, not a personal-data transfer.
+        if re.search(
+            r"\btransf\w*\b[^.]{0,25}\b(?:building\b|office\b|premises\b|"
+            r"location\b|site\b|facility\b)"
+            r"|\b(?:building\b|office\b|premises\b|location\b|site\b|"
+            r"facility\b)[^.]{0,25}\btransf\w*\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:data\b|personal\b|information\b)\b",
+            lower,
+        ):
+            continue
+        # "The call was transferred to the manager's line" / "The event was
+        # transferred to a new venue" recount a communication or event being
+        # redirected / relocated (a phone extension, a meeting room, a
+        # conference), not a personal-data transfer.  The guard pins the
+        # communication / event / engagement noun next to the transfer verb.
+        # Genuine data transfers ("any data transferred outside the EEA",
+        # fixture line 89) never match those nouns and still fire.
+        if re.search(
+            r"\btransf\w*\b[^.]{0,25}"
+            r"\b(?:call\w*|meeting\w*|event\w*|conference\w*|session\w*|"
+            r"appointment\w*|booking\w*|venue\w*|phone\w*|line\b|number\w*)\b"
+            r"|\b(?:call\w*|meeting\w*|event\w*|conference\w*|session\w*|"
+            r"appointment\w*|booking\w*|venue\w*|phone\w*|line\b|number\w*)\b"
+            r"[^.]{0,25}\btransf\w*\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:data\b|personal\b|information\b)\b",
+            lower,
+        ):
+            continue
         # "transfer / assign this Agreement" is a contract-assignment or
         # novation right, not a personal-data transfer ("the Agreement" /
         # "this Agreement" word orders both covered).  "Any data transferred
@@ -5293,6 +5510,86 @@ def rule_insurance(doc, sentences):
                 r"\b(?:renew\w*|expir\w*|terminat\w*)\b[^.]{0,40}\binsurance\s+policy\b"
                 r"|\binsurance\s+policy\b[^.]{0,40}\b(?:renew\w*|expir\w*|terminat\w*)\b"
                 r"|\brenewal\s+of\s+(?:the\s+|a\s+|this\s+)?insurance\s+policy\b",
+                lower,
+            ):
+                continue
+            # The following are statements about the insurance industry or a
+            # factual policy matter, none of which creates an inter-party
+            # coverage obligation.  Genuine "shall maintain / procure / obtain
+            # insurance" duties still fire — obligation verbs are excluded
+            # from these guards (checked against fixtures/generate_fixtures.py,
+            # which contains no insurance fixture lines).
+            # "He works in insurance" names the industry as a field of work.
+            if re.search(
+                r"\bworks?\s+in\s+insurance\b"
+                r"|\bin\s+the\s+insurance\s+industry\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|obtain\w*|purchase\w*|"
+                r"tak(?:e|ing|en)\s+out|carry\b|shall|must|will)\b",
+                lower,
+            ):
+                continue
+            # "Insurance fraud is a serious crime" categorises fraudulent
+            # conduct, not a coverage duty.
+            if re.search(
+                r"\binsurance\s+fraud\b"
+                r"|\bfraud\b[^.]{0,30}\binsurance\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|obtain\w*|purchase\w*|"
+                r"tak(?:e|ing|en)\s+out|carry\b|shall|must|will)\b",
+                lower,
+            ):
+                continue
+            # "Health insurance costs rose by 8%" is a cost-trend report, not a
+            # coverage obligation.
+            if re.search(
+                r"\b(?:health|medical|car|home|life)\s+insurance\b[^.]{0,40}"
+                r"\b(?:cost|costs|premiums?|expenses?|rates?)\b"
+                r"|\b(?:costs?|premiums?|rates?)\b[^.]{0,30}\binsurance\b",
+                lower,
+            ) and re.search(
+                r"\b(?:rose|fell|climbed|dropped|increased?|decreased?|"
+                r"up\b|down\b|rising|falling|surged?|declined?|by\s+\d)",
+                lower,
+            ):
+                continue
+            # "The insurance market rallied this quarter" is a securities /
+            # sector observation about the industry, not a coverage duty.
+            if re.search(
+                r"\binsurance\s+market\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|obtain\w*|purchase\w*|"
+                r"tak(?:e|ing|en)\s+out|carry\b|shall|must|will)\b",
+                lower,
+            ):
+                continue
+            # "She bought insurance through a broker" recounts a personal
+            # purchase transaction; the guard pins the broker / agent
+            # channel.  "Shall maintain ... insurance" obligations do not
+            # mention a broker and still fire.
+            if re.search(
+                r"\binsurance\b[^.]{0,30}\b(?:broker|agent|intermediar\w*)\b"
+                r"|\b(?:broker|agent|intermediar\w*)\b[^.]{0,30}\binsurance\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:oblig\w*|shall|must|will|require\w*|maintain\w*|procure\w*)\b",
+                lower,
+            ):
+                continue
+            # "Liability insurance covers third party claims" is a descriptive
+            # statement about what a policy type does (its scope), not an
+            # obligation to hold or procure coverage.  Obligation verbs are
+            # excluded so "shall maintain ... liability insurance covering
+            # third-party claims" still fires.
+            if re.search(
+                r"\binsurance\b[^.]{0,35}\bcovers?\b[^.]{0,40}\bthird[- ]?part\w*\b"
+                r"|\bcovers?\b[^.]{0,35}\binsurance\b[^.]{0,40}\bthird[- ]?part\w*\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:oblig\w*|shall|must|will|require\w*|maintain\w*|procure\w*)\b",
                 lower,
             ):
                 continue

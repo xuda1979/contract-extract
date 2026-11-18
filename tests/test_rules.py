@@ -5371,3 +5371,171 @@ def test_renewal_sports_season_contract_not_renewal_clause():
         "The contract may be renewed by written notice.",
     ) if c.clause == "renewal"]
     assert len(clauses) == 2
+
+
+def test_duration_gestation_and_statutory_windows_not_contract_term():
+    # Round 46.  Gestation / pregnancy / incubation periods describe a
+    # biological development window, not the agreement's term.
+    assert [c for c in _clauses(
+        "The gestation period of the animal is 6 months.",
+        "The pregnancy term typically lasts nine months.",
+    ) if c.clause == "duration"] == []
+    # Genuine contract terms still fire.
+    clauses = [c for c in _clauses(
+        "The term of this Agreement shall be 5 years from the Effective Date.",
+    ) if c.clause == "duration"]
+    assert len(clauses) == 1
+
+
+def test_duration_statutory_validity_embargo_and_files_not_contract_term():
+    # Round 46.  Planning-permission validity, retention periods, embargoes,
+    # service lives, filing windows and campaign/trial committees are
+    # statutory or administrative time windows, not contract terms.
+    assert [c for c in _clauses(
+        "Planning permission is valid for a period of 5 years.",
+        "The retention period for tax records is 6 years.",
+        "The embargo period shall last 5 years.",
+        "The school term runs for 9 months each year.",
+        "The electoral term of the committee is 4 years.",
+        "The cooling period between trials is 6 months.",
+    ) if c.clause == "duration"] == []
+    # Genuine contract terms still fire.
+    clauses = [c for c in _clauses(
+        "The term of this Agreement shall be 5 years from the Effective Date.",
+    ) if c.clause == "duration"]
+    assert len(clauses) == 1
+
+
+def test_quantity_document_page_counts_not_commitment():
+    # Round 46.  Page counts of documents/reports/books describe content
+    # length, not committed goods or services quantities.
+    assert [c for c in _clauses(
+        "The novel has 300 pages.",
+        "The report runs to 25 pages.",
+        "The manual is 120 pages long.",
+    ) if c.clause == "quantity"] == []
+    # Genuine committed quantities still fire.
+    clauses = [c for c in _clauses(
+        "The buyer commits to purchase 10,000 units per quarter.",
+    ) if c.clause == "quantity"]
+    assert len(clauses) == 1
+
+
+def test_acceptance_social_and_public_not_acceptance_window():
+    # Round 46.  "Social / public / market acceptance" is a broad societal
+    # reaction, not the taking-up of contract deliverables.
+    assert [c for c in _clauses(
+        "Social acceptance of the policy grew slowly.",
+        "The product gained widespread acceptance in the market.",
+        "University acceptance rates fell this year.",
+    ) if c.clause == "acceptance"] == []
+    # Genuine acceptance of goods/works still fires.
+    clauses = [c for c in _clauses(
+        "The buyer shall accept the goods within 14 days of delivery.",
+    ) if c.clause == "acceptance"]
+    assert len(clauses) == 1
+
+
+def test_penalty_phase_and_stage_not_penalty_clause():
+    # Round 46.  A penalty phase/stage is a step of a court procedure, not a
+    # contractual penalty payable for breach.
+    assert [c for c in _clauses(
+        "The penalty phase of the trial begins Monday.",
+        "The trial entered its penalty stage last week.",
+    ) if c.clause == "penalty"] == []
+    # Genuine contractual penalties still fire.
+    clauses = [c for c in _clauses(
+        "In event of breach, Licensee shall pay Liquidated Damages of 30% of the total fees.",
+    ) if c.clause == "penalty"]
+    assert len(clauses) == 1
+
+
+def test_liability_factual_outcome_not_limitation():
+    # Round 46.  A past factual admission / judgment / disclaimer of liability
+    # is not an agreed cap or exclusion in the contract.
+    assert [c for c in _clauses(
+        "He admitted liability for the accident.",
+        "The defendant's liability was established at trial.",
+        "The auditor disclaimed liability for the report.",
+    ) if c.clause == "liability_cap"] == []
+    # Genuine caps still fire.
+    clauses = [c for c in _clauses(
+        "Aggregate liability shall not exceed the total fees paid under this Agreement.",
+    ) if c.clause == "liability_cap"]
+    assert len(clauses) == 1
+
+
+def test_confidentiality_statutory_sanctions_not_contractual_duty():
+    # Round 46.  A statutory breach consequence imposed by a law/regulator is
+    # not a contractual duty of secrecy between the parties.
+    assert [c for c in _clauses(
+        "The law imposes sanctions for non-disclosure of trade secrets.",
+        "The regulator may impose a fine for non-disclosure.",
+    ) if c.clause == "confidentiality"] == []
+    # Genuine confidentiality obligations still fire.
+    clauses = [c for c in _clauses(
+        "The receiving party shall keep confidential all non-public information of the disclosing party.",
+    ) if c.clause == "confidentiality"]
+    assert len(clauses) == 1
+
+
+def test_ip_composition_brand_holder_and_terms_not_allocation():
+    # Round 46.  Composition statements ("IP includes ..."), brand-ownership
+    # facts ("X is the company's registered trademark") and statutory
+    # protection terms are not allocations or transfers between the parties.
+    assert [c for c in _clauses(
+        "Our intellectual property includes customer lists.",
+        "The logo is the company's registered trademark.",
+        "Copyright protection lasts 70 years after the author's death.",
+    ) if c.clause == "ip"] == []
+    # Genuine IP assignments still fire.
+    clauses = [c for c in _clauses(
+        "The assignor hereby assigns all intellectual property rights in the software to the buyer.",
+    ) if c.clause == "ip"]
+    assert len(clauses) == 1
+
+
+def test_data_protection_technical_transfers_and_relocations():
+    # Round 46.  A technical transmission capability, an educational move,
+    # a physical relocation of premises and a media 'transfer' are not
+    # personal-data transfers.
+    assert [c for c in _clauses(
+        "The data transfer rate is 1 Gbps.",
+        "She transferred schools in year 8.",
+        "The office was transferred to a new building.",
+        "The call was transferred to the manager's line.",
+    ) if c.clause == "data_protection"] == []
+    # Genuine data transfers still fire.
+    clauses = [c for c in _clauses(
+        "Any data transferred outside the EEA shall comply with the data protection terms.",
+    ) if c.clause == "data_protection"]
+    assert len(clauses) == 1
+
+
+def test_insurance_industry_factual_statements_not_coverage_duty():
+    # Round 46.  Industry/fraud/cost-trend/market/broker/coverage-scope
+    # statements describe the insurance world or a personal transaction,
+    # not an inter-party obligation to hold or procure coverage.
+    assert [c for c in _clauses(
+        "He works in insurance.",
+        "Insurance fraud is a serious crime.",
+        "Health insurance costs rose by 8%.",
+        "The insurance market rallied this quarter.",
+        "She bought insurance through a broker.",
+        "Liability insurance covers third party claims.",
+    ) if c.clause == "insurance"] == []
+    # Genuine coverage obligations still fire.
+    clauses = [c for c in _clauses(
+        "The contractor shall maintain public liability insurance of at least EUR 1 million.",
+        "The lessee must obtain insurance covering the full value of the equipment.",
+    ) if c.clause == "insurance"]
+    assert len(clauses) == 2
+
+
+def test_payment_net_30_days_genuine_term():
+    # Round 46 control.  "Net 30 days" is a genuine payment term and must
+    # keep firing while the surrounding FP families are guarded away.
+    clauses = [c for c in _clauses(
+        "Payment terms are net 30 days from invoice.",
+    ) if c.clause == "payment"]
+    assert len(clauses) == 1
