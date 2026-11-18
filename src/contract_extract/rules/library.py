@@ -523,6 +523,28 @@ def rule_quantity(doc, sentences):
             lower,
         ):
             continue
+        # "The stock on hand is 500 units" describes an inventory level, not a
+        # contractual quantity commitment.  Genuine purchase quantities
+        # ("Buyer shall purchase a total of 10,000 units", fixture 41) still
+        # fire — they tie the units to a purchase commitment verb.
+        if re.search(
+            r"\b(?:stock|inventory|goods?)\b[^.]{0,25}\bon\s+hand\b[^.]{0,35}"
+            r"\b\d+(?:[.,]\d+)?\s+units?\b"
+            r"|\b\d+(?:[.,]\d+)?\s+units?\b[^.]{0,35}\bon\s+hand\b[^.]{0,25}"
+            r"\b(?:stock|inventory|goods?)\b",
+            lower,
+        ):
+            continue
+        # "A minimum quantity of 1,000 units must be ordered" is an internal
+        # ordering rule, not a quantity commitment between the parties.
+        # Fixture 147's "Distributor shall purchase a minimum of 1,000 units
+        # per year" still fires — it has no "must be ordered" frame.
+        if re.search(
+            r"\bminimum\s+quantity\b[^.]{0,40}\bmust\s+be\s+ordered\b"
+            r"|\bmust\s+be\s+ordered\b[^.]{0,40}\bminimum\s+quantity\b",
+            lower,
+        ):
+            continue
         m = re.search(
             rf"\b{_NUMTOKEN}\s+units?\b"
             rf"|\b{_NUMTOKEN}\s+items?\b"
@@ -2066,14 +2088,15 @@ def rule_liability(doc, sentences):
         ):
             continue
         # "Nothing in this clause creates strict liability for latent defects
-        # in the Goods" restates the strict-liability doctrine (tort) — it is
-        # not an agreed cap, disclaimer or exclusion.  Genuine caps
+        # in the Goods" / "Strict liability applies to defective products"
+        # restate the strict-liability doctrine (tort) — they are not an
+        # agreed cap, disclaimer or exclusion.  Genuine caps
         # ("aggregate liability shall not exceed USD 1M") and disclaimers
         # still fire.
         if re.search(
             r"\b(?:strict|absolute)\s+liability\b[^.]{0,45}"
-            r"\b(?:creat\w*|impos\w*|incur\w*|aris\w*|attach\w*|result\w*)\b"
-            r"|\b(?:creat\w*|impos\w*|incur\w*|aris\w*|attach\w*|result\w*)\b"
+            r"\b(?:creat\w*|impos\w*|incur\w*|aris\w*|attach\w*|result\w*|appli\w*)\b"
+            r"|\b(?:creat\w*|impos\w*|incur\w*|aris\w*|attach\w*|result\w*|appli\w*)\b"
             r"[^.]{0,45}\b(?:strict|absolute)\s+liability\b",
             lower,
         ):
@@ -2356,6 +2379,61 @@ def rule_liability(doc, sentences):
             r"\b(?:imposed|provided|required|mandated|imposed\s+by)\s?(?:by\s+)?"
             r"(?:statute|statut\w*|law\b)\b"
             r"|\bstatut\w*\b[^.]{0,45}\blatent\s+defect\w*\b",
+            lower,
+        ):
+            continue
+        # "The platform is provided as is, without liability on our part" is a
+        # factual as-is disclaimer wording, not an agreed allocation between
+        # the parties; genuine "as is" clauses that then cap or disclaim are
+        # covered by the amount/_CAP_MARK / _BROAD_DISCLAIM branches below.
+        if re.search(
+            r"\bas\s+is\b[^.]{0,30}\b(?:without|no)\s+liab\w*\b"
+            r"|\b(?:without|no)\s+liab\w*\b[^.]{0,30}\bas\s+is\b",
+            lower,
+        ):
+            continue
+        # "Liability for intentional wrongdoing cannot be excluded" describes
+        # a non-excludable category of liability under the law, not an agreed
+        # exclusion.  Genuine exclusions ("the Seller shall not be liable for
+        # consequential losses") still fire.
+        if re.search(
+            r"\bliab\w*\b[^.]{0,30}\b(?:cannot|may\s+not|shall\s+not|will\s+not|"
+            r"is\s+not)\s+be\s+exclud\w*\b"
+            r"|\b(?:cannot|may\s+not|shall\s+not|will\s+not|is\s+not)\s+be\s+"
+            r"exclud\w*\b[^.]{0,30}\bliab\w*\b",
+            lower,
+        ):
+            continue
+        # "The operator assumes no liability for lost luggage" restates a
+        # no-liability policy posture rather than a negotiated clause; the
+        # guard requires an operator-like party together with the assume-no-
+        # liability frame.  Genuine "shall not be liable" obligations still
+        # fire.
+        if re.search(
+            r"\b(?:operator|carrier|airline|station|manager|landlord|hotel)\w*\b"
+            r"[^.]{0,30}\bassum\w*\b[^.]{0,25}\bno\s+liab\w*\b"
+            r"|\bno\s+liab\w*\b[^.]{0,25}\bassum\w*\b[^.]{0,30}"
+            r"\b(?:operator|carrier|airline|station|manager|landlord|hotel)\w*\b",
+            lower,
+        ):
+            continue
+        # "Breach of the warranty gives rise to liability in damages" is a
+        # statement of legal consequence, not a liability clause allocating
+        # risk between the parties.
+        if re.search(
+            r"\b(?:gives|gave|given|giving)\s+rise\s+to\b[^.]{0,30}\bliab\w*\b"
+            r"|\bliab\w*\b[^.]{0,30}\b(?:gives|gave|given|giving)\s+rise\s+to\b",
+            lower,
+        ):
+            continue
+        # "No liability shall attach to the Commission for delays" protects a
+        # public body / institution from liability — a factual statement, not
+        # a contract clause between commercial parties.
+        if re.search(
+            r"\bno\s+liab\w*\b[^.]{0,40}\battach\w*\b[^.]{0,20}\b(?:commissi\w*|"
+            r"committe\w*|authorit\w*|agency\w*)\b"
+            r"|\b(?:commissi\w*|committe\w*|authorit\w*|agency\w*)\b[^.]{0,20}"
+            r"\battach\w*\b[^.]{0,40}\bno\s+liab\w*\b",
             lower,
         ):
             continue
@@ -3600,7 +3678,7 @@ def rule_termination(doc, sentences):
         if re.search(
             r"\b(?:the\s+)?employment\b[^.]{0,30}\b(?:may|shall|can|will)\s+be\s+"
             r"terminated\b[^.]{0,50}\b(?:notice|dismissal|resignation|"
-            r"termination\s+(?:date|payment)|gross\s+misconduct)\b",
+            r"termination\s+(?:date|payment)|gross\s+misconduct|probation\s+period)\b",
             lower,
         ):
             continue
@@ -3716,6 +3794,29 @@ def rule_termination(doc, sentences):
             r"\b(?:terminate\w*|expir\w*)\b[^.]{0,40}\b(?:by\s+|under\s+|upon\s+)?"
             r"operation\s+of\s+law\b"
             r"|\boperation\s+of\s+law\b[^.]{0,50}\b(?:terminat\w*|expir\w*)\b",
+            lower,
+        ):
+            continue
+        # "The lease terminated automatically when the tenant vacated" is a
+        # factual account of what happened to a tenancy, not a clause
+        # conferring a termination right.  Genuine lease termination clauses
+        # ("the Lessee may terminate the lease upon notice") still fire.
+        if re.search(
+            r"\b(?:lease|tenanc\w*|rental)\w*\b[^.]{0,35}\bterminat\w*\b[^.]{0,35}"
+            r"\b(?:when|once|after\s+the\s+tenant)\b[^.]{0,30}\b(?:vacat\w*|left|"
+            r"departed|moved\s+out\w*)\b"
+            r"|\b(?:vacat\w*|left|departed|moved\s+out\w*)\b[^.]{0,30}\b(?:when|"
+            r"once)\b[^.]{0,35}\bterminat\w*\b[^.]{0,35}\b(?:lease|tenanc\w*|rental)\w*\b",
+            lower,
+        ):
+            continue
+        # "The agreement terminated by effluxion of time" describes expiry of
+        # an agreement by the mere passage of time (a legal term of art) — a
+        # factual statement, not a party right.  Genuine right-conferring
+        # termination clauses still fire.
+        if re.search(
+            r"\beffluxion\b[^.]{0,30}\btime\b"
+            r"|\btime\b[^.]{0,30}\beffluxion\b",
             lower,
         ):
             continue
@@ -5278,6 +5379,105 @@ def rule_insurance(doc, sentences):
                 r"\bpremium\b"
                 r"|\bpremium\b[^.]{0,35}\bcommenc\w*\b[^.]{0,45}"
                 r"\b(?:coverage|cover)\b",
+                lower,
+            ):
+                continue
+            # "Insurance coverage ends when the goods are delivered" states
+            # when cover lapses (an administrative duration rule), not an
+            # inter-party obligation to maintain cover.  Genuine coverage
+            # obligations ("shall maintain professional indemnity insurance")
+            # still fire — the negative leg keeps maintain/procure/carry/
+            # obtain untouched.
+            if re.search(
+                r"\b(?:coverage|cover)\b[^.]{0,45}\b(?:end\w*|ceas\w*|terminat\w*|"
+                r"laps\w*)\b[^.]{0,35}\b(?:when|upon|once)\b[^.]{0,30}\bdeliver\w*\b"
+                r"|\bdeliver\w*\b[^.]{0,30}\b(?:when|upon|once)\b[^.]{0,35}"
+                r"\b(?:end\w*|ceas\w*|terminat\w*|laps\w*)\b[^.]{0,45}"
+                r"\b(?:coverage|cover)\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|carry|obtain\w*)\b[^.]{0,40}"
+                r"\binsurance\b",
+                lower,
+            ):
+                continue
+            # "Insurance premiums are reviewed annually by the insurer" is an
+            # administrative review of premium levels, not a coverage
+            # obligation.  Premium-adjustment guards above cover the tariff /
+            # rate / schedule frames; this covers the review/assessment frame.
+            if re.search(
+                r"\binsurance\s+premium\w*\b[^.]{0,40}\b(?:review\w*|assess\w*|"
+                r"reassess\w*|revis\w*|calculat\w*)\b[^.]{0,30}(?:\bannually\b|"
+                r"\bperiodic\w*\b|\bby\s+the\s+insurer\b)"
+                r"|\b(?:review\w*|assess\w*|reassess\w*|revis\w*|calculat\w*)\b"
+                r"[^.]{0,30}(?:\bannually\b|\bperiodic\w*\b|\bby\s+the\s+"
+                r"insurer\b)[^.]{0,40}\binsurance\s+premium\w*\b"
+                r"|\b(?:review\w*|assess\w*|reassess\w*|revis\w*|calculat\w*)\b"
+                r"[^.]{0,30}\b(?:annually|periodically)\b[^.]{0,40}"
+                r"\binsurance\s+premium\w*\b"
+                r"|\binsurance\s+premium\w*\b[^.]{0,25}"
+                r"\b(?:annually|periodically)\b",
+                lower,
+            ):
+                continue
+            # "The insured must notify the insurer of any claim promptly" is a
+            # policy-administration notice rule (claims notification), not a
+            # coverage obligation.  The broker/claim-notification guard above
+            # needs the bare "insurance" noun; this one covers the
+            # insured-notifies-insurer frame.
+            if re.search(
+                r"\binsured\b[^.]{0,35}\b(?:notif\w*|report\w*|inform\w*)\b"
+                r"[^.]{0,30}\b(?:insurer|insurance\s+company|underwriter)\b"
+                r"[^.]{0,30}\bclaim\w*\b"
+                r"|\bclaim\w*\b[^.]{0,30}\b(?:insurer|insurance\s+company|"
+                r"underwriter)\b[^.]{0,30}\b(?:notif\w*|report\w*|inform\w*)\b"
+                r"[^.]{0,35}\binsured\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|carry|obtain\w*)\b[^.]{0,40}"
+                r"\binsurance\b",
+                lower,
+            ):
+                continue
+            # "Insurance shall be effected by the party bearing the risk" is a
+            # general risk-allocation statement identifying who arranges cover,
+            # not a coverage obligation naming a policy type.  Genuine
+            # "shall maintain [type] insurance" obligations still fire.
+            if re.search(
+                r"\binsurance\b[^.]{0,50}\beffect\w*\b[^.]{0,40}\brisk\b"
+                r"|\brisk\b[^.]{0,40}\beffect\w*\b[^.]{0,50}\binsurance\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|carry|obtain\w*)\b[^.]{0,40}"
+                r"\binsurance\b",
+                lower,
+            ):
+                continue
+            # "Health insurance is deducted from the salary each month" is a
+            # payroll deduction, not a coverage obligation.  The
+            # employee-benefit guard above requires the benefit frame; this
+            # covers the deducted-from-pay frame.
+            if re.search(
+                r"\b(?:medical|health|dental|life|disability|pension|vision|"
+                r"travel)\s+insurance\b[^.]{0,35}\bdeduct\w*\b[^.]{0,30}"
+                r"\b(?:salary|wages|pay\b|payroll)\b"
+                r"|\b(?:salary|wages|pay\b|payroll)\b[^.]{0,30}\bdeduct\w*\b"
+                r"[^.]{0,35}\b(?:medical|health|dental|life|disability|pension|"
+                r"vision|travel)\s+insurance\b"
+                r"|\bdeduct\w*\b[^.]{0,40}"
+                r"\b(?:medical|health|dental|life|disability|pension|vision|"
+                r"travel)\s+insurance\b[^.]{0,30}\b(?:salary|wages|pay\b|payroll)\b",
+                lower,
+            ):
+                continue
+            # "The vessel must carry hull and machinery insurance" describes
+            # what cover a ship is required to carry (marine term of art), not
+            # an inter-party coverage obligation between commercial parties.
+            # Bare "hull and machinery" insurance is unambiguous marine cover.
+            if re.search(
+                r"\b(?:vessel|ship\w*|boat\w*|marine\w*|carrier)\b[^.]{0,50}"
+                r"\bhull\s+and\s+machinery\b"
+                r"|\bhull\s+and\s+machinery\b",
                 lower,
             ):
                 continue

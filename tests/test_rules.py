@@ -4800,3 +4800,189 @@ def test_acceptance_offer_lapses_formation_not_acceptance():
         "Acceptance of the goods requires inspection within 7 days."
     ) if c.clause == "acceptance"]
     assert clauses
+
+
+# ---------------------------------------------------------------------------
+# Round 43: quantity / insurance / liability / termination FP families
+# ---------------------------------------------------------------------------
+
+
+def test_quantity_stock_inventory_on_hand_not_quantity():
+    # An inventory-level statement ("stock on hand is 500 units") describes a
+    # current holding, not a contractual quantity commitment.
+    for s in (
+        "The stock on hand is 500 units.",
+        "There are 200 units of stock on hand at the warehouse.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "quantity"] == [], s
+    # A genuine purchase-quantity commitment still fires.
+    clauses = [c for c in _clauses(
+        "Buyer shall purchase a total of 10,000 units of the Products."
+    ) if c.clause == "quantity"]
+    assert clauses
+
+
+def test_quantity_minimum_quantity_must_be_ordered_not_quantity():
+    # An internal ordering rule ("minimum quantity must be ordered") is not a
+    # quantity commitment between the parties.
+    assert [c for c in _clauses(
+        "A minimum quantity of 1,000 units must be ordered before the month-end deadline."
+    ) if c.clause == "quantity"] == []
+    # Fixture 147's "purchase a minimum of 1,000 units per year" still fires.
+    clauses = [c for c in _clauses(
+        "Distributor shall purchase a minimum of 1,000 units per year."
+    ) if c.clause == "quantity"]
+    assert clauses
+
+
+def test_insurance_coverage_ends_on_delivery_not_insurance():
+    for s in (
+        "Insurance coverage ends when the goods are delivered.",
+        "Cover ceases once the products are delivered to the buyer.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "insurance"] == [], s
+    # A genuine coverage obligation still fires.
+    clauses = [c for c in _clauses(
+        "The Supplier shall maintain professional indemnity insurance with limits of at least USD 1,000,000."
+    ) if c.clause == "insurance"]
+    assert clauses
+
+
+def test_insurance_premium_reviewed_periodically_not_insurance():
+    assert [c for c in _clauses(
+        "Insurance premiums are reviewed annually by the insurer."
+    ) if c.clause == "insurance"] == []
+    assert [c for c in _clauses(
+        "The insurer reassesses the insurance premium periodically."
+    ) if c.clause == "insurance"] == []
+
+
+def test_insurance_insured_notifies_insurer_of_claim_not_insurance():
+    for s in (
+        "The insured must notify the insurer of any claim promptly.",
+        "Any claim must be reported to the insurance company by the insured.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "insurance"] == [], s
+
+
+def test_insurance_effected_by_party_bearing_risk_not_insurance():
+    for s in (
+        "Insurance shall be effected by the party bearing the risk.",
+        "The party bearing the risk must effect insurance under the contract.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "insurance"] == [], s
+
+
+def test_insurance_health_deducted_from_salary_not_insurance():
+    for s in (
+        "Health insurance is deducted from the salary each month.",
+        "The employer deducts medical insurance premiums from wages.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "insurance"] == [], s
+
+
+def test_insurance_hull_and_machinery_vessel_not_insurance():
+    for s in (
+        "The vessel must carry hull and machinery insurance.",
+        "The owner is required to insure the ship against hull and machinery casualties.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "insurance"] == [], s
+    # A genuine coverage obligation tied to shipping still fires when a
+    # maintain/procure obligation names the policy type.
+    clauses = [c for c in _clauses(
+        "The Carrier shall procure marine insurance covering the cargo."
+    ) if c.clause == "insurance"]
+    assert clauses
+
+
+def test_liability_as_is_without_liability_not_liability():
+    assert [c for c in _clauses(
+        "The platform is provided as is, without liability on our part."
+    ) if c.clause == "liability_cap"] == []
+    assert [c for c in _clauses(
+        "The software is supplied as is with no liability to the vendor."
+    ) if c.clause == "liability_cap"] == []
+
+
+def test_liability_cannot_be_excluded_not_liability():
+    for s in (
+        "Liability for intentional wrongdoing cannot be excluded.",
+        "Fraudulent acts may not be excluded from liability under this clause.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "liability_cap"] == [], s
+
+
+def test_liability_operator_assumes_no_liability_not_liability():
+    for s in (
+        "The operator assumes no liability for lost luggage.",
+        "The hotel assumes no liability for personal belongings.",
+        "Loss of the cargo is an area where the carrier assumes no liability.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "liability_cap"] == [], s
+
+
+def test_liability_gives_rise_to_liability_not_liability():
+    assert [c for c in _clauses(
+        "Breach of the warranty gives rise to liability in damages."
+    ) if c.clause == "liability_cap"] == []
+    assert [c for c in _clauses(
+        "The breach gives rise to liability for the losses suffered."
+    ) if c.clause == "liability_cap"] == []
+
+
+def test_liability_no_liability_attaches_to_public_body_not_liability():
+    for s in (
+        "No liability shall attach to the Commission for delays.",
+        "No liability attaches to the Authority under this paragraph.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "liability_cap"] == [], s
+
+
+def test_liability_strict_liability_doctrine_not_liability():
+    for s in (
+        "Strict liability applies to defective products.",
+        "Absolute liability attaches to the producer for product defects.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "liability_cap"] == [], s
+    # A genuine agreed cap still fires.
+    clauses = [c for c in _clauses(
+        "The aggregate liability of the Seller shall not exceed USD 1,000,000."
+    ) if c.clause == "liability_cap"]
+    assert clauses
+
+
+def test_termination_lease_terminated_when_vacated_not_termination():
+    for s in (
+        "The lease terminated automatically when the tenant vacated.",
+        "The tenancy terminated once the tenant moved out of the flat.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "termination"] == [], s
+    # A genuine lease termination right still fires.
+    clauses = [c for c in _clauses(
+        "The Lessee may terminate the lease upon 60 days notice."
+    ) if c.clause == "termination"]
+    assert clauses
+
+
+def test_termination_employment_probation_period_not_termination():
+    assert [c for c in _clauses(
+        "Employment may be terminated at the end of the probation period."
+    ) if c.clause == "termination"] == []
+    # A genuine employment termination right with a notice frame still fires.
+    clauses = [c for c in _clauses(
+        "The Company may terminate the employment without cause at any time."
+    ) if c.clause == "termination"]
+    assert clauses
+
+
+def test_termination_effluxion_of_time_not_termination():
+    for s in (
+        "The agreement terminated by effluxion of time.",
+        "The lease came to an end by the effluxion of time.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "termination"] == [], s
+    # A genuine termination right still fires.
+    clauses = [c for c in _clauses(
+        "Either party may terminate this Agreement by giving 30 days written notice."
+    ) if c.clause == "termination"]
+    assert clauses
