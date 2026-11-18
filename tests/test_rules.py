@@ -5719,3 +5719,49 @@ def test_present_tense_data_facts_not_compliance_duty():
         "The parties agree that personal data shall not be transferred outside the EEA without consent.",
     ) if c.clause == "data_protection"]
     assert len(clauses) == 2
+
+
+def test_library_and_periodical_renewal_not_agreement_renewal():
+    # Round 50.  Administrative or consumer notices about a periodical or
+    # lending account (library renewal, a magazine's renewal rate/discount,
+    # auto-renewal at checkout) are not renewals of the agreement's term.
+    assert [c for c in _clauses(
+        "The library renewal is available online.",
+        "The library renewal process takes 5 minutes.",
+        "The magazine's renewal rate fell this quarter.",
+        "We offer a renewal discount to existing subscribers.",
+        "Subscribers can choose auto-renewal at checkout.",
+    ) if c.clause == "renewal"] == []
+    # Genuine renewals of the agreement / term / lease still fire, including
+    # the fixture-anchored lease-renewal sentence.
+    clauses = [c for c in _clauses(
+        "The initial term of this Agreement shall be 3 years, renewable unless cancelled by either party.",
+        "This SaaS Subscription renews automatically for successive 12-month periods unless terminated.",
+        "Either party may elect to renew this Agreement for an additional two-year term by written notice.",
+        "Tenant may renew the lease for a further 12 months.",
+        "The renewal term shall be 12 months.",
+    ) if c.clause == "renewal"]
+    assert len(clauses) >= 4
+
+
+def test_insurance_scope_and_claims_story_not_coverage_duty():
+    # Round 50.  Descriptive policy-scope statements (covers health/fire/...
+    # perils) and claims/payout outcomes (rejected, accepted, disputed,
+    # payout) describe the insurance world, not an inter-party obligation to
+    # hold or procure coverage.
+    assert [c for c in _clauses(
+        "Health insurance covers preventive care.",
+        "The insurance policy covers fire and flood damage.",
+        "The insurance payout was disputed by the beneficiary.",
+        "The policyholder's claim was rejected by the insurer.",
+        "The insurance claim was accepted after review.",
+    ) if c.clause == "insurance"] == []
+    # Genuine coverage duties still fire, including a maintenance
+    # obligation naming a covered scope.
+    clauses = [c for c in _clauses(
+        "The company shall maintain general liability insurance of $1 million for the term of this Agreement.",
+        "The Seller must take out insurance against loss of the Goods until delivery.",
+        "The contractor shall maintain public liability insurance covering damage to property.",
+    ) if c.clause == "insurance"]
+    assert len(clauses) == 3
+

@@ -4108,6 +4108,51 @@ def rule_renewal(doc, sentences):
             lower,
         ):
             continue
+        # "The library renewal is available online" / "The library renewal
+        # process takes 5 minutes" / "The magazine's renewal rate fell this
+        # quarter" / "We offer a renewal discount to existing subscribers"
+        # are administrative or consumer notices about a periodical or
+        # lending account (a library, magazine, newspaper, journal or
+        # periodical holding), not a renewal of the agreement's term.  The
+        # negative leg keeps any genuine renewal of the agreement / contract
+        # / lease / licence / term / subscription live — the fixtures "the
+        # renewal term shall be 12 months" and "Tenant may renew the lease
+        # for a further 12 months" have no periodical-admin noun and are
+        # untouched (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:library|magazine\w*|newspaper\w*|journal\w*|periodical\w*)\b"
+            r"[^.]{0,35}\brenew(?:al|s|ing|ed|able)?\b"
+            r"|\brenew(?:al|s|ing|ed|able)?\b[^.]{0,35}"
+            r"\b(?:library|magazine\w*|newspaper\w*|journal\w*|periodical\w*)\b"
+            r"|\brenew(?:al|s|ing|ed|able)?\s+"
+            r"\b(?:rate|discount|process|available|option\b|fee|price)\b"
+            r"|\b(?:rate|discount|process|available|option\b|fee|price)\b"
+            r"[^.]{0,25}\brenewal\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:agreement|contract|lease|licen[cs]e|term|subscription)\b",
+            lower,
+        ):
+            continue
+        # "Subscribers can choose auto-renewal at checkout" is a consumer
+        # shopping-cart opt-in (recurring billing at the point of purchase),
+        # not a renewal of the agreement's term.  A genuine automatic-renewal
+        # clause tied to the agreement / lease / licence / term ("this
+        # Agreement shall auto-renew for successive 12-month periods") stays
+        # live via the negative leg.
+        if re.search(
+            r"\bauto\s*[-]?renew(?:al|s|ing|ed|able)?\b"
+            r"[^.]{0,35}\b(?:checkout|cart|purchase\w*|order(?:ing)?|"
+            r"subscribe|pay\b|billing)\b"
+            r"|\b(?:checkout|cart|purchase\w*|order(?:ing)?|subscribe|"
+            r"pay\b|billing)\b[^.]{0,35}"
+            r"\bauto\s*[-]?renew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:agreement|contract|lease|licen[cs]e|term)\b",
+            lower,
+        ):
+            continue
         # "The conference badge was renewed at the desk" / "the seatbelt
         # buckle was renewed during servicing" re-issue or replace a physical
         # object (a badge, tag, buckle or other pass-item), not a renewal of
@@ -5855,6 +5900,64 @@ def rule_insurance(doc, sentences):
                 lower,
             ) and not re.search(
                 r"\b(?:oblig\w*|shall|must|will|require\w*|maintain\w*|procure\w*)\b",
+                lower,
+            ):
+                continue
+            # "Health insurance covers preventive care" / "The insurance policy
+            # covers fire and flood damage" is a descriptive statement about
+            # the scope of a policy (what non-third-party perils or benefits
+            # it insures), not an obligation to hold or procure cover.  The
+            # negative leg keeps obligation-verb coverage duties ("shall
+            # maintain ... insurance covering damage") live, and the scope
+            # nouns are non-third-party perils that the third-party-claims
+            # guard above does not catch (that guard still needs third-party
+            # language).  Genuine coverage obligations ("shall maintain
+            # professional indemnity insurance") still fire.
+            if re.search(
+                r"\binsurance\b[^.]{0,30}\bcovers?\b[^.]{0,35}"
+                r"\b(?:health|medical|preventive|dental|vision|fire|flood|"
+                r"storm|theft|burglary|property|damage\w*|liability|"
+                r"vehicle\w*|motor|travel|life|earthquake|natural\s+disaster\w*)\b"
+                r"|\binsurance\b[^.]{0,30}\bcovers?\s*\b(?:some|any|all|"
+                r"such|certain|listed\s+perils?|named\s+perils?)\b"
+                r"|\b(?:health|medical|preventive|dental|vision|fire|flood|"
+                r"storm|theft|burglary|property|damage\w*|liability|"
+                r"vehicle\w*|motor|travel|life|earthquake|natural\s+disaster\w*)\b"
+                r"[^.]{0,30}\b(?:is|are)\s+covers?ed?\b[^.]{0,25}\binsurance\b"
+                r"|\bcovers?\b[^.]{0,25}\b(?:health|medical|preventive|dental|"
+                r"vision|fire|flood|storm|theft|burglary|property|damage\w*|"
+                r"liability|vehicle\w*|motor|travel|life|earthquake|"
+                r"natural\s+disaster\w*)\b[^.]{0,20}\binsurance\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:oblig\w*|shall|must|will|require\w*|maintain\w*|procure\w*|"
+                r"carr(?:y|ies|ied)|tak(?:e|ing|en)\s+(?:out|any)\b)\b",
+                lower,
+            ):
+                continue
+            # "The insurance payout was disputed by the beneficiary" / "The
+            # policyholder's claim was rejected by the insurer" / "The
+            # insurance claim was accepted after review" recounts a claims /
+            # payout outcome between the insured and the insurer (who got
+            # paid and why), not an obligation to hold or procure cover.
+            # The negative leg keeps obligation-verb coverage duties live so
+            # genuine coverage obligations ("shall maintain professional
+            # indemnity insurance") still fire.
+            if re.search(
+                r"\b(?:insurance|insured|policyholder\w*|beneficiar\w*|insurer\w*|"
+                r"underwriter\w*|policy\b)\b[^.]{0,30}"
+                r"\b(?:claim\w*|payout\w*|indemnit\w+|benefit\w*)\b[^.]{0,30}"
+                r"\b(?:reject\w*|accept\w*|disput\w*|denied?\b|grant\w*|"
+                r"approv\w*|upheld?\b|overturn\w*|settled?\b|paid\b)\b"
+                r"|\b(?:reject\w*|accept\w*|disput\w*|denied?\b|grant\w*|"
+                r"approv\w*|upheld?\b|overturn\w*|settled?\b|paid\b)\b"
+                r"[^.]{0,30}\b(?:claim\w*|payout\w*|indemnit\w+|benefit\w*)\b"
+                r"[^.]{0,30}\b(?:insurance|insured|policyholder\w*|"
+                r"beneficiar\w*|insurer\w*|underwriter\w*|policy\b)\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:shall|must|will|require\w*|maintain\w*|procure\w*|"
+                r"oblig\w*|carr(?:y|ies|ied)|tak(?:e|ing|en)\s+out)\b",
                 lower,
             ):
                 continue
