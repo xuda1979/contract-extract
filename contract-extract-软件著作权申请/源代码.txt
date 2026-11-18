@@ -1,5 +1,7 @@
 【排版说明】A4纵向；页眉「contract-extract V1.0」左对齐；正文宋体五号，每页50行；页脚标注页码。
-软件名称：contract-extract V1.0　源程序（去除注释与空行后共 1652 行；前段为源程序，后段为代表代码接续）。
+软件名称：contract-extract V1.0
+著作权人：许达（供职于中国移动研究院）
+源程序（去除注释与空行后共 5387 行；前段为源程序，后段为代表代码接续）。
 contract-extract V1.0
 //============== 源程序 src/contract_extract/__init__.py ==============
 """contract_extract: contract / bid risk clause extraction (PDF/DOCX).

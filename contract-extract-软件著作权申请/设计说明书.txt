@@ -1,5 +1,8 @@
 软件设计说明书（GB/T 8567-2006）　合同/标书风险条款抽取软件 contract-extract V1.0
 ====================================================================================
+编制单位：中国移动研究院
+编写人：许达
+编制日期：2026年11月
 
 1 引言
 --------------------------------------------------------------------------------
@@ -171,8 +174,8 @@
     - 聚合：document_risk 依 HIGH→MEDIUM→LOW 优先级求文档整体风险。
 
 3.4 LLM 增强层（llm）详细设计
-    - 接口：LLMProvider（abstract enhance / active）；NoopLLM 返回规则层
-      复跑增量（模板兜底）、active()=False。
+    - 接口：LLMProvider（abstract enhance / active）；NoopLLM 直接返回规则
+      层的复跑结果作为基准、active()=False，保证离线态行为与规则层一致。
     - 启用条件：is_llm_available() 为真，即未设 LLM_OFFLINE 且存在 OpenAI /
       Anthropic 密钥；优先 OpenAI（ANTHROPIC 密钥存在且无 OPENAI 时用 Anthropic）。
     - Prompt 设计：仅送前 3 页、每页 900 字符的文本片段与已知 clause 列表，
