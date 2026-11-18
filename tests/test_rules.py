@@ -5185,3 +5185,189 @@ def test_price_bank_late_fee_not_contract_price():
     # A genuine per-unit price still fires.
     clauses = [c for c in _clauses("The Purchase Price is USD 100 per unit.")]
     assert any(c.clause == "price" for c in clauses)
+
+
+def test_duration_project_span_not_contract_term():
+    # "The project spans a period of 12 months" states the timeline of a
+    # project or activity (a project-scope window), not the agreement's term.
+    for s in (
+        "The project spans a period of 12 months.",
+        "The initiative shall run for a term of 6 months.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "duration"] == [], s
+    # A genuine agreement term still fires.
+    clauses = [c for c in _clauses(
+        "The term of this Agreement shall be for a period of 2 years, "
+        "effective from January 1, 2024."
+    ) if c.clause == "duration"]
+    assert clauses
+
+
+def test_delivery_correspondence_turnaround_not_delivery_obligation():
+    # Administrative correspondence turn-around deadlines ("the response /
+    # reply / invitation / survey results shall be delivered within N days")
+    # are communications commitments, not goods/services delivery
+    # obligations.
+    for s in (
+        "The response shall be delivered within 5 business days.",
+        "The invitation shall be delivered within 2 days.",
+        "The survey results shall be delivered within 7 days.",
+        "The committee's reply shall be delivered within 30 days.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "delivery"] == [], s
+    # A genuine goods delivery deadline still fires.
+    clauses = [c for c in _clauses(
+        "Seller shall deliver the Products within 45 working days."
+    ) if c.clause == "delivery"]
+    assert clauses
+
+
+def test_acceptance_prior_inspection_not_acceptance_window():
+    # "The goods are subject to prior inspection by the buyer" is a
+    # condition-precedent statement, not an acceptance window binding the
+    # parties to inspect and accept deliverables.
+    assert [c for c in _clauses(
+        "The goods are subject to prior inspection by the buyer."
+    ) if c.clause == "acceptance"] == []
+    # A genuine acceptance window still fires.
+    clauses = [c for c in _clauses(
+        "The Buyer shall have 10 days to inspect and accept each deliverable."
+    ) if c.clause == "acceptance"]
+    assert clauses
+
+
+def test_liability_statutory_convention_and_jv_limit_not_cap():
+    # Liability regimes fixed by treaty or statute ("limited by the Hague
+    # Convention", "capped by statute") and the joint-venture governance
+    # default (liability limited to the venture's own assets) restate a legal
+    # framework, not an agreed cap negotiated between the parties.
+    for s in (
+        "The carrier's liability is limited by the Hague Convention.",
+        "The hospital's liability to patients is capped by statute.",
+        "Joint liability of the joint venturers is limited to the assets of the venture.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "liability_cap"] == [], s
+    # A genuine agreed cap still fires.
+    clauses = [c for c in _clauses(
+        "Liability of Licensor shall be limited to fees paid under this Agreement."
+    ) if c.clause == "liability_cap"]
+    assert clauses
+
+
+def test_exclusivity_adverbial_and_usage_frames_not_exclusive_grant():
+    # "broadcast the match exclusively" / "released exclusively to the board"
+    # are adverbial activity statements, and "exclusively for VIP guests" is
+    # a usage reservation — none grants a market exclusivity right.
+    for s in (
+        "Channel 4 broadcast the match exclusively.",
+        "The report was released exclusively to the board.",
+        "The room is exclusively for VIP guests.",
+        "The singer has an exclusive contract with the label.",
+        "The hotel offers exclusive rates to corporate clients.",
+        "The film studio secured exclusive rights to the sequel.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "exclusivity"] == [], s
+    # A genuine exclusivity grant still fires.
+    clauses = [c for c in _clauses(
+        "Distributor is granted an exclusive right to sell the Products "
+        "within the Territory for the duration of the Agreement."
+    ) if c.clause == "exclusivity"]
+    assert clauses
+
+
+def test_termination_financier_withdrawal_not_termination():
+    # A financier's right to withdraw a credit line / loan facility upon
+    # default cancels the financing, not the agreement itself.
+    for s in (
+        "The bank may withdraw credit facilities upon default.",
+        "The Lender may withdraw the loan facility upon a default.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "termination"] == [], s
+    # A genuine termination right still fires.
+    clauses = [c for c in _clauses(
+        "Either party may terminate this Agreement."
+    ) if c.clause == "termination"]
+    assert clauses
+
+
+def test_data_protection_pricing_lease_and_knowledge_not_data_transfer():
+    # Transfer pricing, lease / tenancy assignment, knowledge-transfer
+    # sessions and non-transferable tickets are not transfers of personal
+    # data.
+    for s in (
+        "Transfer pricing rules apply within the group.",
+        "The tenant may not transfer the lease without consent.",
+        "Knowledge transfer sessions will be held quarterly.",
+        "The ticket is not transferable to another passenger.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "data_protection"] == [], s
+    # A genuine cross-border data transfer still fires.
+    clauses = [c for c in _clauses(
+        "Data transfer to non-EEA countries requires safeguards."
+    ) if c.clause == "data_protection"]
+    assert clauses
+
+
+def test_insurance_sum_insured_limit_not_obligation():
+    # "Liability under the Policy is limited to the sum insured" states the
+    # policy's own liability limit, not an inter-party obligation to hold
+    # cover.
+    assert [c for c in _clauses(
+        "Liability under the Policy is limited to the sum insured."
+    ) if c.clause == "insurance"] == []
+    # A genuine coverage obligation still fires.
+    clauses = [c for c in _clauses(
+        "The Supplier shall maintain professional indemnity insurance with "
+        "limits of at least USD 1M."
+    ) if c.clause == "insurance"]
+    assert clauses
+
+
+def test_confidentiality_statutory_procedural_and_bank_not_duty():
+    # "Doctor-patient confidentiality is protected by law" states a
+    # professional-secrecy rule, jury deliberations and redacted filing
+    # comments are procedural statements, and the bank's duty of
+    # confidentiality to its customer is a banking-customs duty — none is an
+    # agreed secrecy obligation between the parties.
+    for s in (
+        "Doctor-patient confidentiality is protected by law.",
+        "The deliberations of the jury are confidential.",
+        "Confidential comments are removed from the filing.",
+        "The bank's duty of confidentiality is owed to the customer.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "confidentiality"] == [], s
+    # A genuine confidentiality obligation still fires.
+    clauses = [c for c in _clauses(
+        "Confidential information shall remain confidential for 3 years "
+        "after termination."
+    ) if c.clause == "confidentiality"]
+    assert clauses
+
+
+def test_ip_registered_with_registry_not_ip_clause():
+    # "The software is registered with the copyright office" reports a
+    # registration formality with a public IP registry, not a transfer, grant
+    # or ownership allocation of the parties' IP.
+    assert [c for c in _clauses(
+        "The software is registered with the copyright office."
+    ) if c.clause == "ip"] == []
+    # A genuine IP assignment still fires.
+    clauses = [c for c in _clauses(
+        "All inventions created during employment are assigned to the employer."
+    ) if c.clause == "ip"]
+    assert clauses
+
+
+def test_renewal_sports_season_contract_not_renewal_clause():
+    # "The player's contract was renewed for two seasons" renews a sporting
+    # / entertainment engagement cycle (a season, series or production run),
+    # not the agreement's term.
+    assert [c for c in _clauses(
+        "The player's contract was renewed for two seasons."
+    ) if c.clause == "renewal"] == []
+    # Genuine term renewals still fire.
+    clauses = [c for c in _clauses(
+        "The subscription renews automatically unless cancelled.",
+        "The contract may be renewed by written notice.",
+    ) if c.clause == "renewal"]
+    assert len(clauses) == 2

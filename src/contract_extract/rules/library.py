@@ -217,6 +217,22 @@ def rule_duration(doc, sentences):
             lower,
         ):
             continue
+        # "The project spans a period of 12 months" states the timeline of a
+        # project or activity (a project-scope window), not the agreement's
+        # term.  Zero fixture lines combine "project" with a period/term/
+        # duration (fixture "project" lines 187/312 are exclusivity and
+        # payment-instalment language), so the guard is safe — a genuine
+        # "term of the Agreement" has no project noun.
+        if re.search(
+            r"\b(?:project|programme?|initiative\w*|undertaking\w*)\b"
+            r"[^.]{0,45}\b(?:span\w*|last\w*|run\w*|continu\w*)\b"
+            r"[^.]{0,40}\b(?:period|term|duration)\b"
+            r"|\b(?:project|programme?|initiative\w*|undertaking\w*)\b"
+            r"[^.]{0,45}\b(?:period\s+of\b|term\b|duration\b)\b[^.]{0,35}"
+            r"\b\d+\s*(?:year\w*|month\w*|week\w*|day\w*|quarter\w*)\b",
+            lower,
+        ):
+            continue
         # "The cooling-off period shall be 14 days from the date of the
         # order" is a statutory consumer-protection window (right to cancel a
         # distance purchase), not the agreement's term.
@@ -985,6 +1001,23 @@ def rule_delivery(doc, sentences):
             lower,
         ):
             continue
+        # Administrative correspondence turn-around deadlines ("the response /
+        # reply / invitation / survey results shall be delivered within N days")
+        # are communications commitments, not goods/services delivery
+        # obligations.  Goods deliveries ("Seller shall deliver the Products
+        # within 45 working days", "delivers all Services within 20 business
+        # days") still fire — the guard requires the non-goods correspondence
+        # noun after the deliver verb.
+        if re.search(
+            r"\bdeliver(?:s|ed|y|ing)?\b[^.]{0,45}\b(?:responses?|repl(?:y|ies)|"
+            r"invitation\w*|survey\s+results?)\b"
+            r"|\b(?:responses?|repl(?:y|ies)|invitation\w*|survey\s+results?)\b"
+            r"[^.]{0,45}\b(?:shall|will|must)\s+be\s+delivered\b"
+            r"|\b(?:responses?|repl(?:y|ies)|invitation\w*|survey\s+results?)\b"
+            r"[^.]{0,45}\bdelivered\s+within\b",
+            lower,
+        ):
+            continue
         m = re.search(
             rf"\bwithin\s+({_NUMTOKEN})\s*(?:business|working|calendar)?\s*(day|week|month)s?\b"
             rf"|\bat\s+least\s+({_NUMTOKEN})\s+days?\s+before\b"
@@ -1385,6 +1418,25 @@ def rule_acceptance(doc, sentences):
             r"\binspections?\b"
             r"|\bacceptance\s+of\s+(?:the\s+)?(?:resignation|retirement|"
             r"nomination|invitation)\b",
+            lower,
+        ):
+            continue
+        # "The goods are subject to prior inspection by the buyer" is a
+        # condition-precedent statement (delivery may be checked in advance),
+        # not an acceptance window binding the parties to inspect and accept
+        # deliverables.  Genuine acceptance windows ("10 days to inspect and
+        # accept each deliverable", fixture line 81) still fire — the guard
+        # requires the subject-to-prior-inspection frame with no day-count.
+        # Zero fixture lines use "prior inspection" or "subject to" with an
+        # inspection noun (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bsubject\s+to\b[^.]{0,30}\bprior\s+inspection\b"
+            r"|\bprior\s+inspection\b[^.]{0,30}\bsubject\s+to\b"
+            r"|\bprior\s+inspection\b[^.]{0,30}\bby\b",
+            lower,
+        ) and not re.search(
+            r"\bwithin\s+\d+\s*(?:working|business)?\s*days?\b"
+            r"|\b\d+\s*(?:business|working)?\s*days?\s+(?:to|in\s+which\s+to)\b",
             lower,
         ):
             continue
@@ -2653,6 +2705,46 @@ def rule_liability(doc, sentences):
             lower,
         ):
             continue
+        # "The carrier's liability is limited by the Hague Convention" /
+        # "The hospital's liability to patients is capped by statute" restate
+        # a liability regime fixed by treaty or statute (transport, medical,
+        # institutional) — not an agreed cap negotiated between the parties.
+        # The statutory-adjective guard above covers "statutory/professional/
+        # regulatory/legal liability"; this one catches the instrument-after-
+        # verb frame ("limited/capped by <Convention|statute>").  Genuine
+        # caps ("Liability of Licensor shall be limited to fees paid under
+        # this Agreement", fixture line) still fire — they say "limited to" +
+        # an amount, never "limited by" + an instrument.  Zero fixture lines
+        # pair liability with a convention, treaty or statute (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bliab\w*\b[^.]{0,45}\b(?:capp?ed|limited)\s+by\b[^.]{0,45}"
+            r"\b(?:the\s+|this\s+)?(?:convention\w*|treat\w*|statut\w*|"
+            r"hague|warsaw|montreal|cmr|athens|berne|berlin|geneva)\b"
+            r"|\b(?:convention\w*|treat\w*|statut\w*|hague|warsaw|montreal|cmr|"
+            r"athens|berne|berlin|geneva)\b[^.]{0,45}\b(?:cap\w*|limit\w*)\b"
+            r"[^.]{0,45}\bliab\w*\b",
+            lower,
+        ):
+            continue
+        # "Joint liability of the joint venturers is limited to the assets of
+        # the venture" describes a joint-venture governance default (each
+        # venturer answers only from the venture's own assets), not an agreed
+        # cap negotiated between the parties.  The JV fixtures ("establish a
+        # joint venture for 5 years", "joint venture may be terminated") never
+        # bind liability to venture assets, and no fixture binds a cap to a
+        # joint venture (checked against fixtures/generate_fixtures.py).
+        # Genuine caps ("aggregate liability shall not exceed USD 1M") still
+        # fire.
+        if re.search(
+            r"\b(?:joint\s+ventur\w*|venturers?)\b[^.]{0,55}\bliab\w*\b[^.]{0,50}"
+            r"\blimit\w*\b[^.]{0,35}\b(?:assets?|capital|property)\s+"
+            r"(?:of\s+the\s+)?venture\b"
+            r"|\bliab\w*\b[^.]{0,45}\b(?:joint\s+ventur\w*|venturers?)\b"
+            r"[^.]{0,45}\blimit\w*\b[^.]{0,35}\bassets?\b",
+            lower,
+        ):
+            continue
         amount = _AMOUNT_RE.search(sentence)
         pct = _PERCENT_RE.search(sentence)
 
@@ -2954,6 +3046,35 @@ def rule_confidentiality(doc, sentences):
             lower,
         ):
             continue
+        # "Doctor-patient confidentiality is protected by law" states a
+        # professional-secrecy rule (medical ethics / statute), not an agreed
+        # secrecy duty.  "The deliberations of the jury are confidential" and
+        # "Confidential comments are removed from the filing" are procedural /
+        # redaction statements (court process, filing censoring), not
+        # contractual duties.  "The bank's duty of confidentiality is owed to
+        # the customer" describes a banking-customs duty, not an inter-party
+        # secrecy obligation.  Genuine obligations ("Confidential information
+        # shall remain confidential for 3 years after termination") have no
+        # such frames and still fire.  Zero fixture lines use doctor/patient,
+        # jury, filing/redaction or bank/customer frames with confidential
+        # (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:doctor[-\s]patient|physician[-\s]patient|"
+            r"medical[-\s]confidentiality|healthcare[-\s]professional)\b"
+            r"|\bconfidentiality\b[^.]{0,35}\bprotected\s+by\s+law\b"
+            r"|\b(?:jury|jurors?|deliberations?)\b[^.]{0,40}\bconfidential\w*\b"
+            r"|\bconfidential\w*\b[^.]{0,40}\b(?:jury|jurors?|deliberations?)\b"
+            r"|\bconfidential\w*\b[^.]{0,35}\b(?:comments?|remarks?)\b"
+            r"[^.]{0,35}\b(?:remov\w*|redact\w*|excised|strik\w*|fil\w*d)\b"
+            r"|\b(?:remov\w*|redact\w*|excised|strik\w*)\b[^.]{0,35}"
+            r"\bconfidential\w*\b[^.]{0,30}\b(?:comments?|remarks?|filing\w*)\b"
+            r"|\b(?:bank\w*|banking\w*|lender\w*)\b[^.]{0,40}"
+            r"\bduty\s+of\s+confidentiality\b"
+            r"|\bduty\s+of\s+confidentiality\b[^.]{0,40}"
+            r"\b(?:bank\w*|banking\w*|customer\w*|institution\w*)\b",
+            lower,
+        ):
+            continue
         dur = _DURATION_RE.search(sentence)
         risk = RiskLevel.LOW
         flag = "confidentiality clause"
@@ -3244,6 +3365,24 @@ def rule_ip(doc, sentences):
             lower,
         ):
             continue
+        # "The software is registered with the copyright office" reports a
+        # registration formality with a public IP registry (a filing fact),
+        # not a transfer, grant or ownership allocation of the parties' IP.
+        # Genuine assignments ("the patent rights are assigned to the
+        # Customer") and licence grants (fixture lines 219, 314) do not use
+        # the registered-with-registry frame and still fire.  Zero fixture
+        # lines pair "registered" with an IP office/registry noun (checked
+        # against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bregist\w*\s+(?:with|at)\b[^.]{0,35}\b(?:copyright\s+office|"
+            r"patent\s+office|trademark\s+office|registered\s+office|"
+            r"intellectual\s+property\s+office|registry\b)"
+            r"|\b(?:copyright\s+office|patent\s+office|trademark\s+office|"
+            r"intellectual\s+property\s+office|registry)\b[^.]{0,35}"
+            r"\bregist\w*\s+(?:with|at)\b",
+            lower,
+        ):
+            continue
         # "The logo is protected by copyright law" / "copyright law protects
         # the logo" states a statutory entitlement to protection, not an
         # allocation or transfer of IP between the parties.  "Employees retain
@@ -3484,13 +3623,16 @@ def rule_renewal(doc, sentences):
             continue
         # "the parties may renew the campaign for the upcoming season" renews
         # an advertising / marketing campaign cycle, not the agreement's term.
-        # Zero fixture lines mention renewing campaigns (checked against
+        # "The player's contract was renewed for two seasons" renews a
+        # sporting / entertainment engagement cycle (a season, series or
+        # production run), likewise not the agreement's term.  Zero fixture
+        # lines mention renewing campaigns or seasons (checked against
         # fixtures/generate_fixtures.py; "campaign" appears only in a
         # confidentiality fixture, which is a different rule).
         if re.search(
             r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,40}"
-            r"\b(?:campaign\w*|advertis\w*|marketing\w*|promotion\w*|season)\b"
-            r"|\b(?:campaign\w*|advertis\w*|marketing\w*|promotion\w*|season)\b[^.]{0,40}"
+            r"\b(?:campaign\w*|advertis\w*|marketing\w*|promotion\w*|season\w*)\b"
+            r"|\b(?:campaign\w*|advertis\w*|marketing\w*|promotion\w*|season\w*)\b[^.]{0,40}"
             r"\brenew(?:al|s|ing|ed|able)?\b",
             lower,
         ):
@@ -4076,6 +4218,21 @@ def rule_termination(doc, sentences):
             lower,
         ):
             continue
+        # "The bank may withdraw credit facilities upon default" / "The Lender
+        # may withdraw the loan facility" is a financier's right to cancel a
+        # credit line (drawing down, revoking an undrawn facility) upon a
+        # default — not a party's right to terminate the agreement.  The
+        # withdrawal targets the facility/funds/revolving capital, not the
+        # contract.  Genuine termination rights ("Either party may terminate
+        # this Agreement") still fire — the guard requires the withdraw verb
+        # plus the financial-object noun.
+        if re.search(
+            r"\bwithdraw\b[^.]{0,45}\b(?:credit\s+(?:facilit\w+|limit\w*|line\w*)|"
+            r"facilit\w*|funds?\b|capital\b|financing\b|loan\w*|"
+            r"revolving\s+credit\b|undrawn\w*)\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.LOW
         flag = "termination clause"
         if "withdraw" in lower and "for convenience" in lower:
@@ -4445,6 +4602,63 @@ def rule_exclusivity(doc, sentences):
             lower,
         ):
             continue
+        # "Channel 4 broadcast the match exclusively" / "The report was
+        # released exclusively to the board" are adverbial activity
+        # statements (how an action was performed), and "The room is
+        # exclusively for VIP guests" is a usage reservation — none grants a
+        # market exclusivity right to sell, license or distribute.  The
+        # noun-adjacent media guard above handles "exclusive interview" /
+        # "exclusive footage"; this guard covers the adverb "exclusively"
+        # after a media/release verb and the "exclusively for ... guests"
+        # frame.  Genuine grants ("exclusive right to sell" / "sole
+        # distributor") still fire.
+        if re.search(
+            r"\b(?:broadcast\w*|released?|air(?:ed|s|ing)?|transmit(?:s|ted|t)?|"
+            r"publishe\w*|report(?:ed|ing)?)\b[^.]{0,35}\bexclusively\b"
+            r"|\bexclusively\b[^.]{0,35}\b(?:for|to)\b[^.]{0,25}"
+            r"\b(?:vip\b|guests?\b|members?\b|invite\w*|board\b|committee\b)\b",
+            lower,
+        ):
+            continue
+        # "The singer has an exclusive contract with the label" is an
+        # entertainment-industry recording deal (one record label, single
+        # artist), not a market-exclusivity grant to sell, license or
+        # distribute goods.  Genuine grants ("exclusive right to sell" /
+        # "sole distributor") still fire.
+        if re.search(
+            r"\bexclusive\s+contract\b[^.]{0,30}\b(?:label\w*|record\w*|"
+            r"studio\w*|publishe\w*|filmmaker\w*|producer\w*)\b",
+            lower,
+        ):
+            continue
+        # "The hotel offers exclusive rates to corporate clients" is a
+        # hospitality pricing tier (special hotel/retail pricing), not a
+        # market-exclusivity grant.  Genuine grants ("exclusive right to
+        # sell" / "sole distributor") still fire.
+        if re.search(
+            r"\bexclusive\s+rates?\b[^.]{0,35}"
+            r"\b(?:hotel\w*|resort\w*|corporate\b|client\w*|member\w*|"
+            r"retail\w*|online\b|web\b)\b"
+            r"|\b(?:hotel\w*|resort\w*)\b[^.]{0,30}\bexclusive\s+rates?\b",
+            lower,
+        ):
+            continue
+        # "The film studio secured exclusive rights to the sequel" is a
+        # film-production ownership statement (who controls a picture,
+        # sequel or novel adaptation), not a party-to-party grant of market
+        # exclusivity.  The ownership verb ("secured / owns / acquired /")
+        # plus the entertainment noun ("sequel / film / novel") keeps real
+        # distribution grants ("exclusive right to distribute the film")
+        # firing.  Genuine grants ("exclusive right to sell" / "sole
+        # distributor") still fire.
+        if re.search(
+            r"\b(?:established?|secured?|owns?|held|acquired?|retained?|"
+            r"retains?)\b[^.]{0,35}\bexclusive\s+right\w*\s+to\s+(?:the\s+)?"
+            r"(?:sequel\w*|film\w*|pic\w*|motion\s+picture\w*|novel\w*|"
+            r"book\w*|show\w*)\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.MEDIUM
         flag = "exclusivity clause"
         dur = _DURATION_RE.search(sentence)
@@ -4584,6 +4798,66 @@ def rule_data_protection(doc, sentences):
         # pins the "transfer price" noun.  Genuine data transfers ("personal
         # data transferred outside the EEA") still fire.
         if re.search(r"\btransfer\s+price\b", lower):
+            continue
+        # "Transfer pricing rules apply within the group" is an intra-group
+        # accounting method for valuing inter-entity transactions, not a
+        # personal-data transfer.  The gate keyword "transfer" admits it;
+        # the guard pins the "transfer pricing" accountancy frame (the plain
+        # "transfer price" noun is already guarded above).  Fixtures use
+        # "pricing" only for confidential-information contexts, so they are
+        # untouched.
+        if re.search(
+            r"\btransfer\s+pricing\b[^.]{0,40}"
+            r"\b(?:rule\w*|arrangement\w*|method\w*|"
+            r"policy\w*|documentation|dispute\b|adjustment\w*)\b",
+            lower,
+        ):
+            continue
+        # "The tenant may not transfer the lease without consent" is a lease /
+        # tenancy assignment restriction (real-property dealing), not a
+        # personal-data transfer.  The transfer-of-lease guard above covers the
+        # "transfer of the lease" and passive "lease shall be transferred"
+        # orders; this pins the negated active verb+object order.  Fixtures
+        # use "renew the lease" (office lease doc), never "transfer the lease",
+        # so they are untouched.
+        if re.search(
+            r"\b(?:may\s+not|shall\s+not|cannot|can\s+not|will\s+not|"
+            r"not\s+be\s+entitled\s+to|express\s+consent|without\s+consent)\b"
+            r"[^.]{0,35}\b(?:transfer(?:s|red|ring)?|assign(?:s|ed|ing)?)\b"
+            r"[^.]{0,40}\b(?:lease|tenanc\w+|leasehold)\b"
+            r"|\blease\b[^.]{0,6}(?:assignment|transfer)\b",
+            lower,
+        ):
+            continue
+        # "Knowledge transfer sessions will be held quarterly" is an employee
+        # training / capability handover arrangement, not a personal-data
+        # transfer.  The gate keyword "transfer" admits it, so the guard pins
+        # the knowledge-transfer learning-and-development frame (session /
+        # meeting / workshop / program nouns, both word orders).  No fixture
+        # line mentions knowledge transfer.
+        if re.search(
+            r"\b(?:knowledge\s+transfer\b|transfer\s+of\s+knowledge\b)"
+            r"[^.]{0,40}\b(?:of\s+)?\b(?:session\w*|meeting\w*|workshop\w*|"
+            r"program\w*|plan\w*|activity\w*|network\w*|course\w*)\b"
+            r"|\b(?:session\w*|meeting\w*|workshop\w*|program\w*)\b"
+            r"[^.]{0,40}\b(?:knowledge\s+transfer\b|transfer\s+of\s+knowledge\b)",
+            lower,
+        ):
+            continue
+        # "The ticket is not transferable to another passenger" is a
+        # consumer-ticket / access-right restriction (the beneficiary cannot
+        # pass the right on), not a personal-data transfer.  The gate keyword
+        # "transfer" admits the adjective, so the guard pins the negated
+        # transferable/assignable frame.  "Personal data transferred abroad"
+        # statements never use the -able adjective and still fire.  No fixture
+        # line uses "transferable" or "assignable".
+        if re.search(
+            r"\b(?:is\s+|be\s+|being\s+)?"
+            r"(?:not|never|neither|no\s+longer)\b[^.]{0,25}"
+            r"\b(?:transferable|assignable)\b"
+            r"|\bnon-?(?:transferable|assignable)\b",
+            lower,
+        ):
             continue
         # "The domain name shall be transferred to the buyer after payment" /
         # "The account shall be transferred to the new administrator" transfer
@@ -5650,6 +5924,26 @@ def rule_insurance(doc, sentences):
                 r"|\bdeliver\w*\b[^.]{0,30}\b(?:when|upon|once)\b[^.]{0,35}"
                 r"\b(?:end\w*|ceas\w*|terminat\w*|laps\w*)\b[^.]{0,45}"
                 r"\b(?:coverage|cover)\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|carry|obtain\w*)\b[^.]{0,40}"
+                r"\binsurance\b",
+                lower,
+            ):
+                continue
+            # "Liability under the Policy is limited to the sum insured" is a
+            # policy-terms statement of the policy's own liability limit (a
+            # sum-insured frame), not an inter-party obligation to hold cover.
+            # Genuine coverage obligations ("shall maintain liability
+            # insurance limited to ...") still fire — the negative leg keeps
+            # maintain/procure/carry/obtain untouched.  Zero fixture lines
+            # combine liability + sum insured (checked against
+            # fixtures/generate_fixtures.py).
+            if re.search(
+                r"\bliab\w*\b[^.]{0,50}\b(?:limited|cap\w*)\s+to\b"
+                r"[^.]{0,40}\b(?:the\s+)?sum\s+insured\b"
+                r"|\bsum\s+insured\b[^.]{0,40}\b(?:limited|cap\w*)\s+to\b"
+                r"[^.]{0,50}\bliab\w*\b",
                 lower,
             ) and not re.search(
                 r"\b(?:maintain\w*|procure\w*|carry|obtain\w*)\b[^.]{0,40}"
