@@ -1157,15 +1157,19 @@ def rule_acceptance(doc, sentences):
         # "The bank shall accept the documentary credit / bill of exchange" and
         # "accept the offer / appointment" are trade-finance or formation
         # acceptances of documents or relationships — not of deliverables.
+        # "acceptance of the job offer" is a recruitment acceptance (an
+        # intervening job/position/employment token before "offer").
         if re.search(
             r"\baccept\w*\s+(?:the\s+|a\s+|this\s+)?"
             r"(?:documentary\s+credit(?:s)?|letter\s+of\s+credit|bill(?:s)?\s+of\s+exchange|"
-            r"promissory\s+note(?:s)?|draft(?:s)?|offer(?:s)?|tender(?:s)?|bid(?:s)?|"
+            r"promissory\s+note(?:s)?|draft(?:s)?|(?:job\s+|position\s+|employment\s+)?"
+            r"offer(?:s)?|tender(?:s)?|bid(?:s)?|"
             r"purchase\s+order(?:s)?|quotation(?:s)?|term(?:s)?\s+(?:and|&)\s+condition(?:s)?|"
             r"appointment(?:s)?|engagement(?:s)?)\b"
             r"|\bacceptance\s+of\s+(?:the\s+|a\s+|this\s+)?"
             r"(?:documentary\s+credit(?:s)?|letter\s+of\s+credit|bill(?:s)?\s+of\s+exchange|"
-            r"promissory\s+note(?:s)?|draft(?:s)?|offer(?:s)?|tender(?:s)?|bid(?:s)?|"
+            r"promissory\s+note(?:s)?|draft(?:s)?|(?:job\s+|position\s+|employment\s+)?"
+            r"offer(?:s)?|tender(?:s)?|bid(?:s)?|"
             r"purchase\s+order(?:s)?|quotation(?:s)?)\b"
             # "The Bank's acceptance letter shall be presented together with
             # the shipping documents" is documentary trade finance — a bank
@@ -3148,6 +3152,34 @@ def rule_confidentiality(doc, sentences):
             lower,
         ):
             continue
+        # "This email is confidential and intended only for the named
+        # recipient" is a standard outbound email disclaimer (a transmission
+        # legend), not an agreed secrecy duty between the parties.  Fixture
+        # confidentiality lines (fixtures/generate_fixtures.py: obligations to
+        # keep information confidential) contain no email disclaimer frame.
+        if re.search(
+            r"\b(?:email|e[- ]?mail|message|correspondence|transmission)\b"
+            r"[^.]{0,50}\bintended\s+only\s+for\b[^.]{0,40}\bconfidential\b"
+            r"|\bconfidential\b[^.]{0,50}\bintended\s+only\s+for\b[^.]{0,40}"
+            r"\b(?:recipient|addressee|party|person)\b",
+            lower,
+        ):
+            continue
+        # "The report is confidential until next week / further notice" is a
+        # temporary classification (a hold-until-date label), not an agreed
+        # secrecy duty — the same family as the "until publication" status
+        # guard above but ending at a time noun instead of a release event.
+        # Genuine obligations still fire (no until + time-noun frame in
+        # fixture confidentiality lines).
+        if re.search(
+            r"\bconfidential\w*\b[^.]{0,35}\buntil\b[^.]{0,25}"
+            r"\b(?:next|the\s+following|this\s+)?(?:week|month|quarter|"
+            r"year|further\s+notice|friday|monday|january|february|march|"
+            r"april|may|june|july|august|september|october|november|"
+            r"december)\b",
+            lower,
+        ):
+            continue
         # "Advisers may receive confidential information on a need-to-know
         # basis", "The court ordered the records be kept confidential" and
         # "Confidential references were provided by the applicant's employers"
@@ -3505,6 +3537,28 @@ def rule_ip(doc, sentences):
             r"|\b(?:copyright\s+office|patent\s+office|trademark\s+office|"
             r"intellectual\s+property\s+office|registry)\b[^.]{0,35}"
             r"\bregist\w*\s+(?:with|at)\b",
+            lower,
+        ):
+            continue
+        # "The trademark is registered in the office registry / the United
+        # States / our jurisdiction" states a bare registration fact (where a
+        # mark is on file), not a transfer, grant or ownership allocation of
+        # the parties' IP.  Genuine assignments and licence grants do not use
+        # the "registered in" + registry/jurisdiction frame — the guard
+        # requires a registration outcome noun, so "the trademark shall be
+        # registered in the name of the Customer" (an ownership allocation,
+        # fixture 76) still fires.  No fixture line pairs "registered in" with
+        # a registry/jurisdiction noun (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:trademark\w*|patent\w*|design\w*|mark\w*|brand\w*)\b"
+            r"[^.]{0,30}\bregist\w*\s+in\b[^.]{0,35}"
+            r"\b(?:office\s+registry|registry|united\s+states|jurisdiction\b|"
+            r"country\b|territory\b|region\b|european\s+union)\b"
+            r"|\bregist\w*\s+in\b[^.]{0,35}\b(?:office\s+registry|registry|"
+            r"united\s+states|jurisdiction\b|country\b|territory\b|region\b|"
+            r"european\s+union)\b[^.]{0,30}\b(?:trademark\w*|patent\w*|design\w*|"
+            r"mark\w*|brand\w*)\b",
             lower,
         ):
             continue
@@ -5539,10 +5593,29 @@ def rule_insurance(doc, sentences):
                 continue
             # "the insurance policy renews / renewal of the insurance policy" is a
             # policy-admin renewal mention, not a coverage obligation at all.
+            # "the health insurance policy lapsed last month" is likewise a
+            # policy-status report (the cover fell away), not an inter-party
+            # coverage duty.  Genuine "shall maintain ... insurance" duties do
+            # not use the renew/expire/terminate/lapse verbs.
             if re.search(
-                r"\b(?:renew\w*|expir\w*|terminat\w*)\b[^.]{0,40}\binsurance\s+policy\b"
-                r"|\binsurance\s+policy\b[^.]{0,40}\b(?:renew\w*|expir\w*|terminat\w*)\b"
+                r"\b(?:renew\w*|expir\w*|terminat\w*|laps\w*)\b[^.]{0,40}\binsurance\s+policy\b"
+                r"|\binsurance\s+policy\b[^.]{0,40}\b(?:renew\w*|expir\w*|terminat\w*|laps\w*)\b"
                 r"|\brenewal\s+of\s+(?:the\s+|a\s+|this\s+)?insurance\s+policy\b",
+                lower,
+            ):
+                continue
+            # "He claimed unemployment insurance after losing his job" is a
+            # personal welfare-benefit claim (state unemployment benefit), not
+            # an inter-party coverage obligation.  A coverage duty fired by a
+            # policy type still requires a maintain/procure/obtain verb, which
+            # this guard leaves untouched.
+            if re.search(
+                r"\bunemployment\s+insurance\b"
+                r"|\binsurance\s+\b[^.]{0,30}\bunemployment\b",
+                lower,
+            ) and re.search(
+                r"\b(?:claim\w*|receiv\w*|appl\w*|qualif\w*|entitled\b|benefit\w*|"
+                r"collect\w*)\b",
                 lower,
             ):
                 continue

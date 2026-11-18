@@ -5562,3 +5562,70 @@ def test_duration_covenant_and_renewal_term_not_agreement_term():
         "The term of this Agreement shall be 5 years from the Effective Date.",
     ) if c.clause == "duration"]
     assert len(clauses) == 1
+
+
+def test_job_offer_acceptance_not_deliverables_acceptance():
+    # Round 48.  "Acceptance of the job offer" is a recruitment acceptance
+    # (accepting a position), not acceptance of contract deliverables.
+    assert [c for c in _clauses(
+        "He sent his acceptance of the job offer by email.",
+        "She accepted the job offer and will start next month.",
+    ) if c.clause == "acceptance"] == []
+    # Genuine deliverables-acceptance windows still fire.
+    clauses = [c for c in _clauses(
+        "The Customer shall have 10 days to inspect and accept each deliverable.",
+        "The Company shall not unreasonably withhold acceptance of the Deliverables within 10 days of delivery.",
+    ) if c.clause == "acceptance"]
+    assert len(clauses) == 2
+
+
+def test_confidential_status_and_email_disclaimer_not_secrecy_duty():
+    # Round 48.  A temporary hold-until-date classification ("confidential
+    # until next week") and a standard outbound email disclaimer
+    # ("confidential and intended only for the named recipient") are
+    # statements of state, not agreed inter-party secrecy duties.
+    assert [c for c in _clauses(
+        "The committee report is confidential until next week.",
+        "This email is confidential and intended only for the named recipient.",
+        "The draft budget is to remain confidential until further notice.",
+    ) if c.clause == "confidentiality"] == []
+    # Genuine confidentiality obligations still fire.
+    clauses = [c for c in _clauses(
+        "Confidential information shall remain confidential for 3 years after termination of this Agreement.",
+        "The Recipient shall keep the confidential information secret for 5 years.",
+    ) if c.clause == "confidentiality"]
+    assert len(clauses) == 2
+
+
+def test_registered_in_jurisdiction_not_ip_transfer():
+    # Round 48.  "The trademark is registered in the office registry / the
+    # United States" is a bare registration fact (where a mark is on file),
+    # not a transfer, grant or ownership allocation of the parties' IP.
+    assert [c for c in _clauses(
+        "The trademark is registered in the office registry.",
+        "The trademark is registered in the United States.",
+        "The patent is registered in the European Union.",
+    ) if c.clause == "ip"] == []
+    # Genuine IP ownership/assignment still fires, including a registration
+    # that allocates ownership to a party.
+    clauses = [c for c in _clauses(
+        "The trademark shall be registered in the name of the Customer.",
+        "The patent rights are assigned to the Customer.",
+    ) if c.clause == "ip"]
+    assert len(clauses) == 2
+
+
+def test_unemployment_claim_and_lapsed_policy_not_coverage_duty():
+    # Round 48.  A personal welfare-benefit claim ("claimed unemployment
+    # insurance") and a policy-status report ("health insurance policy
+    # lapsed") are not inter-party coverage obligations.
+    assert [c for c in _clauses(
+        "He claimed unemployment insurance after losing his job.",
+        "Her health insurance policy lapsed last month.",
+    ) if c.clause == "insurance"] == []
+    # Genuine coverage obligations still fire.
+    clauses = [c for c in _clauses(
+        "The Supplier shall maintain professional indemnity insurance throughout the term of this Agreement.",
+        "The Company shall procure third party liability insurance with a limit of at least 1,000,000 dollars.",
+    ) if c.clause == "insurance"]
+    assert len(clauses) == 2
