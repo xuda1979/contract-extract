@@ -155,3 +155,14 @@ reports/baseline.txt            rule-layer baseline output
   tool, not legal advice.
 - Deep semantic parsing of non-contract documents (e.g. invoices) is out of
   scope.
+
+## License
+
+Dual-licensed: the source code is released under the
+**GNU Affero General Public License v3.0 (AGPL-3.0)** — see
+[`LICENSE`](LICENSE). Any commercial or profit-making use, or use in a
+product or service sold or licensed to others, requires a separate
+written commercial authorization agreement with the copyright holder — see
+[`COMMERCIAL-LICENSE.md`](COMMERCIAL-LICENSE.md).
+
+Copyright (c) 2026 许达 (Xu Da) / 中国移动研究院 (China Mobile Research Institute).

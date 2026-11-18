@@ -4317,6 +4317,71 @@ def rule_renewal(doc, sentences):
             lower,
         ):
             continue
+        # "Grant funding is renewable based on the reviewer's recommendation" /
+        # "the scholarship award is renewable annually" / "fellowship
+        # appointments are renewable" / "bursaries are renewable for a second
+        # year" re-award a study or research grant, scholarship, fellowship or
+        # bursary — a funding-award administrative cycle, not a renewal of the
+        # agreement's term.  The negative leg keeps a genuine funding-agreement
+        # renewal live ("This Grant Agreement shall automatically renew").
+        # Zero fixture lines mention grants / scholarships / fellowships /
+        # bursaries (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,45}"
+            r"\b(?:grant\w*|scholarship\w*|fellowship\w*|bursar\w*|"
+            r"endowment\w*)\b"
+            r"|\b(?:grant\w*|scholarship\w*|fellowship\w*|bursar\w*|"
+            r"endowment\w*)\b[^.]{0,45}"
+            r"\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:agreement|contract|lease|licen[cs]e|term)\b",
+            lower,
+        ):
+            continue
+        # "Renew the data plan by purchasing a top-up card" / "gift cards are
+        # renewed when the balance is topped up" / "renew your service plan at
+        # the checkout" / "you may renew the plan via the app after purchase"
+        # are consumer re-ordering / top-up / redemption transactions, not a
+        # renewal of the agreement's term.  The negative leg keeps genuine
+        # agreement / contract / lease / licence / term / subscription renewals
+        # live.  Zero fixture lines mention top-up cards / gift cards / vouchers
+        # / checkout / re-ordering (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,40}"
+            r"\b(?:top\s*[-]?up\b|gift\s+card\w*|voucher\w*|checkout\b|"
+            r"re\s*[-]?order\w*|purchase\b)\b"
+            r"|\b(?:top\s*[-]?up\b|gift\s+card\w*|voucher\w*|checkout\b|"
+            r"re\s*[-]?order\w*|purchase\b)\b[^.]{0,40}"
+            r"\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:agreement|contract|lease|licen[cs]e|term|notice|price|fee)\b",
+            lower,
+        ):
+            continue
+        # "The loan is renewable upon request at the end of the term" / "bank
+        # loans are renewable on a year-by-year basis" / "the farmer's mortgage
+        # was renewed for another five years" / "the credit facility is
+        # renewable at the bank's discretion" describe a banking product's
+        # rollover option, not a renewal of the agreement's term.  The negative
+        # leg keeps a genuine loan-agreement renewal live ("This Loan Agreement
+        # renews automatically each year").  Zero fixture lines mention loans /
+        # mortgages / credit facilities in a renewal context (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,45}"
+            r"\b(?:loan\w*|mortgage\w*|credit\s+facilit\w*|overdraft\w*|"
+            r"credit\s+line\b)\b"
+            r"|\b(?:loan\w*|mortgage\w*|credit\s+facilit\w*|overdraft\w*|"
+            r"credit\s+line\b)\b[^.]{0,45}"
+            r"\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:agreement|contract|lease|licen[cs]e|term)\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.LOW
         flag = "renewal clause"
         if re.search(r"automatic|auto-renew|auto\s+renew|renews\s+automatically|renew\s+automatically|quarterly|automatically\s+renew", lower):
@@ -6787,6 +6852,106 @@ def rule_insurance(doc, sentences):
             ) and not re.search(
                 r"\b(?:maintain\w*|procure\w*|carry|obtain\w*)\b[^.]{0,40}"
                 r"\binsurance\b",
+                lower,
+            ):
+                continue
+            # "Insurance companies are regulated by the FCA" / "Insurance stocks
+            # outperformed the index" / "Firms filed quarterly returns with the
+            # insurance regulator" / "The sector employs over 100,000 people in
+            # insurance services" are industry / regulatory observations about
+            # the insurance business, not a coverage obligation on a party.
+            # Obligation verbs are excluded so a genuine duty naming a
+            # regulator ("shall obtain insurance from an FCA-regulated
+            # insurer") stays live.  Zero fixture lines pair insurance with
+            # regulated / stocks / sector / returns (checked against
+            # fixtures/generate_fixtures.py).
+            if re.search(
+                r"\binsurance\b[^.]{0,45}"
+                r"\b(?:regulat\w+|stocks?\b|sector\b|index\b|"
+                r"outperform\w*|(?:quarterly|annual)\w*\s+return\w*\b)\b"
+                r"|\b(?:regulat\w+)\b[^.]{0,45}\binsurance\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:oblig\w*|shall|must|will|require\w*|maintain\w*|"
+                r"procure\w*|carr(?:y|ies|ied)|tak(?:e|ing|en)\s+out|"
+                r"obtain\w*|purchase\w*)\b",
+                lower,
+            ):
+                continue
+            # "Title insurance protects buyers against title defects" /
+            # "Insurance protects your family in times of need" / "Litigation
+            # insurance covers legal costs" / "Term insurance provides a payout
+            # to your beneficiaries" describe a product's benefit to a
+            # beneficiary audience, not an obligation to hold or procure
+            # coverage.  The benefit-object list (buyers / family / legal
+            # costs / beneficiaries / ...) keeps it from swallowing generic
+            # coverage language, and obligation verbs are excluded so genuine
+            # duties still fire.  Zero fixture lines pair insurance with these
+            # benefit objects (checked against fixtures/generate_fixtures.py).
+            if re.search(
+                r"\binsurance\b[^.]{0,35}"
+                r"\b(?:protect\w+|provid\w+|offer\w*|cover\w*)\b[^.]{0,30}"
+                r"\b(?:buyers?|famili\w*|beneficiar\w*|legal\s+cost\w*|"
+                r"loved\s+ones\b|defect\w*|policyholder\w*|insured\b|"
+                r"claimant\w*|estate\b)\b"
+                r"|\b(?:buyers?|famili\w*|beneficiar\w*|legal\s+cost\w*|"
+                r"loved\s+ones\b|defect\w*|policyholder\w*|insured\b|"
+                r"claimant\w*|estate\b)\b[^.]{0,30}"
+                r"\b(?:protect\w+|provid\w+|offer\w*|cover\w*)\b[^.]{0,30}"
+                r"\binsurance\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:oblig\w*|shall|must|will|require\w*|maintain\w*|"
+                r"procure\w*|carr(?:y|ies|ied)|tak(?:e|ing|en)\s+out|"
+                r"obtain\w*|purchase\w*)\b",
+                lower,
+            ):
+                continue
+            # "The policy document states the sum insured for each item" /
+            # "The sum insured under the policy is EUR 500,000" are descriptive
+            # references to an insured value in a certificate or policy
+            # schedule, not an inter-party obligation to procure coverage of
+            # that amount.  Obligation verbs are excluded so genuine duties
+            # ("shall obtain insurance with a sum insured of at least
+            # USD 1,000,000") still fire.  Zero fixture lines reference a bare
+            # sum insured / sum assured (checked against
+            # fixtures/generate_fixtures.py).
+            if re.search(
+                r"\b(?:sums?\s+insured|sum\s+assured)\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:oblig\w*|shall|must|will|require\w*|maintain\w*|"
+                r"procure\w*|carr(?:y|ies|ied)|tak(?:e|ing|en)\s+out|"
+                r"obtain\w*|purchase\w*)\b",
+                lower,
+            ):
+                continue
+            # "The insurer will review her claim next week" narrates the next
+            # step in a claims-handling episode, not an obligation to hold or
+            # procure coverage.  "will" is deliberately absent from the
+            # negative leg (unlike the other guards) so this forward-looking
+            # narration is caught, while genuine obligation verbs (shall /
+            # require / maintain / ...) still keep a claims-handling duty live.
+            # Round 51 already suppresses "the claims department will process
+            # the application" and "the adjuster will assess the damage";
+            # this guard extends the family to the insurer-as-processor
+            # phrasing.  Zero fixture lines use insurer + review/process/assess
+            # (checked against fixtures/generate_fixtures.py).
+            if re.search(
+                r"\b(?:insurer\w*|claims?\s+department|adjuster\w*|"
+                r"underwriter\w*)\b[^.]{0,30}\bwill\b[^.]{0,25}"
+                r"\b(?:review\w*|process\w*|assess\w*|evaluat\w*|"
+                r"examin\w*|validat\w*|verif\w*)\b[^.]{0,25}\bclaim\w*\b"
+                r"|\bclaim\w*\b[^.]{0,25}"
+                r"\b(?:review\w*|process\w*|assess\w*|evaluat\w*|"
+                r"examin\w*|validat\w*|verif\w*)\b[^.]{0,25}\bwill\b[^.]{0,30}"
+                r"\b(?:insurer\w*|claims?\s+department|adjuster\w*|"
+                r"underwriter\w*)\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:oblig\w*|shall|must|require\w*|maintain\w*|"
+                r"procure\w*|carr(?:y|ies|ied)|tak(?:e|ing|en)\s+out|"
+                r"obtain\w*|purchase\w*)\b",
                 lower,
             ):
                 continue
