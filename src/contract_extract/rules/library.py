@@ -728,6 +728,34 @@ def rule_price(doc, sentences):
             lower,
         ):
             continue
+        # "The shares were offered at a price of USD 10 per share" quotes a
+        # share/stock issuance price, not the price of goods or services under
+        # this Agreement.  The frame requires the "offered ... at a price"
+        # construction in both word orders; genuine contract prices ("The price
+        # of the first batch shall be EUR 5,000 per unit") have no "offered"
+        # verb and still fire.  The redemption-price positive is protected by
+        # the redemption guard above.  Zero fixture lines combine "offered"
+        # with "price" (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\boffered\b[^.]{0,50}\bat\s+(?:a\s+)?price\b"
+            r"|\bat\s+(?:a\s+)?price\b[^.]{0,50}\boffered\b",
+            lower,
+        ):
+            continue
+        # "The government fixed the electricity price at EUR 0.30 per kWh"
+        # reports a state-set utility tariff, not the price of goods or
+        # services under this Agreement.  The frame requires a regulator
+        # subject or the electricity/price pairing; a genuine contract price
+        # ("Buyer shall purchase ... at the price of USD 24.50 per unit") has
+        # neither and still fires (checked against
+        # fixtures/generate_fixtures.py line 41).
+        if re.search(
+            r"\b(?:government\w*|regulat\w*|state\b|authority\w*|ministr\w*)\b[^.]{0,35}\bfix\w*\b[^.]{0,40}\b(?:price\w*|tariff\w*)\b"
+            r"|\belectricity\w*\b[^.]{0,20}\bprice\b"
+            r"|\bprice\b[^.]{0,20}\belectricity\w*\b",
+            lower,
+        ):
+            continue
         flag = f"price: {detail}"
         if any(k in lower for k in ("in advance", "advance payment", "upon execution",
                                     "upfront", "payable in advance", "non-refundable")):
@@ -1192,6 +1220,20 @@ def rule_acceptance(doc, sentences):
             lower,
         ):
             continue
+        # "The offer lapses without acceptance within 30 days" describes the
+        # expiry of a contract offer (contract-formation mechanics), not
+        # acceptance of deliverables under an acceptance window.  Genuine
+        # deliverable acceptance ("Acceptance of the goods requires inspection
+        # within 7 days", "the product must pass the acceptance criteria")
+        # still fires — the guard requires the offer-lapse frame, and an offer
+        # sentence lacks a deliverable noun.  Zero fixture lines use "lapse"
+        # with acceptance (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\boffers?\b[^.]{0,45}\blapse\w*\b[^.]{0,45}\baccept"
+            r"|\bwithout\s+acceptance\b[^.]{0,35}\boffers?\b",
+            lower,
+        ):
+            continue
         within = re.search(r"\bwithin\s+(\d+)\s*(?:working|business)?\s*days?\b", lower)
         window = re.search(r"\b(\d+)\s*(?:business|working)?\s*days?\s+(?:to|in\s+which\s+to)\s+(?:inspect|accept|complete)", lower)
         risk = RiskLevel.LOW
@@ -1375,6 +1417,20 @@ def rule_payment(doc, sentences):
         if re.search(
             r"\b(?:processing|registration)\s+fee\w*\b"
             r"|\bstamp\s+duty\b[^.]{0,40}\bpayable\b",
+            lower,
+        ):
+            continue
+        # "The fine is payable within 14 days of the notice" is a statutory /
+        # regulatory levy (a fine imposed by law), not a payment term between
+        # the parties — the "within N days" window here measures the deadline
+        # to settle a fine, not an invoice.  Both word orders of the
+        # fine-payable frame are covered; a genuine invoice payment term
+        # ("The invoice must be paid within 14 days of receipt") still fires —
+        # it has no fine noun.  Zero fixture lines pair a fine with payable
+        # (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bfines?\b[^.]{0,45}\bpayable\b"
+            r"|\bpayable\b[^.]{0,45}\bfines?\b",
             lower,
         ):
             continue
@@ -1794,6 +1850,37 @@ def rule_penalty(doc, sentences):
         # time, not a contractual default penalty for a breach.
         if re.search(
             r"\bpenalt\w*\b[^.]{0,50}\blate\s+renew\w*\b[^.]{0,30}\binsurance\b",
+            lower,
+        ):
+            continue
+        # "The penalty for the offence is a term of imprisonment" / "The
+        # contract attracts a penalty of imprisonment" is a criminal-law
+        # sanction (the statutory guard above covers offence-then-penalty word
+        # order; this reverse-order leg closes the penalty-then-offence gap and
+        # adds an imprisonment/jail/prison frame).  A genuine quantified breach
+        # penalty ("a late payment penalty of 2% per month") has no criminal
+        # vocabulary and stays untouched.  Zero fixture lines pair penalty with
+        # imprisonment (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bpenalt\w*\b[^.]{0,45}"
+            r"\b(?:offen[cs]e\w*|crime\w*|criminal\b|conviction\w*|"
+            r"imprison\w*|jail\b|prison\b)\b"
+            r"|\b(?:imprison\w*|jail\b|prison\b)\b[^.]{0,60}\bpenalt\w*\b",
+            lower,
+        ):
+            continue
+        # "The penalty point ends the game for the losing team" is a
+        # sports/contest scoring or match-procedure reference (penalty points,
+        # game outcome), not a contractual default penalty.  The guard needs
+        # the penalty word bound to a game/team/point/result noun on either
+        # side; a genuine contract penalty ("late payment penalty of 2% per
+        # month") has none of those nouns and stays untouched.  The licence
+        # demerit-points guard above remains separate (it adds a
+        # licence/permit context).
+        if re.search(
+            r"\bpenalt\w*\b[^.]{0,45}"
+            r"\b(?:game\w*|team\w*|point\w*|win\w*|los\w*|score\w*)\b"
+            r"|\b(?:game\w*|team\w*|point\w*|win\w*|los\w*)\b[^.]{0,45}\bpenalt\w*\b",
             lower,
         ):
             continue
@@ -2550,6 +2637,29 @@ def rule_confidentiality(doc, sentences):
             lower,
         ):
             continue
+        # "Advisers may receive confidential information on a need-to-know
+        # basis", "The court ordered the records be kept confidential" and
+        # "Confidential references were provided by the applicant's employers"
+        # describe a disclosure-screening practice, a court-imposed record
+        # seal, or a character-reference document — none is an agreed secrecy
+        # duty between the parties.  Genuine obligations ("Confidential
+        # information shall remain confidential for 3 years after
+        # termination") have no need-to-know / court-order / reference frame
+        # and still fire.  Zero fixture lines use these frames (checked
+        # against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bneed[- ]to[- ]know\b"
+            r"|\b(?:court\w*|judge\w*|tribunal\w*)\b[^.]{0,45}\border\w*\b"
+            r"[^.]{0,45}\bconfidential\w*\b"
+            r"|\bconfidential\w*\b[^.]{0,45}\border\w*\b[^.]{0,45}"
+            r"\b(?:court\w*|judge\w*|tribunal\w*)\b"
+            r"|\border\w*\b[^.]{0,45}\bconfidential\w*\b[^.]{0,45}"
+            r"\b(?:court\w*|judge\w*|tribunal\w*)\b"
+            r"|\bconfidential\s+references?\b"
+            r"|\breferences?\b[^.]{0,35}\bconfidential\w*\b",
+            lower,
+        ):
+            continue
         dur = _DURATION_RE.search(sentence)
         risk = RiskLevel.LOW
         flag = "confidentiality clause"
@@ -2842,6 +2952,39 @@ def rule_ip(doc, sentences):
             r"\s+rights?\b[^.]{0,40}\b(?:own|their\s+own)\s+(?:invention\w*|creations?\b|works?\b)\b"
             r"|\b(?:own\s+inventions?\b|creators?\b[^.]{0,25}\b(?:retain\w*|keep\w*)\b|\binventions?\b[^.]{0,30}"
             r"\bremain\w*\s+the\s+property\b)",
+            lower,
+        ):
+            continue
+        # "Intellectual property rights are not exhausted by this sale" and
+        # "Goodwill and intellectual property are excluded from the sale"
+        # describe the scope of what the sale does or does not carry over —
+        # a statutory exhaustion doctrine or a carve-out from the assets
+        # transferred — not a negotiated allocation of IP between the parties.
+        # Genuine IP assignments ("the patent rights are assigned to the
+        # Customer") and licensing (fixture lines 219, 314) have no
+        # exhaustion / excluded-from-sale frame and still fire.  Zero fixture
+        # or test lines use exhaust / carve-out frames (checked against
+        # fixtures/generate_fixtures.py and tests/test_rules.py).
+        if re.search(
+            r"\bexhaust\w*\b[^.]{0,40}\b(?:sale\b|rights?\b)"
+            r"|\b(?:sale\b|rights?\b)[^.]{0,40}\bexhaust\w*\b"
+            r"|\b(?:intellectual\s+property|ip)\b[^.]{0,45}\bexclud\w*\b[^.]{0,35}"
+            r"\bfrom\s+(?:the\s+|this\s+)?sale\b"
+            r"|\bexclud\w*\b[^.]{0,45}\b(?:intellectual\s+property|ip)\b[^.]{0,35}"
+            r"\bfrom\s+(?:the\s+|this\s+)?sale\b",
+            lower,
+        ):
+            continue
+        # "The intellectual property in this report belongs to the author"
+        # states a statutory default ownership (the creator owns the work by
+        # law), not a negotiated allocation between the parties for work under
+        # this contract.  The guard fires before the "belongs to" retention
+        # branch below; genuine clauses ("all right, title and interest ...
+        # belong to the Customer" — fixture line 147) still fire because they
+        # name the Customer as recipient, not an author/creator/inventor.
+        if re.search(
+            r"\bbelongs?\s+to\s+(?:its\s+|the\s+|their\s+)?"
+            r"\b(?:author\w*|creator\w*|inventor\w*)\b",
             lower,
         ):
             continue
@@ -3927,6 +4070,24 @@ def rule_exclusivity(doc, sentences):
             lower,
         ):
             continue
+        # "The product is sold through exclusive dealerships", "The government
+        # granted an exclusive franchise for the toll road" and "The airline
+        # has exclusive rights to the route" are trade-distribution structures
+        # (a dealership/franchise/route network), not a market-exclusivity
+        # grant to sell, license or distribute goods.  Genuine grants
+        # ("exclusive right to sell" — fixture line 146, "sole distributor")
+        # name the exclusive right directly and still fire.  Zero fixture or
+        # test lines use dealership / franchise / route with exclusive
+        # (checked against fixtures/generate_fixtures.py and
+        # tests/test_rules.py).
+        if re.search(
+            r"\bexclusive\s+(?:dealership\w*|distributorship\w*|dealers?\b)\b"
+            r"|\bexclusive\s+(?:franchise\w*|concession\w*)\b"
+            r"|\bexclusive\s+right\w*\s+to\b[^.]{0,20}\broutes?\b"
+            r"|\broutes?\b[^.]{0,30}\bexclusive\s+right\w*\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.MEDIUM
         flag = "exclusivity clause"
         dur = _DURATION_RE.search(sentence)
@@ -4341,6 +4502,53 @@ def rule_data_protection(doc, sentences):
             r"|\bdata\s+protection\s+officer\b[^.]{0,30}"
             r"\b(?:shall\s+be\s+(?:appointed|designated)|must\s+be\s+(?:appointed|"
             r"designated))\b",
+            lower,
+        ):
+            continue
+        # "The transfer of the goalkeeper to another club was completed" is a
+        # football transfer (club-to-club registration of a player), not a
+        # personal-data transfer.  "Land transfer tax is payable on the
+        # purchase" is a conveyancing levy, not data movement.  "The heat
+        # transfer coefficients were measured in the laboratory" is a physics /
+        # engineering quantity.  "The bank transfers interest to the account
+        # monthly" is a funds-credit of interest, not data.  Each guard is
+        # blocked when genuine personal/customer/… data is named, so "Personal
+        # data may be transferred outside the EEA with consent" still fires.
+        # Zero fixture lines use these transfer frames (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\btransfer(?:s|red|ring)?\s+of\s+(?:the\s+)?"
+            r"\b(?:goalkeeper\w*|player\w*|footballer\w*|midfielder\w*|striker\w*)\b"
+            r"|\b(?:goalkeeper\w*|player\w*|footballer\w*|midfielder\w*|striker\w*)\'s\s+"
+            r"transfer",
+            lower,
+        ) and not re.search(
+            r"\b(?:personal|customer|consumer|user|employee|health|financial|"
+            r"banking|credit|identity|biometric)\s+data\b",
+            lower,
+        ):
+            continue
+        if re.search(r"\btransfer\s+(?:tax|duty)\b", lower) and not re.search(
+            r"\b(?:personal|customer|consumer|user|employee|health|financial|"
+            r"banking|credit|identity|biometric)\s+data\b",
+            lower,
+        ):
+            continue
+        if re.search(
+            r"\b(?:heat|mass|energy|fluid|charge|momentum)\s+transfer\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:personal|customer|consumer|user|employee|health|financial|"
+            r"banking|credit|identity|biometric)\s+data\b",
+            lower,
+        ):
+            continue
+        if re.search(
+            r"\btransfer(?:s|red|ring)?\s+(?:an?\s+|the\s+)?interest\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:personal|customer|consumer|user|employee|health|financial|"
+            r"banking|credit|identity|biometric)\s+data\b",
             lower,
         ):
             continue

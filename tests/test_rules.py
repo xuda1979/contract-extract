@@ -4668,3 +4668,135 @@ def test_data_protection_payment_method_transfer_not_data():
     ) if c.clause == "data_protection"]
     assert clauses
 
+
+
+def test_payment_statutory_fine_payable_not_payment():
+    # A statutory levy/civil-penalty payment obligation ("fine payable within
+    # 14 days") is not a contract price-payment duty between the parties.
+    clauses = [c for c in _clauses(
+        "The fine is payable within 14 days of the notice."
+    ) if c.clause == "payment"]
+    assert clauses == []
+    # A genuine invoice payment duty still fires.
+    clauses = [c for c in _clauses(
+        "The invoice must be paid within 14 days of receipt."
+    ) if c.clause == "payment"]
+    assert clauses
+
+
+def test_price_offered_at_price_or_government_price_not_price():
+    # A quoted issuance/offer price ("offered ... at a price") or a state-set
+    # utility tariff is not the price of goods or services under the
+    # Agreement.
+    for s in (
+        "The shares were offered at a price of USD 10 per share.",
+        "The government fixed the electricity price at EUR 0.30 per kWh.",
+    ):
+        clauses = [c for c in _clauses(s) if c.clause == "price"]
+        assert clauses == []
+    # A genuine contract price still fires.
+    clauses = [c for c in _clauses(
+        "The price of the first batch shall be EUR 5,000 per unit."
+    ) if c.clause == "price"]
+    assert clauses
+
+
+def test_penalty_criminal_term_or_penalty_point_not_penalty():
+    # A criminal-law sanction ("penalty of imprisonment") or a sports/contest
+    # scoring reference ("penalty point") is not a contractual default
+    # penalty.
+    for s in (
+        "The penalty for the offence is a term of imprisonment.",
+        "The penalty point ended the game for the losing team.",
+    ):
+        clauses = [c for c in _clauses(s) if c.clause == "penalty"]
+        assert clauses == []
+    # A genuine quantified breach penalty still fires.
+    clauses = [c for c in _clauses(
+        "A late payment penalty of 2% per month shall apply to overdue invoices."
+    ) if c.clause == "penalty"]
+    assert clauses
+
+
+def test_confidentiality_need_to_know_court_order_references_not_confidentiality():
+    # A need-to-know standard, a court-ordered disclosure, or a confidential
+    # references statement is not an agreed secrecy duty between the parties.
+    for s in (
+        "Disclosure is limited to staff on a need-to-know basis.",
+        "The document was ordered confidential by the court.",
+        "The candidate supplied two confidential references.",
+    ):
+        clauses = [c for c in _clauses(s) if c.clause == "confidentiality"]
+        assert clauses == []
+    # A genuine confidentiality obligation still fires.
+    clauses = [c for c in _clauses(
+        "Confidential information shall remain confidential for 3 years after termination."
+    ) if c.clause == "confidentiality"]
+    assert clauses
+
+
+def test_exclusivity_dealership_franchise_route_not_exclusivity():
+    # A dealership/franchise structure or an exclusive right over a transport
+    # route is not an exclusive sales territory grant between the parties.
+    for s in (
+        "The parties agreed an exclusive dealership for the region.",
+        "The brand is sold through an exclusive franchise network.",
+        "The operator holds the exclusive right to the shipping route.",
+    ):
+        clauses = [c for c in _clauses(s) if c.clause == "exclusivity"]
+        assert clauses == []
+    # A genuine exclusive sales-rights grant still fires.
+    clauses = [c for c in _clauses(
+        "The distributor shall have the exclusive right to sell the products in Germany."
+    ) if c.clause == "exclusivity"]
+    assert clauses
+
+
+def test_ip_exhaustion_goodwill_carveout_author_ownership_not_ip():
+    # Exhaustion of rights, an IP exclusion from a sale, or a statutory
+    # author-ownership statement is not a negotiated IP allocation under the
+    # Agreement.
+    for s in (
+        "The resale of the goods exhausts the IP rights.",
+        "Intellectual property is excluded from the sale of the business.",
+        "The intellectual property in this report belongs to the author.",
+    ):
+        clauses = [c for c in _clauses(s) if c.clause == "ip"]
+        assert clauses == []
+    # A genuine assignment clause still fires.
+    clauses = [c for c in _clauses(
+        "All intellectual property rights created under this Agreement are assigned to the Customer."
+    ) if c.clause == "ip"]
+    assert clauses
+
+
+def test_data_protection_sports_tax_physics_finance_transfer_not_data():
+    # A sports transfer, a transfer tax, a physics/engineering transfer, or a
+    # financial interest transfer is not a movement of personal data.
+    for s in (
+        "The goalkeeper's transfer was completed before the deadline.",
+        "The land transfer tax is payable by the buyer.",
+        "Heat transfer through the wall is minimized by insulation.",
+        "The founder transferred an interest in the company to the investor.",
+    ):
+        clauses = [c for c in _clauses(s) if c.clause == "data_protection"]
+        assert clauses == []
+    # A genuine personal-data transfer still fires.
+    clauses = [c for c in _clauses(
+        "Personal data may be transferred outside the EEA with consent."
+    ) if c.clause == "data_protection"]
+    assert clauses
+
+
+def test_acceptance_offer_lapses_formation_not_acceptance():
+    # An offer-lapse formation rule ("offer lapses ... unless accepted") is a
+    # contract-formation mechanic, not a goods acceptance procedure.
+    clauses = [c for c in _clauses(
+        "The offer lapses unless accepted within 14 days."
+    ) if c.clause == "acceptance"]
+    assert clauses == []
+    # A genuine goods acceptance procedure still fires.
+    clauses = [c for c in _clauses(
+        "Acceptance of the goods requires inspection within 7 days."
+    ) if c.clause == "acceptance"]
+    assert clauses
