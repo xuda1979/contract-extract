@@ -145,6 +145,39 @@ def rule_duration(doc, sentences):
         lower = sentence.lower()
         if any(k in lower for k in _DUR_SURVIVAL):
             continue
+        # "The consultant agrees not to provide services to clients of the
+        # Company for 2 years after this agreement" (fixture line 315) is a
+        # post-term restrictive covenant (non-compete / non-solicit), not the
+        # agreement's term.  The exclusivity rule still fires on it (that
+        # firing is expected); the duration firing is the false positive.
+        # The guard requires a covenant verb bound to a negation in the same
+        # sentence plus a length, so a genuine "term of this Agreement shall
+        # be for a period of 2 years" (fixture line 40) still fires.
+        if (
+            re.search(
+                r"\bnot\b[^.]{0,40}\b(?:provide\s+(?:any\s+)?services?|compet\w*|"
+                r"solicit\w*|canvass\w*|poach\w*|recruit\w*|entice\w*|induce\w*)\b",
+                lower,
+            )
+            and re.search(
+                r"\b\d+\s*(?:year\w*|month\w*|week\w*|quarter\w*|day\w*)\b",
+                lower,
+            )
+        ):
+            continue
+        # "The renewal term shall be 12 months" (fixture line 164) states the
+        # length of a renewal period — already captured by the renewal rule
+        # (that firing is expected); the duration firing double-counts the
+        # span as the agreement's term and is the false positive.  Zero
+        # fixture lines pair "renewal term" with an initial-term meaning
+        # (checked against fixtures/generate_fixtures.py); "the term of this
+        # Agreement shall be for a period of 2 years" has no renewal noun.
+        if re.search(
+            r"\brenewal\s+term\b[^.]{0,35}"
+            r"\b\d+\s*(?:year\w*|month\w*|week\w*|day\w*)\b",
+            lower,
+        ):
+            continue
         if _DUR_ILLUSTRATIVE_RE.search(sentence):
             # "For example, a period of 3 weeks may be reasonable" is
             # illustrating, not a binding term.

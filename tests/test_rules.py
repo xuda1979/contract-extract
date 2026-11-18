@@ -5539,3 +5539,26 @@ def test_payment_net_30_days_genuine_term():
         "Payment terms are net 30 days from invoice.",
     ) if c.clause == "payment"]
     assert len(clauses) == 1
+
+
+def test_duration_covenant_and_renewal_term_not_agreement_term():
+    # Round 47.  A post-term restrictive covenant ("not to provide services
+    # ... for N years") and a renewal-term length ("the renewal term shall
+    # be N months") are not the agreement's initial term.
+    assert [c for c in _clauses(
+        "The consultant agrees not to provide services to clients of the Company for 2 years after this agreement.",
+        "The renewal term shall be 12 months.",
+    ) if c.clause == "duration"] == []
+    # The covenant still fires as exclusivity, and the renewal term still
+    # fires as renewal — only the spurious duration firing is suppressed.
+    clauses = _clauses(
+        "The consultant agrees not to provide services to clients of the Company for 2 years after this agreement.",
+        "The renewal term shall be 12 months.",
+    )
+    assert [c for c in clauses if c.clause == "exclusivity"]
+    assert [c for c in clauses if c.clause == "renewal"]
+    # Genuine contract terms still fire.
+    clauses = [c for c in _clauses(
+        "The term of this Agreement shall be 5 years from the Effective Date.",
+    ) if c.clause == "duration"]
+    assert len(clauses) == 1
