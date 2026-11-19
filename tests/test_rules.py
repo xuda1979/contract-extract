@@ -6418,3 +6418,102 @@ def test_round62_self_insurance_valuation_player_cover_premium_and_certificate_n
         "The Supplier shall maintain professional indemnity insurance against all claims.",
     ) if c.clause == "insurance"]
     assert len(clauses) == 1
+
+
+def test_round63_transferred_copyright_and_design_rights_by_law_not_ip_clause():
+    # Round 63.  A past one-off transfer of a completed work's copyright (or
+    # another specific IP right) and a "vests by operation of law" statement
+    # narrate IP ownership facts; they do not allocate future intellectual
+    # property between the parties.  Genuine allocation clauses (fixture
+    # lines 65/185 "shall vest in Licensor/contractor", line 87 "owned by
+    # Client upon full payment") still fire.
+    for s in (
+        "She transferred the copyright to her publisher.",
+        "The design rights vest in the designer by operation of law.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "ip"] == [], s
+    # Genuine IP allocation clauses still fire.
+    clauses = [c for c in _clauses(
+        "All inventions made by Provider shall be assigned to Client.",
+        "The work product created under this Agreement shall be owned by Client upon full payment.",
+        "Provider grants Client a license to use the deliverables.",
+    ) if c.clause == "ip"]
+    assert len(clauses) == 3
+    # Genuine "shall vest in" allocations still fire (fixture lines 65/185).
+    clauses = [c for c in _clauses(
+        "All works made for hire and related intellectual property shall vest in Licensor.",
+        "All works made for hire vest in the contractor.",
+    ) if c.clause == "ip"]
+    assert len(clauses) == 2
+
+
+def test_round63_transferred_specific_ip_right_not_data_protection():
+    # Round 63.  The gate keyword "transferred" admits a past transfer of a
+    # specific IP right into rule_data_protection; the guard pins the
+    # copyright/trademark/patent noun so it does not fire.  Genuine personal
+    # data transfers (fixture line 89) still fire.
+    assert [c for c in _clauses(
+        "She transferred the copyright to her publisher.",
+    ) if c.clause == "data_protection"] == []
+    # A genuine data transfer still fires.
+    clauses = [c for c in _clauses(
+        "Any data transferred outside the EEA requires appropriate safeguards.",
+    ) if c.clause == "data_protection"]
+    assert len(clauses) == 1
+
+
+def test_round63_strict_liability_regime_not_cap():
+    # Round 63.  "Covered by a strict liability regime" restates the
+    # strict-liability tort doctrine as a factual product attribute — not an
+    # agreed cap, disclaimer or exclusion.  A genuine cap still fires.
+    for s in (
+        "The product is covered by a strict liability regime.",
+        "The product is covered by an absolute liability regime.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "liability_cap"] == [], s
+    clauses = [c for c in _clauses(
+        "Provider indemnifies Client against all claims arising from the Services.",
+        "The Supplier shall be liable for all damages caused to the venue.",
+        "Each party's aggregate liability under this Agreement is capped at USD 1,000,000.",
+    ) if c.clause == "liability_cap"]
+    assert len(clauses) == 3
+
+
+def test_round63_report_contains_and_meeting_notes_and_witness_identity_not_confidentiality():
+    # Round 63.  A report that happens to hold confidential information, an
+    # instruction to keep meeting notes confidential, and a witness-identity
+    # protection statement are not agreed secrecy duties between the parties.
+    # Genuine confidentiality obligations still fire (fixture line 306).
+    for s in (
+        "The report contains confidential information about the patients.",
+        "Please keep the meeting notes confidential.",
+        "The witness's identity was kept confidential.",
+        "The victim's identity was kept confidential.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "confidentiality"] == [], s
+    clauses = [c for c in _clauses(
+        "The Receiving Party shall keep the Confidential Information strictly confidential for 3 years.",
+        "This Agreement and its terms shall remain confidential for the term.",
+        "The parties agreed that settlement terms shall be kept confidential.",
+    ) if c.clause == "confidentiality"]
+    assert len(clauses) == 3
+
+
+def test_round63_ban_lock_in_and_data_retention_period_not_duration():
+    # Round 63.  A ban's effective window, a market lock-in period and a
+    # recordkeeping retention window are not the negotiated term of the
+    # agreement.  Genuine agreement terms still fire (fixture lines 40 and
+    # 358).
+    for s in (
+        "The ban lasts for a period of 10 years.",
+        "The duration of the ban is 5 years.",
+        "The lock-in period is 2 years.",
+        "The data retention period is 3 years.",
+        "The record retention period is 7 years.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "duration"] == [], s
+    clauses = [c for c in _clauses(
+        "This Agreement shall commence on the Effective Date and continue for 2 years.",
+        "The term of this Agreement shall be 3 years from the date hereof.",
+    ) if c.clause == "duration"]
+    assert len(clauses) == 2

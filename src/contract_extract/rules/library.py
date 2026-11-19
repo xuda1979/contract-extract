@@ -487,6 +487,45 @@ def rule_duration(doc, sentences):
             lower,
         ):
             continue
+        # "The data retention period is 3 years" / "The record retention period
+        # is 7 years" state a recordkeeping / data-retention window (a
+        # statutory or corporate retention policy), not the negotiated term of
+        # the agreement.  The recordkeeping guard above requires
+        # "records ... retained/kept ... for a period of" (verb form); the
+        # "retention period" compound (noun form) needs its own guard.
+        # Genuine durations ("The term of this Agreement shall be for a period
+        # of 2 years" — fixture line 40) never bind the "retention period"
+        # compound, so they still fire.  Zero fixture lines use "retention
+        # period" (fixture line 181 "Retention of 10% of each invoice" and
+        # line 220 "retention bonus" are not the compound; checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:data|record\w*|document\w*|information)\s+retention\s+period\b",
+            lower,
+        ):
+            continue
+        # "The ban lasts for a period of 10 years" is the effective window of
+        # a prohibition or sanction imposed by a rule (a ban's duration), not
+        # the term of an agreement.  The legal-instrument guard above catches
+        # "term/duration/period of the ban" (ban as object); this guard covers
+        # ban as subject with a following period/term/duration.  Genuine
+        # agreement terms ("the term of this Agreement shall be for a period
+        # of 2 years" — fixture line 40) carry no ban noun and still fire.
+        # Zero fixture lines mention bans (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bbans?\b[^.]{0,45}\b(?:period|term|duration)\b"
+            r"|\b(?:period|term|duration)\b[^.]{0,45}\bbans?\b",
+            lower,
+        ):
+            continue
+        # "The lock-in period is 2 years" is a market / contractual lock-in
+        # window (a customer or supplier tied-in period), not the term of the
+        # agreement itself.  Genuine agreement terms carry no "lock-in" noun
+        # and still fire.  Zero fixture lines use "lock-in" (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(r"\block[- ]?in\s+period\b", lower):
+            continue
         # "She taught piano for a period of 20 years before retiring" is a
         # biographical/life-history statement, not an agreement term: the
         # duration belongs to a past personal activity, not to any agreement
@@ -2883,6 +2922,24 @@ def rule_liability(doc, sentences):
             lower,
         ):
             continue
+        # "The product is covered by a strict liability regime" states that a
+        # product falls under a strict-liability legal scheme (tort doctrine —
+        # typically Product Liability) as a factual/legal attribute; it is not
+        # an agreed cap, disclaimer or exclusion between the parties.  The
+        # guard requires a regime / passive-cover frame bound to the
+        # strict/absolute liability compound (the verb guard above covers the
+        # create/impose/found verbs but not the "covered by ... regime"
+        # passive frame).  Zero fixture lines pair "strict/absolute liability"
+        # with a regime or covered-by frame (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:strict|absolute)\s+liability\b[^.]{0,45}"
+            r"\b(?:regime\w*|covered\s+by|subject\s+to)\b"
+            r"|\b(?:regime\w*|covered\s+by|subject\s+to)\b[^.]{0,45}"
+            r"\b(?:strict|absolute)\s+liability\b",
+            lower,
+        ):
+            continue
         # "He admitted liability for the accident" / "The defendant's liability
         # was established at trial" / "The auditor disclaimed liability for the
         # report" report a past, factual legal outcome (an admission, a
@@ -3573,8 +3630,25 @@ def rule_confidentiality(doc, sentences):
         ):
             continue
         if re.search(
-            r"\bthis\s+document\b[^.]{0,30}\bcontain(?:s|ing)?\b[^.]{0,30}"
+            r"\b(?:this\s+document|the\s+report|the\s+file|the\s+letter)\b"
+            r"[^.]{0,30}\bcontain(?:s|ing)?\b[^.]{0,30}"
             r"\bconfidential\s+(?:information|data|material\w*)\b",
+            lower,
+        ):
+            continue
+        # "Please keep the meeting notes confidential" / "The minutes of the
+        # meeting shall remain confidential" is a note-handling instruction for
+        # a corporate meeting (governance of the meeting minutes), not a
+        # contractual duty of secrecy between the parties over the contract's
+        # information.  The minutes guard below already covers the "minutes of
+        # the meeting" frame; the "meeting notes" compound is the note-taking
+        # variant of the same family.  Genuine obligations ("information
+        # received during negotiations shall remain confidential for 3 years")
+        # have no meeting-notes frame and still fire.  Zero fixture lines use
+        # "meeting notes" (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bmeeting\s+notes?\b[^.]{0,40}\bconfidential\w*\b"
+            r"|\bconfidential\w*\b[^.]{0,40}\bmeeting\s+notes?\b",
             lower,
         ):
             continue
@@ -3614,6 +3688,24 @@ def rule_confidentiality(doc, sentences):
             r"\bwhistleblow\w*\b[^.]{0,40}\bconfidential\w*\b"
             r"|\bwhistleblow\w*\b[^.]{0,40}\b(?:kept|held|revealed|disclosed)\b"
             r"[^.]{0,30}\bconfidential\w*\b",
+            lower,
+        ):
+            continue
+        # "The witness's identity was kept confidential" is a witness-/
+        # victim-protection statement (who may be identified in proceedings),
+        # not a contractual secrecy duty between the parties — the same
+        # identity-protection family as the whistleblower guard above.
+        # Genuine obligations ("information received during negotiations shall
+        # remain confidential for 3 years") carry no witness/victim identity
+        # frame and still fire.  Zero fixture lines pair a witness/victim/
+        # informant identity with "confidential" (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:witness\w*|victim\w*|informant\w*|juror\w*|complainant\w*)"
+            r"\s*'s\s+identity\b[^.]{0,40}\bconfidential\w*\b"
+            r"|\bidentity\s+of\b[^.]{0,25}\b(?:witness\w*|victim\w*|"
+            r"informant\w*|juror\w*|complainant\w*)\b[^.]{0,40}"
+            r"\bconfidential\w*\b",
             lower,
         ):
             continue
@@ -4379,6 +4471,39 @@ def rule_ip(doc, sentences):
             r"|\b(?:museum\w*|author\w*|artist\w*|photographer\w*|musician\w*|"
             r"band\w*|composer\w*|galler\w*|studio\w*)\b[^.]{0,30}"
             r"\bowns?\b[^.]{0,30}\b(?:copyright\w*|trademark\w*|patent\w*)\b",
+            lower,
+        ):
+            continue
+        # "She transferred the copyright to her publisher" narrates a one-off
+        # past assignment of a completed work (a transfer-of-copyright
+        # transaction), not an allocation of future intellectual property
+        # between the parties.  Genuine allocation clauses ("All intellectual
+        # property created by Provider shall be owned by Client upon full
+        # payment" — fixture line 87) bind future creation and never phrase
+        # the transfer as a past "transferred the copyright/trademark/patent",
+        # so they still fire.  Zero fixture lines pair a past transfer of a
+        # specific IP right (checked against fixtures/generate_fixtures.py;
+        # fixture line 89 "data transferred outside the EEA" is a data
+        # transfer with an obligation frame and lives in rule_data_protection).
+        if re.search(
+            r"\btransferred\b[^.]{0,40}\b(?:copyright\w*|trademark\w*|patent\w*|"
+            r"design\s+rights?|intellectual\s+property)\b"
+            r"|\b(?:copyright\w*|trademark\w*|patent\w*|design\s+rights?|"
+            r"intellectual\s+property)\b[^.]{0,40}\btransferred\b",
+            lower,
+        ):
+            continue
+        # "The design rights vest in the designer by operation of law" states
+        # that ownership attaches automatically under a statutory rule (by
+        # operation of law), not through a contractual allocation between the
+        # parties.  Genuine allocation clauses use "shall vest in Licensor /
+        # contractor" (fixture lines 65/185) without the statutory phrase, so
+        # requiring "by operation of law" keeps them firing.  Zero fixture
+        # lines pair vesting with "by operation of law" (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bvest\w*\b[^.]{0,50}\bby\s+operation\s+of\s+law\b"
+            r"|\bby\s+operation\s+of\s+law\b[^.]{0,50}\bvest\w*\b",
             lower,
         ):
             continue
@@ -6022,6 +6147,24 @@ def rule_data_protection(doc, sentences):
             r"|\b(?:no|not|nothing|neither)\b[^.]{0,40}"
             r"\b(?:transfer(?:s|red)?|assign(?:s|ed|ing)?)\b[^.]{0,60}"
             r"\b(?:rights?|ownership|title)\b",
+            lower,
+        ):
+            continue
+        # "She transferred the copyright to her publisher" narrates a one-off
+        # transfer of a specific IP right (a completed-work assignment), not a
+        # personal-data transfer.  The gate keywords "transfer"/"transferred"
+        # admit it, so the guard pins the IP-noun object in both word orders.
+        # Genuine data transfers ("personal data transferred outside the EEA",
+        # fixture line 89) carry no copyright/trademark/patent noun and still
+        # fire.  Zero fixture lines bind a transfer verb to a specific IP
+        # right (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:copyright\w*|trademark\w*|patent\w*|design\s+rights?|"
+            r"intellectual\s+property)\b[^.]{0,40}"
+            r"\b(?:transferr?ed|transferring|transfers?)\b"
+            r"|\b(?:transferr?ed\b|transferring|transfers?)\b[^.]{0,40}"
+            r"\b(?:copyright\w*|trademark\w*|patent\w*|design\s+rights?|"
+            r"intellectual\s+property)\b",
             lower,
         ):
             continue
