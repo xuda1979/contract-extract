@@ -6275,3 +6275,63 @@ def test_round55_insurance_premium_refund_and_defence_cooperation_not_duty():
         "The Contractor shall maintain comprehensive general liability insurance.",
     ) if c.clause == "insurance"]
     assert len(clauses) == 1
+
+
+def test_round61_consumer_market_tariff_prices_not_contract_price():
+    # Round 61.  Consumer / market / tariff price tags (airline tickets,
+    # listed homes, parking meters, museum entrances, tradespeople's hourly
+    # rates, payroll figures) quote a going rate or a published tariff, not
+    # the price of goods or services under this Agreement.  The wages/salary
+    # guard requires the pair so the fixture's "Base salary of USD 180,000
+    # per annum" (no "wages") still fires (fixture line 215).
+    for s in (
+        "The airline ticket price is now USD 450 for a return flight.",
+        "The asking price for the house is USD 400,000.",
+        "The parking charge is USD 3 per hour in the city centre.",
+        "The entrance fee for the museum is USD 15 per adult.",
+        "The hourly rate charged by the plumber is EUR 60.",
+        "Wages for the new hires are set at an annual salary of EUR 48,000.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "price"] == [], s
+    # Genuine contract prices still fire.
+    clauses = [c for c in _clauses(
+        "The Buyer shall purchase the Goods at the price of USD 24.50 per unit.",
+        "The Supply price shall be USD 12.00 per unit for the first year.",
+        "Base salary of USD 180,000 per annum, payable in equal monthly instalments.",
+    ) if c.clause == "price"]
+    assert len(clauses) == 3
+
+
+def test_round61_generic_privacy_and_statutory_duty_not_data_protection_clause():
+    # Round 61.  A consumer-policy "privacy statement", an everyday "more
+    # privacy" / "personal life" wish, and a statutory "data protection laws
+    # require companies to ..." duty are not inter-party processing /
+    # transfer / breach covenants.
+    for s in (
+        "The magazine published a privacy statement about its readers.",
+        "She asked for more privacy in her personal life.",
+        "Data protection laws require companies to safeguard customer details.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "data_protection"] == [], s
+    # Genuine data-protection covenants still fire.
+    clauses = [c for c in _clauses(
+        "All personal data shall be processed in accordance with the GDPR.",
+        "Any data transferred outside the EEA shall be subject to the standard contractual clauses.",
+        "Personal data of employees shall be processed under the employer's privacy policy.",
+    ) if c.clause == "data_protection"]
+    assert len(clauses) == 3
+
+
+def test_round61_exclusive_dining_menu_not_exclusivity_clause():
+    # Round 61.  "The chef prepared an exclusive tasting menu for the guests."
+    # uses exclusive as a hospitality adjective; the negative leg keeps
+    # "exclusive rights/license/grant" live.
+    assert [c for c in _clauses(
+        "The chef prepared an exclusive tasting menu for the guests.",
+    ) if c.clause == "exclusivity"] == []
+    # Genuine exclusivity grants still fire.
+    clauses = [c for c in _clauses(
+        "The Licensor grants to the Licensee an exclusive license grant for the Territory.",
+        "The distributor shall have the exclusive right to sell the products within the Territory.",
+    ) if c.clause == "exclusivity"]
+    assert len(clauses) == 2

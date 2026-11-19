@@ -1079,6 +1079,55 @@ def rule_price(doc, sentences):
             lower,
         ):
             continue
+        # "The airline ticket price is now USD 450", "The asking price for the
+        # house is USD 400,000" and "The parking charge is USD 3 per hour"
+        # quote a consumer / market price tag (tickets, listed homes, parking
+        # tariffs) instead of the price of goods or services under this
+        # Agreement.  "The entrance fee for the museum is USD 15 per adult" is
+        # a venue tariff, "The hourly rate charged by the plumber is EUR 60"
+        # quotes a tradesperson's going rate, and "Wages for the new hires are
+        # set at an annual salary of EUR 48,000" reports a payroll figure.
+        # Genuine contract prices (fixture 41 "the price of USD 24.50 per
+        # unit", 148 "Supply price USD 12.00 per unit", 215 "Base salary of
+        # USD 180,000 per annum" -- which lacks the wages/salary pairing --
+        # and 327 "Base rent of USD 48,000 per year") are framed as a
+        # purchase/supply price for goods/services and lack these consumer /
+        # market / tariff nouns.  Zero fixture lines pair ticket/asking/
+        # parking/entrance with price or match an hourly-rate-plus-occupation
+        # frame (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bticket\w*[^.]{0,15}price\b|\bprice\b[^.]{0,15}ticket\w*",
+            lower,
+        ):
+            continue
+        if re.search(r"\basking\s+price\b", lower):
+            continue
+        if re.search(r"\bparking\b[^.]{0,20}\b(?:charge\w*|fees?|rate\w*)\b", lower):
+            continue
+        if re.search(
+            r"\b(?:entrance|admission|entry)\s+(?:charge\w*|fees?)\b",
+            lower,
+        ):
+            continue
+        if re.search(
+            r"\bhourly\s+rate\b[^.]{0,40}\b(?:plumber\w*|electrician\w*|"
+            r"mechanic\w*|handyman\w*|gardener\w*|cleaner\w*|tutor\w*|"
+            r"consultant\w*|lawyer\w*|attorney\w*)\b"
+            r"|\b(?:plumber\w*|electrician\w*|mechanic\w*|handyman\w*|"
+            r"gardener\w*|cleaner\w*|tutor\w*|consultant\w*|lawyer\w*|"
+            r"attorney\w*)\b[^.]{0,30}\bhourly\s+rate\b",
+            lower,
+        ):
+            continue
+        # A "wages ... annual salary" pairing is payroll reporting, not a
+        # goods/services price; the guard requires both nouns so the genuine
+        # "Base salary of USD 180,000 per annum" fixture line still fires.
+        if re.search(
+            r"\bwages?\b[^.]{0,40}\bsalar\w*\b"
+            r"|\bsalar\w*\b[^.]{0,40}\bwages?\b",
+            lower,
+        ):
+            continue
         flag = f"price: {detail}"
         if any(k in lower for k in ("in advance", "advance payment", "upon execution",
                                     "upfront", "payable in advance", "non-refundable")):
@@ -5765,7 +5814,8 @@ def rule_exclusivity(doc, sentences):
             r"\bexclusive\s+(?:fragrance\w*|perfume\w*|research\s+grant\w*|"
             r"scholarship\w*|bursar\w*|fellowship\w*|discount\w*|coupon\w*|"
             r"offer\w*|promotion\w*|(?:theatre\s+)?release\w*|screening\w*|"
-            r"showing\w*|collection\w*|edition\w*)\b",
+            r"showing\w*|collection\w*|edition\w*|(?:tasting\s+)?menus?\b|"
+            r"dining\s+experience\w*|degustation\w*)\b",
             lower,
         ) and not re.search(r"\bexclusive\s+(?:right\w*|licen[cs]e\w*|grant\w*)\b", lower):
             continue
@@ -6452,6 +6502,29 @@ def rule_data_protection(doc, sentences):
             r"\b(?:issu\w*|publish\w*|releas\w*|updated?)\b[^.]{0,25}"
             r"\bguid\w*\b[^.]{0,30}\bdata\s+protection\b"
             r"|\bdata\s+protection\b[^.]{0,30}\bguid\w*\b",
+            lower,
+        ):
+            continue
+        # "The magazine published a privacy statement about its readers" and
+        # "She asked for more privacy in her personal life" use privacy as a
+        # consumer-policy or lifestyle noun, not an inter-party processing /
+        # transfer obligation.  "Data protection laws require companies to
+        # safeguard customer details" states a statutory duty imposed on
+        # companies generally rather than a processing covenant between the
+        # parties here.  Each guard keys on the distinctive frame (a privacy
+        # *statement*, "more privacy"/personal life, "data protection laws" +
+        # require); genuine covenants ("The Processor shall process personal
+        # data in accordance with the GDPR" fixture 69/186, "data transferred
+        # outside the EEA" fixture 89, "under the employer's privacy policy"
+        # fixture 223) lack these frames and still fire.  Zero fixture lines
+        # match these frames (checked against fixtures/generate_fixtures.py).
+        if re.search(r"\bprivacy\s+statement\b", lower):
+            continue
+        if re.search(r"\bmore\s+privacy\b|\bpersonal\s+life\b", lower):
+            continue
+        if re.search(
+            r"\bdata\s+protection\s+laws?\b[^.]{0,45}\brequire\w*\b"
+            r"|\brequire\w*\b[^.]{0,25}\bcompanies\b[^.]{0,25}\bdata\s+protection\b",
             lower,
         ):
             continue
