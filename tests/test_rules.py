@@ -6722,3 +6722,111 @@ def test_round65_data_protection_transfer_of_asset_customer_secure_not_pd():
         "The parties shall transfer personal data only under standard contractual clauses.",
     ) if c.clause == "data_protection"]
     assert len(clauses) == 2
+
+
+def test_round66_price_consumer_event_market_quote_not_contract_price():
+    # Round 66.  An event admission ticket, a commodity/market price report,
+    # a handyman service quotation and a labelled retail sticker price are
+    # not prices agreed between commercial parties.  Genuine purchase prices
+    # and fees still fire (fixture lines 99, 148, 153).
+    for s in (
+        "The admission price for the concert is USD 55.",
+        "The price of coffee has risen by 20% this year.",
+        "They agreed on a price of USD 120 for the cleaning service.",
+        "The sticker price of the new phone is USD 999.",
+        "He quoted a price of USD 200 for the painting job.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "price"] == [], s
+    clauses = [c for c in _clauses(
+        "The purchase price for the Shares is USD 1,000,000.",
+        "Customer shall pay the license fee of EUR 5,000 upon execution.",
+    ) if c.clause == "price"]
+    assert len(clauses) == 2
+
+
+def test_round66_insurance_consumer_policy_statements_not_requirement():
+    # Round 66.  A benefits-schedule start date, a price-inclusion note, a
+    # personal travel purchase, a vehicle repair narration, an informational
+    # brochure and a past valuation change are not duties on a party to
+    # maintain insurance.  The genuine cover duty (fixture line 87) and
+    # professional indemnity duty still fire.
+    for s in (
+        "Insurance coverage under the health plan begins on 1 January.",
+        "The rental price includes basic insurance.",
+        "She decided to take out travel insurance for the holiday.",
+        "The insurer covers the cost of repairs to the vehicle.",
+        "Insurance brochures are available at the front desk.",
+        "The insured amount was reduced last year.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "insurance"] == [], s
+    clauses = [c for c in _clauses(
+        "The Company shall insure the Goods against loss or damage.",
+    ) if c.clause == "insurance"]
+    assert len(clauses) == 1
+
+
+def test_round66_duration_credential_window_not_agreement_term():
+    # Round 66.  The validity window of a consumer credential, travel
+    # document, administrative permission, training event, club membership or
+    # a policy cover are not the negotiated term of the reviewed agreement.
+    # Genuine term-of-Agreement durations still fire (fixture lines 40, 102).
+    for s in (
+        "The season ticket is valid for a period of 12 months.",
+        "The visa was granted for a period of 6 months.",
+        "The construction permit is valid for a period of 2 years.",
+        "The workshop runs for a period of 3 days.",
+        "Membership of the club lasts for a period of 12 months.",
+        "The insurance policy remains in force for a period of 10 years.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "duration"] == [], s
+    clauses = [c for c in _clauses(
+        "This Agreement shall commence on the Effective Date and continue for 2 years.",
+        "The initial term shall be 3 years from the date hereof.",
+    ) if c.clause == "duration"]
+    assert len(clauses) == 2
+
+
+def test_round66_confidentiality_descriptive_mention_not_obligation():
+    # Round 66.  A mediation sitting, document storage, an accidental
+    # disclosure narration, an access-policy statement, an archival move, a
+    # private conversation channel, a housekeeping note and email metadata
+    # are not secrecy obligations between the parties.  Genuine NDA duties
+    # still fire (fixture lines 53-56, 116, 166, 230, 246).
+    for s in (
+        "The mediation took place in a confidential session.",
+        "Confidential documents are stored in a locked cabinet.",
+        "She accidentally shared confidential information with her colleague.",
+        "Access to confidential records is restricted to authorised personnel.",
+        "The confidential files were transferred to the archive.",
+        "He discussed confidential matters over the phone.",
+        "All confidential material was returned after the meeting.",
+        "The email contained confidential attachments.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "confidentiality"] == [], s
+    clauses = [c for c in _clauses(
+        "The Receiving Party shall keep the Confidential Information strictly confidential for 3 years.",
+        "The parties shall return all Confidential Information upon termination.",
+    ) if c.clause == "confidentiality"]
+    assert len(clauses) == 2
+
+
+def test_round66_data_protection_administrative_mention_not_pd():
+    # Round 66.  A marketing analysis, a retention window, a device-to-device
+    # file move, an archival move, an anonymisation note, an encrypted-drive
+    # storage statement and an IT logging note are not personal-data
+    # processing or transfer covenants.  Genuine processing/transfer duties
+    # still fire (fixture lines 69, 89, 186, 223).
+    for s in (
+        "The company processes personal data for marketing purposes.",
+        "Personal data is retained for a period of 7 years.",
+        "He transferred the data from his old laptop to the new one.",
+        "Anonymised data falls outside the scope of the data protection law.",
+        "The researcher stored personal data on an encrypted drive.",
+        "The system records every data transfer automatically.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "data_protection"] == [], s
+    clauses = [c for c in _clauses(
+        "Provider shall process personal data in accordance with the GDPR.",
+        "The parties shall transfer personal data only under standard contractual clauses.",
+    ) if c.clause == "data_protection"]
+    assert len(clauses) == 2

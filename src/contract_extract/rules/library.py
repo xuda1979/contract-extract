@@ -554,6 +554,44 @@ def rule_duration(doc, sentences):
             lower,
         ):
             continue
+        # "The season ticket is valid for a period of 12 months", "The visa was
+        # granted for a period of 6 months", "The construction permit is valid
+        # for a period of 2 years", "The workshop runs for a period of 3 days"
+        # and "Membership of the club lasts for a period of 12 months" state the
+        # validity window of a consumer credential / travel document /
+        # administrative permission / training event / club membership, not the
+        # negotiated term of an agreement.  Genuine agreement terms ("The term
+        # of this Agreement shall be for a period of 2 years" — fixture line 40)
+        # carry no such credential or event noun.  Zero fixture lines bind these
+        # nouns to a "valid/runs/lasts for a period of" frame (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:season\s+ticket\w*|visa\w*|construction\s+permit\w*|"
+            r"workshop\w*|membership\w*|permits?|licen[cs]e\b)\b[^.]{0,45}"
+            r"\b(?:valid\s+for\b|runs?\s+for\b|lasts?\s+for\b|granted\s+for\b)"
+            r"[^.]{0,25}\bperiod\s+of\b"
+            r"|\b(?:valid\s+for\b|runs?\s+for\b|lasts?\s+for\b|granted\s+for\b)"
+            r"[^.]{0,25}\bperiod\s+of\b[^.]{0,45}"
+            r"\b(?:season\s+ticket\w*|visa\w*|construction\s+permit\w*|"
+            r"workshop\w*|membership\w*|permits?|licen[cs]e\b)\b",
+            lower,
+        ):
+            continue
+        # "The insurance policy remains in force for a period of 10 years" is a
+        # policy-cover window (how long the policy stays in force), not the
+        # term of the reviewed agreement; the bank-guarantee guard above
+        # requires "bank guarantee", which is absent here.  Genuine agreement
+        # durations ("This Agreement shall remain in force for a period of 3
+        # years") carry no policy noun.  Zero fixture lines bind an insurance
+        # policy to an "in force ... period of" frame (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\binsurance\s+(?:policy|cover|contract)\w*\b[^.]{0,35}"
+            r"\b(?:in\s+force|remains?\s+in\s+effect|valid)\b[^.]{0,25}"
+            r"\bperiod\s+of\b",
+            lower,
+        ):
+            continue
         m = _DUR_PAT1.search(sentence) or _DUR_PAT4.search(sentence) or _DUR_PAT5.search(sentence)
         if not m:
             continue
@@ -1244,6 +1282,48 @@ def rule_price(doc, sentences):
             r"|\bfines?\s+price\b[^.]{0,40}\b(?:parking|traffic|speeding)\b",
             lower,
         ):
+            continue
+        # "The admission price for the concert is USD 55" is the ticket price of
+        # an event for consumers, not a price agreed between commercial parties.
+        # The existing entrance/admission guard requires "charge/fee(s)" after
+        # the noun, which "admission price" lacks.  Genuine fixture prices
+        # (purchase/supply price for goods/services) carry no event-admission
+        # noun (checked against fixtures/generate_fixtures.py).
+        if re.search(r"\badmission\s+price\b", lower):
+            continue
+        # "The price of coffee has risen by 20% this year" is commodity/market
+        # price reporting (a consumer good), not a contractual price.  The
+        # guard pins the commodity noun near "price".  No fixture line pairs a
+        # commodity with a price (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bprice\b[^.]{0,25}\b(?:coffee|oil|gold|wheat|sugar|rice\b|"
+            r"petrol\b|fuel\b)\b"
+            r"|\b(?:coffee|oil|gold|wheat|sugar|rice\b|petrol\b|fuel\b)\b"
+            r"[^.]{0,25}\bprice\b",
+            lower,
+        ):
+            continue
+        # "They agreed on a price of USD 120 for the cleaning service" / "He
+        # quoted a price of USD 200 for the painting job" recount a
+        # handyman/service quotation (a consumer job estimate), not a
+        # contractually binding price between the parties.  Genuine fixture
+        # prices are framed as purchase/supply price (fixture 41, 148) or a
+        # price for the Shares, and lack the agree/quote-a-price-for-a-job
+        # frame.  No fixture line uses "agreed/quoted a price" (checked
+        # against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:agreed\s+on\s+a\s+price|quoted\s+a\s+price|"
+            r"agreed\s+price\b[^.]{0,30}\bfor\s+(?:a|the)\s+)\b"
+            r"|\bprice\b[^.]{0,20}\b(?:service|job|repair|cleaning|painting)\b",
+            lower,
+        ):
+            continue
+        # "The sticker price of the new phone is USD 999" is a labelled retail
+        # price of a consumer product, not a price agreed in a commercial
+        # contract.  Genuine fixture prices carry no retail/market label
+        # (checked against fixtures/generate_fixtures.py).
+        if re.search(r"\bsticker\s+price\b", lower):
             continue
         flag = f"price: {detail}"
         if any(k in lower for k in ("in advance", "advance payment", "upon execution",
@@ -4112,6 +4192,48 @@ def rule_confidentiality(doc, sentences):
             lower,
         ):
             continue
+        # The following guards cover descriptive / administrative mentions of
+        # confidentiality outside any secrecy obligation between the parties —
+        # a mediation sitting, document storage, a narration of an accidental
+        # disclosure, an access-policy statement, an archival move, a private
+        # conversation channel, a housekeeping note after a meeting, and email
+        # metadata.  Genuine duties keep the keep-secret / return-or-destroy
+        # frame (fixture lines 53-56, 116, 166, 230, 246, 287, 372, 401) with
+        # none of these descriptive frames (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bconfidential\b[^.]{0,20}\bsession\b"
+            r"|\bmediation\b[^.]{0,35}\bconfidential\b",
+            lower,
+        ):
+            continue
+        if re.search(
+            r"\bconfidential\b[^.]{0,25}\b(?:documents?|files?|records?|material\w*)"
+            r"\b[^.]{0,30}\b(?:stored?|kept|lock\w*|cabinet\w*|archiv\w*|"
+            r"filed|held|transferred?|return\w*)\b",
+            lower,
+        ):
+            continue
+        if re.search(r"\baccidentally\s+shared\b[^.]{0,30}\bconfidential\b", lower):
+            continue
+        if re.search(
+            r"\bconfidential\b[^.]{0,25}\b(?:access|restrict\w*|authori[sz]\w*)\b"
+            r"|\b(?:access|restrict\w*|authori[sz]\w*)\b[^.]{0,25}\bconfidential\b",
+            lower,
+        ):
+            continue
+        if re.search(
+            r"\bconfidential\b[^.]{0,25}\b(?:matters?|conversations?|calls?)"
+            r"\b[^.]{0,20}\b(?:over|by)\b[^.]{0,15}\b(?:phone|telephone)\b",
+            lower,
+        ):
+            continue
+        if re.search(
+            r"\bconfidential\b[^.]{0,20}\battachments?\b"
+            r"|\bemail\w*\b[^.]{0,25}\bconfidential\b",
+            lower,
+        ):
+            continue
         dur = _DURATION_RE.search(sentence)
         risk = RiskLevel.LOW
         flag = "confidentiality clause"
@@ -6963,6 +7085,81 @@ def rule_data_protection(doc, sentences):
             lower,
         ):
             continue
+        # "She accidentally shared confidential information" and "the file
+        # contained personal data" use personal data as a descriptive mention
+        # (of a leaked document) rather than a processing or transfer
+        # obligation.
+        if re.search(r"\baccidentally\s+shared\b[^.]{0,30}\bpersonal\s+data\b", lower):
+            continue
+        # "The company processes personal data for marketing purposes" names a
+        # generic business activity (marketing analysis), not an inter-party
+        # processing covenant.  Genuine covenants ("The Processor shall process
+        # personal data in accordance with the GDPR"; fixture lines 30, 186)
+        # name a counterparty duty and lack the marketing frame.  No fixture
+        # line binds "personal data" to marketing (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bpersonal\s+data\b[^.]{0,45}\b(?:marketing|advertising|"
+            r"research|survey|analytics)\b",
+            lower,
+        ):
+            continue
+        # "Personal data is retained for a period of 7 years" mirrors the
+        # recordkeeping duration guards (records retention), it describes a
+        # retention window for stored personal data, not a processing / transfer
+        # covenant; genuine covenants are processing/transfer duties.
+        if re.search(
+            r"\bpersonal\s+data\b[^.]{0,40}\b(?:is\s+retained|retained\b|"
+            r"stored\b)\b[^.]{0,40}\bfor\s+(?:a\s+)?period\s+of\b",
+            lower,
+        ):
+            continue
+        # "He transferred the data from his old laptop to the new one" is a
+        # description of moving files between devices (an IT action), not a
+        # compliance-relevant personal-data transfer between parties.  Genuine
+        # cross-border transfers (fixture line 89) carry no device noun.
+        if re.search(
+            r"\btransferred?\s+(?:the\s+|all\s+)?data\b[^.]{0,40}"
+            r"\b(?:laptop|phone|device|computer|drive|folder)\b",
+            lower,
+        ):
+            continue
+        # "The confidential files were transferred to the archive" is a
+        # records-retention archiving action (moving documents to storage),
+        # admitted by the bare "transferred" gate keyword, not a personal-data
+        # transfer.  Genuine data transfers name personal/customer data and
+        # lack the confidential-files-to-archive frame.
+        if re.search(
+            r"\bconfidential\b[^.]{0,35}\b(?:files?|documents|records|material)\b"
+            r"[^.]{0,35}\btransferred\b[^.]{0,25}\b(?:archive|storage)\b",
+            lower,
+        ):
+            continue
+        # "Anonymised data falls outside the scope of the data protection law"
+        # states a legal-scope observation about anonymised data, not a
+        # processing / transfer covenant.
+        if re.search(r"\banonymi[sz]\w+\s+data\b", lower):
+            continue
+        # "The researcher stored personal data on an encrypted drive" is a
+        # storage-capability statement, not a transfer/processing covenant.
+        if re.search(
+            r"\bpersonal\s+data\b[^.]{0,40}\b(?:stored?|kept|held)\b[^.]{0,25}"
+            r"\b(?:encrypt\w*|drive|server)\b"
+            r"|\b(?:stored?|kept|held)\b[^.]{0,40}"
+            r"\bpersonal\s+data\b[^.]{0,25}"
+            r"\b(?:encrypt\w*|drive|server)\b",
+            lower,
+        ):
+            continue
+        # "The system records every data transfer automatically" is an IT
+        # logging statement — every transfer is logged — not a personal-data
+        # transfer obligation.
+        if re.search(
+            r"\b(?:system|software|application)\b[^.]{0,40}"
+            r"\b(?:recor\w*|log\w*|trac\w*)\b[^.]{0,25}\bdata\s+transfer\w*\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.LOW
         flag = "data protection clause"
         detail = None
@@ -8353,6 +8550,54 @@ def rule_insurance(doc, sentences):
             if re.search(
                 r"\b(?:state|government|public|national)\b[^.]{0,35}\bprovid\w*\b"
                 r"[^.]{0,35}\b(?:health|medical|free)\s+insurance\b",
+                lower,
+            ):
+                continue
+            # "Insurance coverage under the health plan begins on 1 January" is
+            # a benefits-schedule statement, not a duty imposed on a party.
+            # The frame is limited to health/medical plans so genuine cover
+            # duties (no such plan frame) keep firing.
+            if re.search(
+                r"\binsurance\s+coverage\b[^.]{0,60}"
+                r"\b(?:health|medical)\s+plan\b[^.]{0,35}\b(?:begins?|commenc\w*|starts?)\b",
+                lower,
+            ):
+                continue
+            # "The rental price includes basic insurance" describes what a
+            # price covers, not a requirement to maintain coverage.  Fixture
+            # cover duties never use a price/rate-includes frame (checked
+            # against fixtures/generate_fixtures.py).
+            if re.search(
+                r"\b(?:rental|rate|price)\b[^.]{0,35}\bincludes?\b[^.]{0,30}\binsurance\b",
+                lower,
+            ):
+                continue
+            # "She decided to take out travel insurance for the holiday" is a
+            # consumer buying cover for a trip, not a contractual duty.  The
+            # holiday/trip/vacation/abroad frame is distinct from genuine
+            # duties to maintain travel cover for work purposes.
+            if re.search(
+                r"\btravel\s+insurance\b[^.]{0,40}\b(?:holiday|trip|vacation|abroad)\b"
+                r"|\b(?:holiday|trip|vacation|abroad)\b[^.]{0,30}\btravel\s+insurance\b",
+                lower,
+            ):
+                continue
+            # "The insurer covers the cost of repairs to the vehicle" narrates
+            # an insurer's payout, not a party's obligation to procure cover.
+            if re.search(
+                r"\binsurer\b[^.]{0,45}\bcovers?\b[^.]{0,35}"
+                r"\b(?:repairs?|damage|cost)\b[^.]{0,25}\b(?:vehicle|car)\b",
+                lower,
+            ):
+                continue
+            # "Insurance brochures are available at the front desk" refers to
+            # marketing material, not coverage.
+            if re.search(r"\binsurance\s+brochures?\b", lower):
+                continue
+            # "The insured amount was reduced last year" reports a change to a
+            # coverage value, not a requirement to maintain cover.
+            if re.search(
+                r"\binsured\s+amount\b[^.]{0,30}\b(?:reduc\w*|lower\w*|decreas\w*)\b",
                 lower,
             ):
                 continue
