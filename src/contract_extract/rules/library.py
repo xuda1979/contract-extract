@@ -427,6 +427,25 @@ def rule_duration(doc, sentences):
             lower,
         ):
             continue
+        # "She served a term of 4 years as chair of the committee." is the
+        # tenure of an elected office (how long someone held a governance
+        # post), not the term of an agreement.  The biographical guard above
+        # requires the "for a period of" frame (absent here) and the electoral
+        # guard requires the word "electoral" (absent too), so a separate
+        # guard is needed.  Genuine agreement terms ("The term of this
+        # Agreement shall be 2 years" — fixture line 40; "The Services
+        # Agreement has a term of 12 months" — fixture line 358) carry no
+        # served-in-office / governance-role frame and still fire.  Zero
+        # fixture lines pair a service verb with a term of years and an office
+        # noun (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:served|serving|serve)\s+(?:a|the)\s+term\s+of\b[^.]{0,35}"
+            r"\b\d+\s+years?\b[^.]{0,30}\b(?:as|of)\b[^.]{0,25}"
+            r"\b(?:chairs?\b|presidents?\b|directors?\b|governors?\b|"
+            r"officers?\b|secretary\w*\b|treasur\w*\b|board\b|committee\w*)\b",
+            lower,
+        ):
+            continue
         # "The loan term is 5 years with a fixed rate" describes a banking /
         # mortgage product (a loan priced at a fixed interest rate), not the
         # agreement's term.  The guard requires the fixed-rate marker so a
@@ -1890,6 +1909,25 @@ def rule_payment(doc, sentences):
             r"debit\w*|payment\s+of)\b"
             r"|\b(?:invoice\w*|net\s+\d+\s+days?\b|within\s+\d+\s+days?\b|"
             r"advance\s+payment|upfront|prepay)\b",
+            lower,
+        ):
+            continue
+        # "The store accepts credit cards and mobile payments." is a merchant
+        # payment-methods statement (which payment instruments the business
+        # takes), not a payment term fixing an amount, due date or tranche.
+        # The accept-payment-via guard above needs "payment" as the accept
+        # object in a via/by frame, and the may/can-be-made guard needs "for
+        # payment" after the card nouns — this sentence has neither, so a
+        # separate guard is required.  Genuine payment terms still fire:
+        # fixture line 163 ("Monthly subscription fee ... charged to the
+        # customer's credit card on a recurring basis") carries the recurring
+        # billing marker, and fixture line 298 ("All fees are payable in
+        # advance by credit card") carries payable/advance — neither matches
+        # the accept-card-and-mobile-payments noun chain (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\baccept\w*\s+(?:credit\s+cards?|debit\s+cards?|cards?)\b"
+            r"[^.]{0,35}\b(?:and|or)\b[^.]{0,25}(?:mobile\s+)?payments?\b",
             lower,
         ):
             continue
@@ -4101,6 +4139,27 @@ def rule_ip(doc, sentences):
             r"|\b\d+\s+(?:years?|months?)\b[^.]{0,25}"
             r"\b(?:copyright|patent|trademark|design\s+right|database\s+right)"
             r"\s+protect\w*\b",
+            lower,
+        ):
+            continue
+        # "The copyright expired 70 years after the composer's death." states
+        # the statutory life of a copyright (a right ending by operation of
+        # law after a fixed period), not an allocation or transfer of IP
+        # between the parties.  The protection-term guard above requires a
+        # protect/ed verb next to the right, and the application-status guard
+        # (trademark/patent filed/granted/lapsed) does not cover copyright
+        # expiry, so a separate guard is needed.  Genuine IP clauses still
+        # fire: "The patent and trademark rights in the Works are assigned to
+        # the Customer." and "The trademark shall be registered in the name of
+        # the Customer." (tests test_rules.py:3585/3719 and 5787) carry no
+        # rights-expiry frame.  Zero fixture lines pair a specific IP right
+        # with an expiry verb (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:copyright\w*|patent\s+rights?|patents?|trademark\s+rights?|"
+            r"trademarks?)\b[^.]{0,40}\b(?:expires?|expired|expiry|expiration)\b"
+            r"|\b(?:expires?|expired|expiry|expiration)\b[^.]{0,40}"
+            r"\b(?:copyright\w*|patent\s+rights?|patents?|trademark\s+rights?|"
+            r"trademarks?)\b",
             lower,
         ):
             continue

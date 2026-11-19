@@ -5450,6 +5450,59 @@ def test_took_liability_attribution_not_cap():
         assert [c for c in _clauses(s) if c.clause == "liability_cap"], s
 
 
+def test_copyright_expiry_statutory_life_not_ip_clause():
+    # "The copyright expired 70 years after the composer's death." states the
+    # statutory life of a copyright (a right ending by operation of law),
+    # not an allocation, transfer or licence of IP between the parties.
+    for s in (
+        "The copyright expired 70 years after the composer's death.",
+        "The patent rights expire after 20 years from the filing date.",
+        "The trademark shall expire if not renewed within 10 years.",
+        "The patent lapsed after the maintenance fee was not paid.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "ip"] == [], s
+    # Genuine IP assignment / registration still fires.
+    for s in (
+        "The patent and trademark rights in the Works are assigned to the Customer.",
+        "The trademark shall be registered in the name of the Customer.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "ip"], s
+
+
+def test_served_term_as_chair_not_agreement_duration():
+    # "She served a term of 4 years as chair of the committee." is the tenure
+    # of an elected office, not the term of an agreement.
+    for s in (
+        "She served a term of 4 years as chair of the committee.",
+        "He served a term of 3 years as president of the board.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "duration"] == [], s
+    # Genuine agreement terms still fire.
+    for s in (
+        "The term of this Agreement shall be 2 years unless terminated earlier.",
+        "The Services Agreement has a term of 12 months.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "duration"], s
+
+
+def test_store_accepts_credit_and_mobile_payments_not_payment_terms():
+    # "The store accepts credit cards and mobile payments." is a merchant
+    # payment-methods statement, not a payment term fixing an amount, due
+    # date or tranche.
+    for s in (
+        "The store accepts credit cards and mobile payments.",
+        "The hotel accepts credit cards and cash payments.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "payment"] == [], s
+    # Genuine payment terms still fire.
+    for s in (
+        "Monthly subscription fee of USD 299 is charged to the customer's credit card on a recurring basis.",
+        "Invoices shall be paid within 30 days of receipt.",
+        "All fees are payable in advance by credit card.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "payment"], s
+
+
 def test_confidential_to_authorities_not_secrecy_duty():
     # "confidential to the authorities" is a privacy / informant audience
     # limitation describing an existing state, not an agreed secrecy duty.
