@@ -6633,3 +6633,92 @@ def test_round64_committee_proposal_wide_acceptance_not_acceptance():
         "The product must pass the acceptance criteria.",
     ) if c.clause == "acceptance"]
     assert len(clauses) == 3
+
+
+def test_round65_price_menu_record_prize_fine_not_contract_price():
+    # Round 65.  A restaurant menu listing, a resale price record, a prize
+    # value and a parking fine amount are not agreed goods/services prices.
+    # Genuine purchase prices still fire (fixture lines 99 and 153).
+    for s in (
+        "The restaurant menu lists a fixed price of USD 45 for the tasting menu.",
+        "The house was sold at a record price of USD 2 million.",
+        "The prize price of USD 10,000 for the competition.",
+        "The fine price for the parking violation is USD 80.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "price"] == [], s
+    clauses = [c for c in _clauses(
+        "The purchase price for the Shares is USD 1,000,000.",
+        "The Seller shall pay a fee of USD 5,000 for the services.",
+    ) if c.clause == "price"]
+    assert len(clauses) == 2
+
+
+def test_round65_insurance_state_provides_not_requirement():
+    # Round 65.  A state welfare program funding public cover is not a duty
+    # on a contracting party to maintain insurance.  The genuine cover duty
+    # (fixture line 87) still fires.
+    for s in (
+        "The state provides free health insurance to all citizens.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "insurance"] == [], s
+    clauses = [c for c in _clauses(
+        "The Company shall insure the Goods against loss or damage.",
+    ) if c.clause == "insurance"]
+    assert len(clauses) == 1
+
+
+def test_round65_duration_player_contract_not_agreement_term():
+    # Round 65.  A sports player's employment contract length is the
+    # individual's engagement, not an agreement term of the reviewed
+    # contract.  Genuine term-of-Agreement durations still fire (fixture
+    # lines 102).
+    for s in (
+        "The player's contract runs for 5 years.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "duration"] == [], s
+    clauses = [c for c in _clauses(
+        "The lease term is 12 months.",
+        "This Agreement shall commence on the Effective Date and continue for 2 years.",
+        "The term of this Agreement shall be 3 years from the date hereof.",
+    ) if c.clause == "duration"]
+    assert len(clauses) == 3
+
+
+def test_round65_confidentiality_professional_leak_trait_not_obligation():
+    # Round 65.  A lawyer's ethical duty, a bank's customer assurance, a
+    # past leak incident and an abstract importance trait are not secrecy
+    # obligations owed under this agreement.  Genuine NDA duties still fire
+    # (fixture line 153).
+    for s in (
+        "The lawyer maintains confidentiality with all clients.",
+        "The bank guarantees the confidentiality of its customers' data.",
+        "The company's confidential pricing strategy was leaked.",
+        "Confidentiality of the negotiations was critical to the deal.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "confidentiality"] == [], s
+    clauses = [c for c in _clauses(
+        "The Receiving Party shall keep the Confidential Information strictly confidential for 3 years.",
+        "This Agreement and its terms shall remain confidential for the term.",
+    ) if c.clause == "confidentiality"]
+    assert len(clauses) == 2
+
+
+def test_round65_data_protection_transfer_of_asset_customer_secure_not_pd():
+    # Round 65.  A corporate share transfer (with an article), a customer
+    # book handover to a new owner, a bank's funds remittance and a
+    # transport-security note are not personal-data transfers.  Genuine
+    # processing/transfer duties still fire (fixture lines 69, 89, 186,
+    # 223).
+    for s in (
+        "Transfer of the shares requires board approval.",
+        "Transfer of the technology licence is prohibited.",
+        "The customer data will be transferred to the new owner.",
+        "The bank transferred the funds to the beneficiary.",
+        "The data was transferred over a secure channel.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "data_protection"] == [], s
+    clauses = [c for c in _clauses(
+        "Provider shall process personal data in accordance with the GDPR.",
+        "The parties shall transfer personal data only under standard contractual clauses.",
+    ) if c.clause == "data_protection"]
+    assert len(clauses) == 2
