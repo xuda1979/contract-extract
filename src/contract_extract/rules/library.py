@@ -2097,6 +2097,20 @@ def rule_penalty(doc, sentences):
             lower,
         ):
             continue
+        # "Drivers who park illegally risk a penalty of 100 pounds" expresses
+        # an idiomatic exposure to a municipal fine ("risk a penalty"), not a
+        # negotiated default penalty for a contractual breach.  Genuine
+        # quantified breach penalties (fixture lines for "shall pay a penalty
+        # of 1.5% per month", "penalties for late delivery apply at the rate
+        # of 0.5% per day", "a penalty of 3% of the fees applies per week";
+        # checked against fixtures/generate_fixtures.py) never use the
+        # "risk" word and stay untouched.
+        if re.search(
+            r"\b(?:risks?|risked|risking)\b[^.]{0,35}\bpenalt\w*\b"
+            r"|\bpenalt\w*\b[^.]{0,35}\b(?:risks?|risked|risking)\b",
+            lower,
+        ):
+            continue
         # "The tax penalty for late filing shall be 5% of the tax due" is a
         # statutory revenue-filing sanction imposed on a taxpayer — not a
         # negotiated default penalty for a contractual breach.  A genuine
@@ -3169,13 +3183,15 @@ def rule_liability(doc, sentences):
             continue
         # "Assume liability for" in past/present narrative ("the carrier
         # assumed liability for the lost cargo", "tenants assume liability
-        # for damage") states who bears an existing risk, not a quantified
-        # cap.  Genuine undertakings ("The Buyer shall assume liability for
-        # the goods after delivery") still fire — the guard requires no
-        # modal (shall/will/must/may).  Zero fixture lines pair assumed
-        # liability with a modal (checked against fixtures/generate_fixtures.py).
+        # for damage", "She took liability for the project's failure" — the
+        # irregular past tense) states who bears an existing risk, not a
+        # quantified cap.  Genuine undertakings ("The Buyer shall assume
+        # liability for the goods after delivery") still fire — the guard
+        # requires no modal (shall/will/must/may).  Zero fixture lines pair
+        # assumed liability with a modal (checked against
+        # fixtures/generate_fixtures.py).
         if re.search(
-            r"\b(?:assumed?|takes?|take\s+on)\b[^.]{0,30}\bliabilit\w*\s+for\b",
+            r"\b(?:assumed?|takes?|took\b|take\s+on)\b[^.]{0,30}\bliabilit\w*\s+for\b",
             lower,
         ) and not re.search(r"\b(?:shall|will|must|may)\b", lower):
             continue
@@ -3482,7 +3498,8 @@ def rule_confidentiality(doc, sentences):
             r"\bconfidential\w*\b[^.]{0,35}\buntil\s+publication\b"
             r"|\bconfidential\w*\b[^.]{0,40}\bto\b[^.]{0,35}"
             r"\b(?:the|both|the\s+two|the\s+three)?\s*(?:parties?|teams?|"
-            r"companies?|organi[sz]ations?)\b"
+            r"companies?|organi[sz]ations?|authorit\w*|police\b|prosecut\w*|"
+            r"officials?\b|informants?)\b"
             r"|\btreat\w*d\s+as\s+confidential\b[^.]{0,30}\bunder\b"
             r"|\bconfidential\s+discussions?\b",
             lower,
@@ -6646,6 +6663,24 @@ def rule_insurance(doc, sentences):
             ) and not re.search(
                 r"\b(?:shall|must|will|require\w*|maintain\w*|procure\w*|"
                 r"oblig\w*|carr(?:y|ies|ied)|tak(?:e|ing|en)\s+out)\b",
+                lower,
+            ):
+                continue
+            # "Payment under the policy was refused by the insurer" recounts a
+            # claims / payout outcome between the insured and the insurer (a
+            # policy payment that was refused), not an obligation to hold or
+            # procure cover.  The claims guard above requires claim / payout /
+            # benefit nouns and reject / accept / deny verdicts; here the
+            # payment-refusal frame uses "payment" + "policy" + a refusal
+            # verb.  Genuine coverage obligations ("shall maintain
+            # professional indemnity insurance") have no payment+policy+
+            # refusal frame (checked against fixtures/generate_fixtures.py,
+            # which contains no insurance sentences) and still fire.
+            if re.search(
+                r"\bpayment\w*\b[^.]{0,45}\bpolicy\b[^.]{0,45}"
+                r"\b(?:refus\w*|denied?\b|reject\w*)\b"
+                r"|\bpolicy\b[^.]{0,45}\bpayment\w*\b[^.]{0,45}"
+                r"\b(?:refus\w*|denied?\b|reject\w*)\b",
                 lower,
             ):
                 continue

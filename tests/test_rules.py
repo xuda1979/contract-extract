@@ -5406,6 +5406,65 @@ def test_acceptance_donation_acknowledgment_not_acceptance():
         assert [c for c in _clauses(s) if c.clause == "acceptance"], s
 
 
+def test_risk_a_penalty_not_default_penalty():
+    # "risk a penalty of ..." is an idiomatic exposure to a municipal fine /
+    # regulatory sanction, not a negotiated default penalty for breach.
+    for s in (
+        "Drivers who park illegally risk a penalty of 100 pounds.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "penalty"] == [], s
+    # Genuine quantified breach penalties (no "risk" wording) still fire.
+    for s in (
+        "In the event of breach, the defaulting party shall pay a penalty of 1.5% per month of the invoice amount.",
+        "The Licensee shall pay a late fee of 1,000 yuan for each month of delay.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "penalty"], s
+
+
+def test_payment_refused_under_policy_not_insurance_obligation():
+    # Recounting a claims / payout outcome between the insured and the
+    # insurer (a policy payment refused) is not an obligation to hold cover.
+    for s in (
+        "Payment under the policy was refused by the insurer.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "insurance"] == [], s
+    # Genuine coverage obligations still fire.
+    for s in (
+        "The Supplier shall maintain professional indemnity insurance with limits of at least USD 1M.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "insurance"], s
+
+
+def test_took_liability_attribution_not_cap():
+    # "took liability for" (irregular past tense) attributes existing exposure
+    # in narrative, not a quantified liability cap.
+    for s in (
+        "She took liability for the project's failure.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "liability_cap"] == [], s
+    # Genuine liability undertaking / cap still fire.
+    for s in (
+        "The Buyer shall assume liability for the goods after delivery.",
+        "The aggregate liability of the Contractor shall not exceed the total fees paid under this Agreement.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "liability_cap"], s
+
+
+def test_confidential_to_authorities_not_secrecy_duty():
+    # "confidential to the authorities" is a privacy / informant audience
+    # limitation describing an existing state, not an agreed secrecy duty.
+    for s in (
+        "The informant's identity remains confidential to the authorities.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "confidentiality"] == [], s
+    # Genuine confidentiality obligations still fire.
+    for s in (
+        "Confidential information shall remain confidential for 3 years after termination.",
+        "The parties shall maintain the confidentiality of the disclosed information.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "confidentiality"], s
+
+
 def test_data_protection_pricing_lease_and_knowledge_not_data_transfer():
     # Transfer pricing, lease / tenancy assignment, knowledge-transfer
     # sessions and non-transferable tickets are not transfers of personal
