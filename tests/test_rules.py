@@ -5990,3 +5990,60 @@ def test_round54_indemnity_narration_and_governance_not_liability_cap():
     ) if c.clause == "insurance"]
     assert len(clauses) == 1
 
+
+
+def test_round55_indemnified_cooperation_and_fee_family_not_contract_value():
+    # Round 55.  A cooperation covenant tethered to a hypothetical indemnity
+    # ("Any indemnified party shall cooperate with the insurer in the defence")
+    # and a past-tense indemnity framed by an agreement noun ("The buyer was
+    # indemnified under the previous agreement") are not inter-party indemnity
+    # obligations.  Consumer / administrative fee-family prices (tuition,
+    # application, overdraft, consultation fees) and a late fee pinned to a due
+    # date are not the price of goods or services under this Agreement, nor is
+    # a late fee a contractual default penalty.
+    assert [c for c in _clauses(
+        "Any indemnified party shall cooperate with the insurer in the defence.",
+        "The buyer was indemnified under the previous agreement.",
+    ) if c.clause == "liability_cap"] == []
+    assert [c for c in _clauses(
+        "Tuition fees for the semester amount to USD 5,000.",
+        "The application fee is USD 50.",
+        "The bank charges an overdraft fee of USD 30 per month.",
+        "The consultation fee is USD 200 per hour.",
+        "A late fee of USD 25 applies after the due date.",
+    ) if c.clause in ("price", "penalty")] == []
+    # Genuine inter-party indemnities, contract prices and quantified breach
+    # penalties still fire (no cooperation/indemnified frame, no fee-family or
+    # due-date anchor).
+    clauses = [c for c in _clauses(
+        "The Supplier shall indemnify the Customer against claims arising from the Services.",
+        "Each party shall indemnify and hold harmless the other party against all claims.",
+    ) if c.clause == "liability_cap"]
+    assert len(clauses) == 2
+    clauses = [c for c in _clauses(
+        "The price of the Goods is USD 100 per unit.",
+        "The licence fees of USD 2,500 per year shall be paid in advance.",
+    ) if c.clause == "price"]
+    assert len(clauses) == 2
+    clauses = [c for c in _clauses(
+        "The parties agree that liquidated damages of USD 50,000 shall apply for breach.",
+    ) if c.clause == "penalty"]
+    assert len(clauses) == 1
+
+
+def test_round55_insurance_premium_refund_and_defence_cooperation_not_duty():
+    # Round 55.  A cancelled-policy premium repayment ("The insurance company
+    # refunded the premium after cancellation") narrates an episode, and a
+    # policy-compromise cooperation covenant ("Any indemnified party shall
+    # cooperate with the insurer in the defence") assists the insurer rather
+    # than obliging coverage — neither is an inter-party coverage obligation.
+    assert [c for c in _clauses(
+        "The insurance company refunded the premium after cancellation.",
+        "Any indemnified party shall cooperate with the insurer in the defence.",
+    ) if c.clause == "insurance"] == []
+    # Genuine coverage duties still fire (obligation verbs are excluded from
+    # the negative legs).
+    clauses = [c for c in _clauses(
+        "The Contractor shall maintain comprehensive general liability insurance.",
+    ) if c.clause == "insurance"]
+    assert len(clauses) == 1

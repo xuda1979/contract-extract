@@ -999,6 +999,37 @@ def rule_price(doc, sentences):
             lower,
         ):
             continue
+        # "Tuition fees for the semester amount to USD 5,000", "The
+        # application fee is USD 50", "The bank charges an overdraft fee of
+        # USD 30 per month" and "The consultation fee is USD 200 per hour"
+        # quote price-goods fees charged to consumers or students (admissions,
+        # banking, professional advisory), not the price of goods or services
+        # under this Agreement.  The guard lists the fee-family nouns that pin
+        # these non-contract frames; genuine contract prices ("the licence
+        # fees of USD 2,500 per year", fixture line 59, "a subscription fee of
+        # USD 99 per month", fixture line 163) use other fee nouns and still
+        # fire.  Zero fixture lines use tuition / application / overdraft /
+        # consultation fees (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:tuition\w*|application\s+fees?|overdraft\w*\s+fees?|"
+            r"consultation\w*\s+fees?)\b",
+            lower,
+        ):
+            continue
+        # "A late fee of USD 25 applies after the due date" is a
+        # late-payment-charge notice framed by the due date (a billing /
+        # consumer fee), not the price of goods or services under this
+        # Agreement.  The guard requires a "late fee" bound to a due-date
+        # phrase within the clause; genuine contract prices and fixture fee
+        # lines (59, 79, 115, 163, 265, 297, 311, 359) have no late-fee /
+        # due-date pairing and still fire.  Zero fixture lines combine a late
+        # fee with a due date (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\blate\s+fees?\b[^.]{0,45}\bdue\s+date\b"
+            r"|\bdue\s+date\b[^.]{0,45}\blate\s+fees?\b",
+            lower,
+        ):
+            continue
         flag = f"price: {detail}"
         if any(k in lower for k in ("in advance", "advance payment", "upon execution",
                                     "upfront", "payable in advance", "non-refundable")):
@@ -2334,6 +2365,20 @@ def rule_penalty(doc, sentences):
             lower,
         ):
             continue
+        # "A late fee of USD 25 applies after the due date" is a
+        # late-payment-charge notice framed by the due date (a billing /
+        # consumer fee), not a contractual default penalty.  The guard
+        # requires a "late fee" bound to a due-date phrase within the clause;
+        # a genuine quantified breach penalty ("a late payment penalty of 2%
+        # per month" — fixture line 83) has no due-date framing and still
+        # fires.  Zero fixture lines combine a late fee with a due date
+        # (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\blate\s+fees?\b[^.]{0,45}\bdue\s+date\b"
+            r"|\bdue\s+date\b[^.]{0,45}\blate\s+fees?\b",
+            lower,
+        ):
+            continue
         # "The penalty rate charged by the central bank rose to 4%" is a
         # monetary-policy benchmark (the central bank's policy rate), not a
         # contractual default penalty.  A genuine quantified breach penalty
@@ -2485,12 +2530,31 @@ def rule_liability(doc, sentences):
         # or reimbursed someone else), not an ongoing inter-party indemnity
         # obligation.  The past-tense "indemnified" pins the narration frame;
         # obligation auxiliaries are excluded so a genuine "shall be
-        # indemnified" duty stays live.  Zero fixture lines use the past
-        # tense (fixture line 269 "Provider indemnifies Client" is present
-        # tense; checked against fixtures/generate_fixtures.py).
+        # indemnified" duty stays live.  The auxiliary leg deliberately lists
+        # finite verb forms ("agrees", "agreed", "agreeing") rather than the
+        # prefix "agree" so the noun "agreement" ("under the previous
+        # agreement") does not cancel the guard.  Zero fixture lines use the
+        # past tense (fixture line 269 "Provider indemnifies Client" is
+        # present tense; checked against fixtures/generate_fixtures.py).
         if re.search(r"\bindemnif\w*ed\b", lower) and not re.search(
-            r"\b(?:shall|will|must|may|agree\w*|undertak\w*|oblig\w*|"
-            r"require\w*)\b",
+            r"\b(?:shall|will|must|may|agrees?\b|agreed\b|agreeing\b|"
+            r"undertak\w*|oblig\w*|require\w*)\b",
+            lower,
+        ):
+            continue
+        # "Any indemnified party shall cooperate with the insurer in the
+        # defence" is a cooperation covenant tethered to a hypothetical
+        # indemnity (a party who is indemnified must assist the insurer),
+        # not an agreed indemnity obligation between the parties.  The
+        # guard requires "indemnified" and "cooperate" bound within the
+        # clause in either order; a genuine inter-party indemnity
+        # ("The Supplier shall indemnify the Customer against claims arising
+        # from the Services", fixture line 269) has no cooperation verb and
+        # still fires.  Zero fixture lines pair indemnified with cooperate
+        # (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bindemnif\w*ed\b[^.]{0,60}\bcooperat\w*\b"
+            r"|\bcooperat\w*\b[^.]{0,60}\bindemnif\w*ed\b",
             lower,
         ):
             continue
@@ -2499,11 +2563,14 @@ def rule_liability(doc, sentences):
         # officers' defence costs), not an inter-party indemnity obligation.
         # The guard requires the indemnify verb bound to an internal
         # management noun; obligation auxiliaries are excluded so a genuine
-        # "shall indemnify the directors" duty stays live.  Genuine
-        # inter-party indemnities ("Provider indemnifies Client against all
-        # claims arising from staff misconduct", fixture line 269) have no
-        # director/officer noun and still fire.  Zero fixture lines pair
-        # indemnify with a director/officer noun (checked against
+        # "shall indemnify the directors" duty stays live.  The auxiliary leg
+        # deliberately lists finite verb forms ("agrees", "agreed",
+        # "agreeing") rather than the prefix "agree" so the noun "agreement"
+        # cannot cancel the guard.  Genuine inter-party indemnities
+        # ("Provider indemnifies Client against all claims arising from staff
+        # misconduct", fixture line 269) have no director/officer noun and
+        # still fire.  Zero fixture lines pair indemnify with a
+        # director/officer noun (checked against
         # fixtures/generate_fixtures.py).
         if re.search(
             r"\bindemnif\w*\b[^.]{0,40}"
@@ -2512,8 +2579,8 @@ def rule_liability(doc, sentences):
             r"[^.]{0,40}\bindemnif\w*\b",
             lower,
         ) and not re.search(
-            r"\b(?:shall|will|must|may|agree\w*|undertak\w*|oblig\w*|"
-            r"require\w*)\b",
+            r"\b(?:shall|will|must|may|agrees?\b|agreed\b|agreeing\b|"
+            r"undertak\w*|oblig\w*|require\w*)\b",
             lower,
         ):
             continue
@@ -7284,6 +7351,54 @@ def rule_insurance(doc, sentences):
             ) and not re.search(
                 r"\b(?:oblig\w*|shall|must|will|require\w*|maintain\w*|"
                 r"procure\w*|carr(?:y|ies|ied)|tak(?:e|ing|en)\s+out|"
+                r"obtain\w*|purchase\w*)\b",
+                lower,
+            ):
+                continue
+            # "The insurance company refunded the premium after cancellation"
+            # narrates a cancelled-policy premium repayment (an episode), not
+            # an inter-party coverage obligation.  The guard requires an
+            # insurer subject, the refund verb and a premium noun bound within
+            # the clause; obligation verbs are excluded so genuine duties
+            # ("the insurer shall refund the premium") stay live.  Premium is
+            # tested in several existing guards but never paired with a
+            # refund verb by an insurer subject there (checked against
+            # tests/test_rules.py and fixtures/generate_fixtures.py).
+            if re.search(
+                r"\b(?:insurance\s+(?:company|provider|carrier|firm)|"
+                r"insurer\w*|carrier\w*)\b[^.]{0,40}\brefund\w*\b[^.]{0,30}"
+                r"\bpremium\w*\b"
+                r"|\bpremium\w*\b[^.]{0,30}\brefund\w*\b[^.]{0,40}"
+                r"\b(?:insurance\s+(?:company|provider|carrier|firm)|"
+                r"insurer\w*|carrier\w*)\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:oblig\w*|shall|must|will|require\w*|maintain\w*|"
+                r"procure\w*|carr(?:y|ies|ied)|tak(?:e|ing|en)\s+out|"
+                r"obtain\w*|purchase\w*)\b",
+                lower,
+            ):
+                continue
+            # "Any indemnified party shall cooperate with the insurer in the
+            # defence" is a policy-compromise cooperation covenant (an
+            # indemnified party must assist the insurer), not an inter-party
+            # coverage obligation.  The guard requires the past-tense
+            # indemnify verb AND a cooperate-to-insurer binding; the negative
+            # leg omits shall/will/must/may because the cooperation frame is
+            # typically phrased with "shall cooperate", while coverage-duty
+            # verbs (maintain, procure, take out, obtain, purchase) still
+            # cancel the guard.  Zero fixture lines pair indemnified with
+            # cooperate (checked against fixtures/generate_fixtures.py).
+            if re.search(r"\bindemnif\w*ed\b", lower) and re.search(
+                r"\bcooperat\w*\b[^.]{0,45}"
+                r"\b(?:insurance\s+(?:company|provider|carrier|firm)|"
+                r"insurer\w*|carrier\w*)\b"
+                r"|\b(?:insurance\s+(?:company|provider|carrier|firm)|"
+                r"insurer\w*|carrier\w*)\b[^.]{0,45}\bcooperat\w*\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:oblig\w*|require\w*|maintain\w*|procure\w*|"
+                r"carr(?:y|ies|ied)|tak(?:e|ing|en)\s+out|"
                 r"obtain\w*|purchase\w*)\b",
                 lower,
             ):
