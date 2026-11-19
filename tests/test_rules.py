@@ -4865,6 +4865,20 @@ def test_insurance_insured_notifies_insurer_of_claim_not_insurance():
         assert [c for c in _clauses(s) if c.clause == "insurance"] == [], s
 
 
+def test_insurance_policy_holder_admin_and_claim_form_not_insurance():
+    for s in (
+        "The policy holder must notify the insurer of any change of address.",
+        "The insured shall submit a claim form within 30 days of the event.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "insurance"] == [], s
+    # A genuine coverage obligation still fires when the maintain frame names
+    # the policy type.
+    clauses = [c for c in _clauses(
+        "The Contractor shall maintain comprehensive general liability insurance."
+    ) if c.clause == "insurance"]
+    assert clauses
+
+
 def test_insurance_effected_by_party_bearing_risk_not_insurance():
     for s in (
         "Insurance shall be effected by the party bearing the risk.",

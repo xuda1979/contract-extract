@@ -7114,6 +7114,37 @@ def rule_insurance(doc, sentences):
                 lower,
             ):
                 continue
+            # "The policy holder must notify the insurer of any change of
+            # address" is policy administration (updating personal details),
+            # not a coverage obligation.  Fixtures checked: no fixture line
+            # carries a policy-holder change-of-address notification frame.
+            if re.search(
+                r"\b(?:policy\s?holder|policyholder|insured)\b[^.]{0,35}"
+                r"\b(?:notif\w*|inform\w*|report\w*|advise\b)\b[^.]{0,30}"
+                r"\b(?:address|personal\s+details|circumstances|"
+                r"change\w*)\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|carry|obtain\w*)\b[^.]{0,40}"
+                r"\binsurance\b",
+                lower,
+            ):
+                continue
+            # "The insured shall submit a claim form within 30 days" is
+            # claims-procedure narration (filing paperwork), not a coverage
+            # obligation.  Fixtures checked: no fixture line uses a "claim
+            # form" submission frame.
+            if re.search(
+                r"\b(?:insured\b|policy\s?holder|policyholder)\b[^.]{0,35}"
+                r"\b(?:submit\w*|file\w*|deliver\b|furnish\b)\b[^.]{0,25}"
+                r"\bclaim\s+form\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|carry|obtain\w*)\b[^.]{0,40}"
+                r"\binsurance\b",
+                lower,
+            ):
+                continue
             # "Insurance shall be effected by the party bearing the risk" is a
             # general risk-allocation statement identifying who arranges cover,
             # not a coverage obligation naming a policy type.  Genuine
