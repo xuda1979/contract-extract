@@ -453,6 +453,36 @@ def rule_duration(doc, sentences):
             lower,
         ):
             continue
+        # "All business records shall be retained for a period of 7 years" is
+        # a recordkeeping/retention duty (statutory records-keeping), not a
+        # negotiated agreement term: the retained subject is a record, not the
+        # Agreement/rights under it.  Genuine durations ("The term of this
+        # Agreement shall be for a period of 2 years" — fixture line 40;
+        # "This Agreement shall remain in effect for a period of 3 years")
+        # never bind "records ... retained/kept" objects, so they still fire.
+        # Zero fixture lines combine records with retain/keep + a period
+        # (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\brecord\w*\b[^.]{0,40}\b(?:retain\w*|keep\w*|maintain\w*|stor\w*)\b"
+            r"[^.]{0,40}\bfor\s+(?:a\s+)?period\s+of\b",
+            lower,
+        ):
+            continue
+        # "She taught piano for a period of 20 years before retiring" is a
+        # biographical/life-history statement, not an agreement term: the
+        # duration belongs to a past personal activity, not to any agreement
+        # or right.  Genuine term lengths ("term of this Agreement ... for a
+        # period of 2 years" — fixture line 40; "shall remain in force for a
+        # period of 3 years") carry no past-tense activity verbs, so they
+        # still fire.  Zero fixture lines pair an activity verb with a period
+        # (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:taught|worked|studied|practi[cs]\w*|trained|coached|resided|"
+            r"lived|served|performed|competed)\b[^.]{0,40}"
+            r"\bfor\s+(?:a\s+)?period\s+of\b",
+            lower,
+        ):
+            continue
         m = _DUR_PAT1.search(sentence) or _DUR_PAT4.search(sentence) or _DUR_PAT5.search(sentence)
         if not m:
             continue
@@ -1662,6 +1692,22 @@ def rule_acceptance(doc, sentences):
         # fixtures/generate_fixtures.py).
         if re.search(r"\b(?:met|received|greeted)\s+with\s+(?:a|an)?\s*\w*\s*"
                      r"\bacceptance\b", lower):
+            continue
+        # "The university gratefully acknowledged acceptance of the donation"
+        # records that a gift was received/accepted (a donation receipt
+        # statement), not the contractual acceptance of deliverables subject
+        # to an inspection window.  Genuine acceptance clauses target works/
+        # goods/services ("The Customer shall accept the Works within 14 days
+        # of delivery" — fixture line 268; "Final acceptance shall be
+        # completed within 60 days following delivery" — fixture line 182)
+        # and never combine "acceptance of" with a gift noun.  Zero fixture
+        # lines pair acceptance with donation/gift/grant/bequest/endowment
+        # (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bacceptance\b[^.]{0,45}\b(?:donation\w*|gift\w*|grant\w*|"
+            r"bequest\w*|endowment\w*)\b",
+            lower,
+        ):
             continue
         within = re.search(r"\bwithin\s+(\d+)\s*(?:working|business)?\s*days?\b", lower)
         window = re.search(r"\b(\d+)\s*(?:business|working)?\s*days?\s+(?:to|in\s+which\s+to)\s+(?:inspect|accept|complete)", lower)
@@ -4103,6 +4149,55 @@ def rule_ip(doc, sentences):
             r"|\b(?:intellectual\s+property|\bip\b)\b[^.]{0,45}\bpirat\w*\b"
             r"|\binfring\w*\b[^.]{0,35}\bintellectual\s+property\b[^.]{0,30}"
             r"\b(?:studio\w*|industr\w*|creators?\b|artists?\b)\b",
+            lower,
+        ):
+            continue
+        # "The author sold the copyright in her novels to the publisher" is a
+        # past-tense account of a one-off transfer of a completed work's
+        # copyright, not an allocation of future intellectual property between
+        # the parties to an agreement.  Genuine allocation clauses ("All
+        # intellectual property created by Provider shall be owned by Client
+        # upon full payment" — fixture line 87; "assigns all intellectual
+        # property rights to the Licensor") never phrase the transfer as a
+        # past "sold the copyright/trademark/patent", so they still fire.
+        # Zero fixture lines pair sell/past-tense with a specific IP right
+        # (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bsold\b[^.]{0,35}\b(?:copyright\w*|trademark\w*|patent\w*)\b|"
+            r"\b(?:copyright\w*|trademark\w*|patent\w*)\b[^.]{0,35}\bsold\b",
+            lower,
+        ):
+            continue
+        # "The band lost the trademark rights after years of disuse" narrates
+        # the loss of a registration through non-use (a factual/legal
+        # statement), not a negotiated allocation or transfer of rights.
+        # Genuine IP clauses never state that a party "lost" its rights — they
+        # allocate/transfer/retain ownership — so they still fire.  Zero
+        # fixture lines combine rights with "lost"/"loss of"
+        # (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:lost|lose[s]?|loss\s+of)\b[^.]{0,35}"
+            r"\b(?:copyright\w*|trademark\w*|patent\w*|intellectual\s+property|ip\s+rights?)\b",
+            lower,
+        ):
+            continue
+        # "The museum owns the copyright in the restored photographs" states
+        # who holds the copyright in an artwork as a factual ownership
+        # statement (creators/holders), not a contractual allocation between
+        # the parties.  Genuine clauses allocate to named contract parties
+        # ("All intellectual property ... shall be owned by Client upon full
+        # payment" — fixture line 87) and never use "owns the copyright" with a
+        # creative-holder noun.  Zero fixture lines pair "owns" with copyright/
+        # trademark and a holder noun (checked against fixtures/
+        # generate_fixtures.py).  (The "belongs to author/creator..." guard
+        # above already handles the "belongs-to" form of this same narration.)
+        if re.search(
+            r"\bowns?\b[^.]{0,30}\b(?:copyright\w*|trademark\w*|patent\w*)\b"
+            r"[^.]{0,30}\b(?:museum\w*|author\w*|artist\w*|photographer\w*|"
+            r"musician\w*|band\w*|composer\w*|galler\w*|studio\w*)\b"
+            r"|\b(?:museum\w*|author\w*|artist\w*|photographer\w*|musician\w*|"
+            r"band\w*|composer\w*|galler\w*|studio\w*)\b[^.]{0,30}"
+            r"\bowns?\b[^.]{0,30}\b(?:copyright\w*|trademark\w*|patent\w*)\b",
             lower,
         ):
             continue

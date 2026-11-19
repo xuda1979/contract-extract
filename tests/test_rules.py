@@ -5359,6 +5359,53 @@ def test_confidentiality_leak_code_of_conduct_and_briefing_not_duty():
         assert [c for c in _clauses(s) if c.clause == "confidentiality"], s
 
 
+def test_duration_recordkeeping_and_biography_not_term():
+    # Recordkeeping/retention duties and past-tense biographical statements
+    # are not negotiated agreement terms.
+    for s in (
+        "All business records shall be retained for a period of 7 years.",
+        "She taught piano for a period of 20 years before retiring.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "duration"] == [], s
+    # A genuine agreement term still fires.
+    clauses = [c for c in _clauses(
+        "The term of this Agreement shall be for a period of 2 years."
+    ) if c.clause == "duration"]
+    assert clauses
+
+
+def test_ip_creative_work_ownership_narration_not_assignment():
+    # Past-tense accounts of sold / lost rights and factual statements of who
+    # holds copyright in creative works are not IP allocations between parties.
+    for s in (
+        "The author sold the copyright in her novels to the publisher.",
+        "The band lost the trademark rights after years of disuse.",
+        "The museum owns the copyright in the restored photographs.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "ip"] == [], s
+    # Genuine IP allocation clauses still fire.
+    for s in (
+        "All intellectual property created by Provider shall be owned by Client upon full payment.",
+        "All inventions created during employment are assigned to the employer.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "ip"], s
+
+
+def test_acceptance_donation_acknowledgment_not_acceptance():
+    # Acknowledging acceptance of a donation/gift is not contractual
+    # acceptance of deliverables.
+    for s in (
+        "The university gratefully acknowledged acceptance of the donation.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "acceptance"] == [], s
+    # Genuine acceptance windows still fire.
+    for s in (
+        "The Customer shall accept the Works within 14 days of delivery.",
+        "Final acceptance shall be completed within 60 days following delivery.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "acceptance"], s
+
+
 def test_data_protection_pricing_lease_and_knowledge_not_data_transfer():
     # Transfer pricing, lease / tenancy assignment, knowledge-transfer
     # sessions and non-transferable tickets are not transfers of personal
