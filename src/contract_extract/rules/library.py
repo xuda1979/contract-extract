@@ -784,6 +784,35 @@ def rule_quantity(doc, sentences):
             lower,
         ):
             continue
+        # Retail shelf-stock frames ("The store keeps a total of 500 items on
+        # the shelves") describe inventory on display, not a contracted
+        # quantity.  Genuine commitments still fire ("Buyer shall purchase a
+        # total of 10,000 units", fixture line 41).
+        if re.search(
+            r"\b\d+(?:[.,]\d+)?\s+items?\b[^.]{0,45}"
+            r"\b(?:on\s+the\s+shel(?:f|ves)|keeps?\b|stocks?\b|display(?:ed|s)?\b)\b",
+            lower,
+        ):
+            continue
+        # Pack-content statements ("Each box contains 12 items for the retail
+        # pack") quote how many pieces come in a unit of packaging, not a
+        # quantity commitment between the parties.
+        if re.search(
+            r"\b(?:box\w*|carton\w*|pack(?:age|aging)?s?\b|case\s+of)\b"
+            r"[^.]{0,40}\b(?:contains?|holds?\b|includes?)\b[^.]{0,35}"
+            r"\b\d+(?:[.,]\d+)?\s+items?\b",
+            lower,
+        ):
+            continue
+        # Print-run statements ("The publisher printed a total of 5,000 copies
+        # of the novel") report how many copies were produced, not a
+        # contracted quantity.
+        if re.search(
+            r"\b(?:publish\w*|printed|prints|printing|print\s+run)\b[^.]{0,45}"
+            r"\b\d+(?:[.,]\d+)?\s+copies?\b",
+            lower,
+        ):
+            continue
         m = re.search(
             rf"\b{_NUMTOKEN}\s+units?\b"
             rf"|\b{_NUMTOKEN}\s+items?\b"
@@ -1238,6 +1267,33 @@ def rule_delivery(doc, sentences):
             r"[^.]{0,45}\b(?:shall|will|must)\s+be\s+delivered\b"
             r"|\b(?:responses?|repl(?:y|ies)|invitation\w*|survey\s+results?)\b"
             r"[^.]{0,45}\bdelivered\s+within\b",
+            lower,
+        ):
+            continue
+        # Courier / parcel shipping promises ("The courier shall deliver the
+        # parcel within 3 days", "Delivery of the parcel ... within 3 working
+        # days") are logistics narration, not an inter-party goods-delivery
+        # obligation.  Genuine deliveries still fire ("Seller shall deliver the
+        # Products within 45 working days", fixture line 42; "Provider shall
+        # deliver all Services within 20 business days", fixture line 80).
+        if re.search(r"\bcouriers?\b|\bparcels?\b", lower):
+            continue
+        # Academic / administrative credential handover ("The school shall
+        # deliver the certificates to the graduates within 30 days") is a
+        # procedural dispatch, not a goods delivery obligation.
+        if re.search(
+            r"\bdeliver(?:s|ed|y|ing)?\b[^.]{0,45}"
+            r"\b(?:certificates?|diplomas?|degrees?)\b[^.]{0,45}"
+            r"\b(?:graduates?|students?|recipients?)\b",
+            lower,
+        ):
+            continue
+        # Deemed-receipt rules ("Documents delivered by email shall be deemed
+        # received within 2 days") state when written notice is treated as
+        # received, not a goods/services delivery deadline.
+        if re.search(
+            r"\bdeliver(?:s|ed|y|ing)?\b[^.]{0,50}\bemail\b"
+            r"[^.]{0,40}\bdeemed\s+received\b",
             lower,
         ):
             continue
@@ -4916,6 +4972,36 @@ def rule_renewal(doc, sentences):
             lower,
         ):
             continue
+        # Enrolment / registration cycles ("The student's enrolment renews
+        # automatically each semester") are administrative re-registration,
+        # not renewal of a contract term.  Genuine term renewals still fire
+        # ("This Agreement shall automatically renew for successive 1 year
+        # terms", fixture line 46).
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,40}\b(?:enrol\w*|registr\w*)\b"
+            r"|\benrol\w*\b[^.]{0,40}\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ):
+            continue
+        # Catalogue / programme rotation ("The course catalogue renews every
+        # semester") is publishing-cycle narration, not a contract term.
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,40}\bcatalog\w*\b"
+            r"|\bcatalog\w*\b[^.]{0,40}\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ):
+            continue
+        # Discourse-recurrence statements ("The debate about the pricing
+        # strategy renews each quarter") say a conversation topic comes up
+        # again, extending the abstract-commitment family guarded above.
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,40}"
+            r"\b(?:debates?|discussions?|arguments?|conversations?|dialogues?)\b"
+            r"|\b(?:debates?|discussions?|arguments?|conversations?|dialogues?)\b"
+            r"[^.]{0,40}\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.LOW
         flag = "renewal clause"
         if re.search(r"automatic|auto-renew|auto\s+renew|renews\s+automatically|renew\s+automatically|quarterly|automatically\s+renew", lower):
@@ -7844,6 +7930,68 @@ def rule_insurance(doc, sentences):
                 r"\b(?:oblig\w*|shall|must|will|require\w*|maintain\w*|"
                 r"procure\w*|carr(?:y|ies|ied)|tak(?:e|ing|en)\s+out|"
                 r"obtain\w*|purchase\w*)\b",
+                lower,
+            ):
+                continue
+            # Self-insurance availability ("Self-insurance is available to
+            # large employers") describes an option open to a class of buyers,
+            # not an inter-party coverage obligation (a party must fund risks
+            # itself rather than buy cover).
+            if re.search(r"\bself[\s-]?insur\w*\b", lower):
+                continue
+            # Valuation / appraisal narration ("The insurer valued the factory
+            # at USD 2 million for replacement") reports a value opinion, not a
+            # coverage obligation.
+            if re.search(
+                r"\binsur\w*\b[^.]{0,40}\b(?:valu\w*|apprais\w*|assess\w*)\b"
+                r"|\b(?:valu\w*|apprais\w*|assess\w*)\b[^.]{0,40}\binsur\w*\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:oblig\w*|shall|must|will|maintain\w*|"
+                r"procure\w*|carr(?:y|ies|ied)|tak(?:e|ing|en)\s+out|"
+                r"obtain\w*|purchase\w*)\b",
+                lower,
+            ):
+                continue
+            # Membership / sports cover ("The club requires all players to be
+            # insured against injury") is eligibility narration for
+            # individuals, not an inter-party coverage duty.
+            if re.search(
+                r"\binsur\w*\b[^.]{0,45}\b(?:players?\b|athletes?\b|teams?\b|"
+                r"members?\b)\b"
+                r"|\b(?:players?\b|athletes?\b|teams?\b|members?\b)\b"
+                r"[^.]{0,45}\binsur\w*\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:oblig\w*|shall|must|will|maintain\w*|"
+                r"procure\w*|carr(?:y|ies|ied)|tak(?:e|ing|en)\s+out|"
+                r"obtain\w*|purchase\w*)\b",
+                lower,
+            ):
+                continue
+            # Premium-collection narration ("Insurance premiums for the vehicle
+            # are collected with the registration fee", "contributions are
+            # deducted on a monthly basis") describes how cover is paid for,
+            # not a duty to procure coverage.
+            if re.search(
+                r"\binsurance\s+premiums?\b[^.]{0,45}\b(?:collect\w*|deduct\w*)\b"
+                r"|\b(?:collect\w*|deduct\w*)\b[^.]{0,45}\binsurance\s+premiums?\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:oblig\w*|shall|must|will|require\w*|maintain\w*|"
+                r"procure\w*|carr(?:y|ies|ied)|tak(?:e|ing|en)\s+out|"
+                r"obtain\w*|purchase\w*)\b",
+                lower,
+            ):
+                continue
+            # Certificate-presentation rules ("The library's insurance
+            # certificate must be presented at the venue") require showing a
+            # document at a site, not maintaining cover.  Zero fixture lines
+            # mention insurance certificates (checked against
+            # fixtures/generate_fixtures.py).
+            if re.search(
+                r"\binsurance\s+certificate\b[^.]{0,45}"
+                r"\b(?:present\w*|produce\w*)\b",
                 lower,
             ):
                 continue

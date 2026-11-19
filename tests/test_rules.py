@@ -6335,3 +6335,86 @@ def test_round61_exclusive_dining_menu_not_exclusivity_clause():
         "The distributor shall have the exclusive right to sell the products within the Territory.",
     ) if c.clause == "exclusivity"]
     assert len(clauses) == 2
+
+
+def test_round62_courier_and_dispatch_deadlines_not_delivery_obligation():
+    # Round 62.  Courier / parcel shipping promises, academic certificate
+    # handover and email deemed-receipt rules carry deadlines but are
+    # logistics / procedural narration, not inter-party goods-delivery
+    # obligations.  Genuine delivery commitments still fire (fixture lines
+    # 42 and 80).
+    for s in (
+        "The courier shall deliver the parcel within 3 days.",
+        "Delivery of the parcel to the customer is promised within 3 working days.",
+        "The school shall deliver the certificates to the graduates within 30 days.",
+        "Documents delivered by email shall be deemed received within 2 days.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "delivery"] == [], s
+    # Genuine goods/services delivery deadlines still fire.
+    clauses = [c for c in _clauses(
+        "Seller shall deliver the Products within 45 working days from receipt of a purchase order.",
+        "Provider shall deliver all Services within 20 business days of each Statement of Work.",
+    ) if c.clause == "delivery"]
+    assert len(clauses) == 2
+
+
+def test_round62_shelf_stock_pack_content_print_run_not_quantity():
+    # Round 62.  Retail shelf-stock, packaging content and print-run
+    # statements quote how much exists or fits, not a committed quantity
+    # between the parties.  Genuine purchase commitments still fire
+    # (fixture lines 41, 147 and 264).
+    for s in (
+        "The store keeps a total of 500 items on the shelves.",
+        "Each box contains 12 items for the retail pack.",
+        "The publisher printed a total of 5,000 copies of the novel.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "quantity"] == [], s
+    # Genuine quantity commitments still fire.
+    clauses = [c for c in _clauses(
+        "Buyer shall purchase a total of 10,000 units of the Products during each Contract Year at the price of USD 24.50 per unit.",
+        "Distributor shall purchase a minimum of 1,000 units per year.",
+        "Client engages Provider for event security services at a total of 12 events.",
+    ) if c.clause == "quantity"]
+    assert len(clauses) == 3
+
+
+def test_round62_enrolment_catalogue_discourse_not_renewal_clause():
+    # Round 62.  Enrolment cycles, catalogue rotation and recurring-discussion
+    # statements say something comes around again; they do not renew a
+    # contract term.  Genuine term renewals still fire (fixture lines 46
+    # and 78).
+    for s in (
+        "The student's enrolment renews automatically each semester.",
+        "The course catalogue renews every semester.",
+        "The debate about the pricing strategy renews each quarter.",
+        "The campaign's momentum renews after each fundraiser.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "renewal"] == [], s
+    # Genuine agreement renewals still fire.
+    clauses = [c for c in _clauses(
+        "This Agreement shall automatically renew for successive 1 year terms.",
+        "The initial term of this Agreement shall be 3 years, renewable.",
+    ) if c.clause == "renewal"]
+    assert len(clauses) == 2
+
+
+def test_round62_self_insurance_valuation_player_cover_premium_and_certificate_not_duty():
+    # Round 62.  Self-insurance availability, an insurer's valuation opinion,
+    # individual membership cover, premium-collection narration and a
+    # certificate-presentation venue rule describe insurance in the abstract
+    # or as a document formality — not an inter-party coverage obligation
+    # (rule_insurance has no fixture positives; canonical duty still fires).
+    for s in (
+        "Self-insurance is available to large employers.",
+        "The insurer valued the factory at USD 2 million for replacement.",
+        "The club requires all players to be insured against injury.",
+        "Insurance premiums for the vehicle are collected with the registration fee.",
+        "Unemployment insurance contributions are deducted on a monthly basis.",
+        "The library's insurance certificate must be presented at the venue.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "insurance"] == [], s
+    # A genuine coverage duty still fires.
+    clauses = [c for c in _clauses(
+        "The Supplier shall maintain professional indemnity insurance against all claims.",
+    ) if c.clause == "insurance"]
+    assert len(clauses) == 1
