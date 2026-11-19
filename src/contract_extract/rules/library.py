@@ -225,6 +225,24 @@ def rule_duration(doc, sentences):
         # stays narrow to the two validated families.
         if re.search(r"\b(?:warranty|standstill)\s+period\b", lower):
             continue
+        # "The supplier warrants the product to be free from defects for a
+        # period of 2 years" is a product coverage statement (a sales warranty
+        # describing the merchantability window), not the agreement's term.
+        # The frame requires the warrant verb bound to a coverage/fitness
+        # phrase ("free from defects", "satisfactory quality") or a "for a
+        # period of N" window; a genuine term sentence ("the initial term of
+        # this Agreement is 7 years from the effective date") has no warrant
+        # verb and still fires.  Zero fixture lines bind a warrant to a
+        # period or a defects frame (fixture line 62 "disclaims all
+        # warranties" has no period; checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bwarrant\w*\b[^.]{0,70}"
+            r"\b(?:free\s+from\s+defects?\b|satisfactory\s+(?:quality|condition)\b|"
+            r"merchantab\w*\b|for\s+(?:a\s+)?(?:period|term)\s+of\b)",
+            lower,
+        ):
+            continue
         # "negotiate in good faith for a period of 30 days before mediation",
         # "the period for objections shall be 14 days" are procedural
         # windows, not the agreement's term.  Only "negotiate in good faith"
@@ -963,6 +981,21 @@ def rule_price(doc, sentences):
             r"\b(?:government\w*|regulat\w*|state\b|authority\w*|ministr\w*)\b[^.]{0,35}\bfix\w*\b[^.]{0,40}\b(?:price\w*|tariff\w*)\b"
             r"|\belectricity\w*\b[^.]{0,20}\bprice\b"
             r"|\bprice\b[^.]{0,20}\belectricity\w*\b",
+            lower,
+        ):
+            continue
+        # "The court awarded attorney fees of USD 5,000 to the prevailing
+        # party" quotes litigation or professional legal costs, not the price
+        # of goods or services under this Agreement.  The frame requires an
+        # attorney / legal-costs phrase on either side of the amount; genuine
+        # contract prices ("The price of the Goods is USD 100 per unit",
+        # fixture line 327 "Base rent of USD 48,000 per year") have no
+        # attorney / legal-costs noun and still fire.  Zero fixture lines
+        # mention attorney or legal costs/fees (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:attorney\w*|attorneys?['’]?\s*fees?|legal\s+(?:costs?|fees?|"
+            r"expenses?)|solicitor\w*\s+fees?|lawyer\w*\s+fees?)\b",
             lower,
         ):
             continue
@@ -2445,6 +2478,44 @@ def rule_liability(doc, sentences):
             "liability", "aggregate liability", "maximum liability", "indemn", "cap on damages",
             "not be liable for", "be liable for", "disclaims all", "no liability",
         )):
+            continue
+        # "The vendor indemnified the buyer against third-party claims last
+        # year", "The insurance company indemnified the policyholder after
+        # the fire" narrate a past compensation event (someone already paid
+        # or reimbursed someone else), not an ongoing inter-party indemnity
+        # obligation.  The past-tense "indemnified" pins the narration frame;
+        # obligation auxiliaries are excluded so a genuine "shall be
+        # indemnified" duty stays live.  Zero fixture lines use the past
+        # tense (fixture line 269 "Provider indemnifies Client" is present
+        # tense; checked against fixtures/generate_fixtures.py).
+        if re.search(r"\bindemnif\w*ed\b", lower) and not re.search(
+            r"\b(?:shall|will|must|may|agree\w*|undertak\w*|oblig\w*|"
+            r"require\w*)\b",
+            lower,
+        ):
+            continue
+        # "The company indemnifies its directors against legal costs" is a
+        # corporate-governance posture (a company agrees to reimburse its own
+        # officers' defence costs), not an inter-party indemnity obligation.
+        # The guard requires the indemnify verb bound to an internal
+        # management noun; obligation auxiliaries are excluded so a genuine
+        # "shall indemnify the directors" duty stays live.  Genuine
+        # inter-party indemnities ("Provider indemnifies Client against all
+        # claims arising from staff misconduct", fixture line 269) have no
+        # director/officer noun and still fire.  Zero fixture lines pair
+        # indemnify with a director/officer noun (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bindemnif\w*\b[^.]{0,40}"
+            r"\b(?:directors?|officers?|trustees?|board\s+members?)\b"
+            r"|\b(?:directors?|officers?|trustees?|board\s+members?)\b"
+            r"[^.]{0,40}\bindemnif\w*\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:shall|will|must|may|agree\w*|undertak\w*|oblig\w*|"
+            r"require\w*)\b",
+            lower,
+        ):
             continue
         # A force-majeure event ("neither party shall be liable for damages
         # caused by a force majeure event") relaxes one narrow excuse, and
@@ -7186,6 +7257,28 @@ def rule_insurance(doc, sentences):
                 r"cost\w*|damages?\b)\b[^.]{0,30}"
                 r"\b(?:paid?|paid\s+out|reimburs\w*|settled?|refund\w*)\b"
                 r"[^.]{0,30}\b(?:insurance\s+(?:company|provider|carrier|firm)|"
+                r"insurer\w*|carrier\w*)\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:oblig\w*|shall|must|will|require\w*|maintain\w*|"
+                r"procure\w*|carr(?:y|ies|ied)|tak(?:e|ing|en)\s+out|"
+                r"obtain\w*|purchase\w*)\b",
+                lower,
+            ):
+                continue
+            # "The insurance company indemnified the policyholder after the
+            # fire" narrates a past compensation event by an insurer (an
+            # episode description), not an inter-party coverage obligation.
+            # The guard requires an insurer subject bound to the past-tense
+            # indemnify verb; obligation auxiliaries are excluded so a genuine
+            # duty ("the insurer shall indemnify the policyholder") stays
+            # live.  Zero fixture lines pair an insurer with the indemnified
+            # verb (checked against fixtures/generate_fixtures.py).
+            if re.search(
+                r"\b(?:insurance\s+(?:company|provider|carrier|firm)|"
+                r"insurer\w*|carrier\w*)\b[^.]{0,40}\bindemnif\w*ed\b"
+                r"|\bindemnif\w*ed\b[^.]{0,40}"
+                r"\b(?:insurance\s+(?:company|provider|carrier|firm)|"
                 r"insurer\w*|carrier\w*)\b",
                 lower,
             ) and not re.search(

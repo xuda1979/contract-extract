@@ -5938,3 +5938,55 @@ def test_insurance_claims_payout_and_recommendation_not_coverage_duty():
     ) if c.clause == "insurance"]
     assert len(clauses) >= 4
 
+
+def test_round54_warranty_coverage_statement_and_legal_fees_not_contract_value():
+    # Round 54.  A product coverage statement ("The supplier warrants the
+    # product to be free from defects for a period of 2 years") quotes a sales
+    # warranty merchantability window, not the agreement's term; a warranty
+    # served at checkout ("The retailer offered a 1-year warranty on all
+    # electronics") is a purchased add-on, not a term either.  A court-awarded
+    # costs order ("The court awarded attorney fees of USD 5,000 to the
+    # prevailing party") quotes litigation costs, not the price of goods or
+    # services.
+    assert [c for c in _clauses(
+        "The supplier warrants the product to be free from defects for a period of 2 years.",
+        "The manufacturer warrants the device against material defects.",
+        "The retailer offered a 1-year warranty on all electronics.",
+        "Extended warranties are sold separately at the register.",
+        "The court awarded attorney fees of USD 5,000 to the prevailing party.",
+    ) if c.clause in ("duration", "price")] == []
+    # Genuine agreement terms and contract prices have no warrant verb / no
+    # attorney or legal-costs noun, so they still fire.
+    clauses = [c for c in _clauses(
+        "The initial term of this Agreement is 7 years from the effective date.",
+        "The price of the Goods is USD 100 per unit.",
+    )]
+    assert any(c.clause == "duration" and "7 year(s)" in c.flag for c in clauses)
+    assert any(c.clause == "price" and "USD 100" in c.flag for c in clauses)
+
+
+def test_round54_indemnity_narration_and_governance_not_liability_cap():
+    # Round 54.  Past-tense compensation narration ("The vendor indemnified
+    # the buyer against third-party claims last year"), an insurer's past
+    # reimbursement episode ("The insurance company indemnified the policyholder
+    # after the fire") and an internal corporate-governance posture ("The
+    # company indemnifies its directors against legal costs") describe events or
+    # governance, not inter-party indemnity obligations.
+    assert [c for c in _clauses(
+        "The vendor indemnified the buyer against third-party claims last year.",
+        "The insurance company indemnified the policyholder after the fire.",
+        "The company indemnifies its directors against legal costs.",
+    ) if c.clause in ("liability_cap", "insurance")] == []
+    # Genuine inter-party indemnity obligations and insurance duties still fire
+    # (obligation auxiliaries are excluded from the negative legs).
+    clauses = [c for c in _clauses(
+        "Each party shall indemnify and hold harmless the other party against all claims.",
+        "Provider indemnifies Client against all claims arising from staff misconduct.",
+        "The Supplier shall indemnify and hold harmless the Buyer.",
+    ) if c.clause == "liability_cap"]
+    assert len(clauses) == 3
+    clauses = [c for c in _clauses(
+        "The Contractor shall maintain comprehensive general liability insurance.",
+    ) if c.clause == "insurance"]
+    assert len(clauses) == 1
+
