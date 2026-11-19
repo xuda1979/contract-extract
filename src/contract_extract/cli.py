@@ -92,6 +92,12 @@ def main(argv=None) -> int:
             out_stream,
             use_llm=bool(args.llm or args.llm_embed),
         )
+        if summary["total"] == 0:
+            print(
+                "error: no .pdf/.docx files found in the given paths",
+                file=sys.stderr,
+            )
+            return 2
         if args.checklist:
             # Re-read each NDJSON file (small) to render markdown.
             if args.output:

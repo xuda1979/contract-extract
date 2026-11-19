@@ -34,6 +34,12 @@ def test_missing_args(capsys):
     assert main([]) == 2
 
 
+def test_no_supported_files_exits_error(tmp_path, capsys):
+    rc = main([str(tmp_path)])
+    assert rc == 2
+    assert "no .pdf/.docx files found" in capsys.readouterr().err
+
+
 def test_fixtures_mode_needs_no_paths(capsys):
     assert main(["--fixtures"]) == 0
     out = capsys.readouterr().out
