@@ -1545,6 +1545,42 @@ def rule_delivery(doc, sentences):
             lower,
         ):
             continue
+        # "The newsletter / email campaign will be delivered within 2 days"
+        # promises a periodic communication (a message ranked by date), not a
+        # goods/services delivery obligation.  The gate verb "delivered within"
+        # admits it, so the guard pins the communication-noun both before and
+        # after the deliver verb, plus a calendar window.  Genuine inter-party
+        # deliveries ("Seller shall deliver the Products within 45 working
+        # days") name physical items and stay live; fixture line 349
+        # "Confidentiality includes campaign strategy and pricing" has no
+        # deliver verb and is untouched.
+        if re.search(
+            r"\b(?:email\s+campaign\w*|marketing\s+campaign\w*|newsletters?|"
+            r"email\s+blast\w*|mailshots?)\b[^.]{0,45}"
+            r"\b(?:deliver(?:s|ed|y|ing)?\b|delivery\s+of\b)[^.]{0,45}"
+            r"\b(?:within|in\s+(?:under\s+)?\d+\s+(?:days?|weeks?)|by\b)"
+            r"|\b(?:deliver(?:s|ed|y|ing)?\b|delivery\s+of\b)[^.]{0,45}"
+            r"\b(?:email\s+campaign\w*|marketing\s+campaign\w*|newsletters?|"
+            r"email\s+blast\w*|mailshots?)\b[^.]{0,45}"
+            r"\b(?:within|in\s+(?:under\s+)?\d+\s+(?:days?|weeks?)|by\b)",
+            lower,
+        ):
+            continue
+        # "Delivery of the flowers is guaranteed within 3 days" promises a
+        # perishable / floral consignment timely dispatch, not an inter-party
+        # goods delivery obligation under the agreement.  Genuine deliveries
+        # ("Seller shall deliver the Products within 45 working days") still
+        # fire.
+        if re.search(
+            r"\b(?:deliver(?:s|ed|y|ing)?\b|delivery\s+of\b)[^.]{0,45}"
+            r"\b(?:flowers?|bouquet\w*|flor\w*|fresh\s+produce)\b[^.]{0,45}"
+            r"\b(?:within|in\s+(?:under\s+)?\d+\s+(?:days?|weeks?))"
+            r"|\b(?:flowers?|bouquet\w*|flor\w*|fresh\s+produce)\b[^.]{0,45}"
+            r"\b(?:guarante\w*|promise\w*|assur\w*)\b[^.]{0,45}"
+            r"\b(?:deliver(?:s|ed|y|ing|ies)?)\b",
+            lower,
+        ):
+            continue
         m = re.search(
             rf"\bwithin\s+({_NUMTOKEN})\s*(?:business|working|calendar)?\s*(day|week|month)s?\b"
             rf"|\bat\s+least\s+({_NUMTOKEN})\s+days?\s+before\b"
@@ -3604,16 +3640,43 @@ def rule_liability(doc, sentences):
             lower,
         ):
             continue
+        # "The gym posts no liability for stolen items" is the same venue /
+        # operator policy-posture family as "assumes no liability" but with a
+        # bare policy verb ("posts", "accepts", "declines").  The guard
+        # requires a venue/operator noun bound to the no-liability frame.
+        # Genuine caps and "shall not be liable" obligations still fire —
+        # they have no venue noun; the round-64 gym-waiver test has no
+        # no-liability frame and stays silent.
+        if re.search(
+            r"\b(?:gym\b|park\b|restaurant\w*|club\b|hotel\b|theater\w*|"
+            r"theatre\w*|museum\w*|stadium\w*|arena\w*|casino\w*|bar\b|"
+            r"venue\w*|shop\w*|store\w*|pool\w*)"
+            r"[^.]{0,35}\b(?:posts?|accept\w*|declines?|refus\w*|"
+            r"provid\w*|offer\w*|extend\w*)\b[^.]{0,30}\bno\s+liab\w*\b"
+            r"|\bno\s+liab\w*\b[^.]{0,30}\b(?:post\w*|accept\w*|declin\w*|"
+            r"refus\w*)\b[^.]{0,35}"
+            r"\b(?:gym\b|park\b|restaurant\w*|club\b|hotel\b|theater\w*|"
+            r"theatre\w*|museum\w*|stadium\w*|arena\w*|casino\w*|bar\b|"
+            r"venue\w*|shop\w*|store\w*|pool\w*)\b",
+            lower,
+        ):
+            continue
         # "The operator assumes no liability for lost luggage" restates a
         # no-liability policy posture rather than a negotiated clause; the
         # guard requires an operator-like party together with the assume-no-
-        # liability frame.  Genuine "shall not be liable" obligations still
-        # fire.
+        # liability frame.  "The gym posts no liability for stolen items" and
+        # "The park assumes no liability for lost children" are the same
+        # venue/operator policy-posture family, so gym/park are added to the
+        # party list.  Genuine "shall not be liable" obligations still fire;
+        # the round-64 gym-waiver test ("The gym requires a liability waiver
+        # before the first session") has no assume+no-liability frame and was
+        # already silent.
         if re.search(
-            r"\b(?:operator|carrier|airline|station|manager|landlord|hotel)\w*\b"
-            r"[^.]{0,30}\bassum\w*\b[^.]{0,25}\bno\s+liab\w*\b"
+            r"\b(?:operator|carrier|airline|station|manager|landlord|hotel|"
+            r"gym|park)\w*\b[^.]{0,30}\bassum\w*\b[^.]{0,25}\bno\s+liab\w*\b"
             r"|\bno\s+liab\w*\b[^.]{0,25}\bassum\w*\b[^.]{0,30}"
-            r"\b(?:operator|carrier|airline|station|manager|landlord|hotel)\w*\b",
+            r"\b(?:operator|carrier|airline|station|manager|landlord|hotel|"
+            r"gym|park)\w*\b",
             lower,
         ):
             continue
@@ -3728,6 +3791,46 @@ def rule_liability(doc, sentences):
             r"|\b(?:waivers?\b|releases?\b)\b[^.]{0,40}\bliab\w*\b"
             r"|\b(?:strict|absolute)\s+liability\b[^.]{0,40}\b(?:offence\w*|offense\w*)\b"
             r"|\b(?:offence\w*|offense\w*)\b[^.]{0,40}\b(?:strict|absolute)\s+liability\b",
+            lower,
+        ):
+            continue
+        # "The liability for the broken vase is mine alone" allocates blame for
+        # an existing mishap in ordinary narrative ("mine/yours/his alone"),
+        # not a negotiated liability clause.  Genuine obligations ("aggregate
+        # liability shall not exceed USD 1,000,000") never use the
+        # possessive-alone frame.
+        if re.search(
+            r"\bliab\w*\b[^.]{0,40}\b(?:mine|yours?|theirs?|his|hers)\s+alone\b",
+            lower,
+        ):
+            continue
+        # "The theater's liability is limited to the ticket price" / "The
+        # club's liability is capped at the yearly fee" quote a venue's
+        # admission/fee cap as a consumer-facing statement of exposure, not a
+        # negotiated cap between the parties.  Genuine caps name a contract
+        # price or paid amount ("capped at the contract price" fixture line,
+        # "each party's total liability is capped at the amount paid in the
+        # prior 12 months") and stay live — the guard pins ticket/admission/
+        # entry/cover nouns and yearly/annual/monthly/membership fees only.
+        if re.search(
+            r"\bliab\w*\b[^.]{0,25}\blimited\s+to\b[^.]{0,25}"
+            r"\b(?:ticket\s+price|admission\s+price|entry\s+fee|cover\s+charge)\b"
+            r"|\bliab\w*\b[^.]{0,25}\bcapp?ed\s+at\b[^.]{0,25}"
+            r"\b(?:yearly|annual|monthly|membership)\s+fee\b",
+            lower,
+        ):
+            continue
+        # "Liability for the damage rests with the tenant" is a factual
+        # attribution of responsibility (blame for an event), not a negotiated
+        # clause; the tenant/occupier noun is a physical-party attribution,
+        # distinct from a commercial Party.  Genuine obligations never use
+        # "rests with" + an occupier noun.  The round-45 manufacturer test
+        # ("Product liability ... rests with the manufacturer under statute")
+        # has manufacturer, not in the occupier list, and stays silent via its
+        # own statutory guard.
+        if re.search(
+            r"\bliab\w*\b[^.]{0,25}\brests?\s+with\b[^.]{0,20}"
+            r"\b(?:tenant|occupant|hirer|renter|lessee|occupier)\b",
             lower,
         ):
             continue
@@ -4929,10 +5032,11 @@ def rule_ip(doc, sentences):
         if re.search(
             r"\bowns?\b[^.]{0,30}\b(?:copyright\w*|trademark\w*|patent\w*)\b"
             r"[^.]{0,30}\b(?:museum\w*|author\w*|artist\w*|photographer\w*|"
-            r"musician\w*|band\w*|composer\w*|galler\w*|studio\w*)\b"
+            r"musician\w*|band\w*|composer\w*|galler\w*|studio\w*|charity\w*|"
+            r"restaurant\w*)\b"
             r"|\b(?:museum\w*|author\w*|artist\w*|photographer\w*|musician\w*|"
-            r"band\w*|composer\w*|galler\w*|studio\w*)\b[^.]{0,30}"
-            r"\bowns?\b[^.]{0,30}\b(?:copyright\w*|trademark\w*|patent\w*)\b",
+            r"band\w*|composer\w*|galler\w*|studio\w*|charity\w*|restaurant\w*)\b"
+            r"[^.]{0,30}\bowns?\b[^.]{0,30}\b(?:copyright\w*|trademark\w*|patent\w*)\b",
             lower,
         ):
             continue
@@ -4966,6 +5070,47 @@ def rule_ip(doc, sentences):
         if re.search(
             r"\bvest\w*\b[^.]{0,50}\bby\s+operation\s+of\s+law\b"
             r"|\bby\s+operation\s+of\s+law\b[^.]{0,50}\bvest\w*\b",
+            lower,
+        ):
+            continue
+        # "The application is licensed to the end user for personal use" /
+        # "The software is licensed to the customer for internal use" describe
+        # a consumer-license posture (what a product's end user may do with
+        # it), not an inter-party grant with negotiated terms.  Genuine grants
+        # ("The Supplier grants the Customer an exclusive license to use the
+        # Software") use the grant-verb frame and stay live ("grants ... to
+        # use" does not match "licensed to ... for personal use").  Fixture
+        # license lines (fee payment / exclusive license grant / no license
+        # granted) never use the "licensed to X for Y use" frame and are
+        # untouched (checked against fixtures/generate_fixtures.py lines
+        # 59/68/136).
+        if re.search(
+            r"\blicen[cs]ed\s+to\b[^.]{0,30}\b(?:the\s+)?"
+            r"(?:end\s+user\w*|customer\w*|client\w*|subscriber\w*)\b"
+            r"[^.]{0,30}\bfor\b[^.]{0,25}\b(?:personal|internal|private|"
+            r"non[- ]commercial|home)\s+use\b",
+            lower,
+        ):
+            continue
+        # "I have a license to practice medicine in this state" is a
+        # professional-credential statement (regulatory permission to work),
+        # not an IP licence grant.  The gate keyword "licen[cs]e" admits it;
+        # the guard pins the practice-verb + regulated-profession frame.
+        if re.search(
+            r"\blicen[cs]e\b[^.]{0,20}\bto\s+practice\b[^.]{0,30}"
+            r"\b(?:medicine|law|nursing|veter\w*|dentistr\w*|accounting|legal|"
+            r"pharmac\w*|therap\w*)\b",
+            lower,
+        ):
+            continue
+        # "He owns the patent rights in his invention" narrates an
+        # individual's factual ownership of their own creation (possessive
+        # pronoun), not a corporate IP allocation.  The owns-guard above
+        # requires a holder noun (museum/author/...); this pins the patent-
+        # rights + possessive frame directly.
+        if re.search(
+            r"\bowns?\s+the\s+patent\s+rights\b[^.]{0,25}\bin\s+"
+            r"(?:his|her|their|my|its|our)\b",
             lower,
         ):
             continue
@@ -6077,6 +6222,57 @@ def rule_termination(doc, sentences):
             lower,
         ):
             continue
+        # "This walkway terminates this section of the garden" describes a
+        # physical boundary (a path/wall ending at a landmark), not a contract
+        # ending.  The gate keyword "terminates" admits it; the guard pins the
+        # spatial this-part + geography noun frame.
+        if re.search(
+            r"\bterminat\w*\b[^.]{0,20}\bthis\s+(?:section|part|area|portion)\b"
+            r"[^.]{0,20}\b(?:garden\w*|park\w*|path|paths?|road\w*|street\w*|"
+            r"trail\w*|site\w*|landscap\w*|grounds?|field\w*)\b",
+            lower,
+        ):
+            continue
+        # "Her library membership shall terminate at the end of this year"
+        # states when a subscription / membership period ends, not a contract
+        # termination right.  The membership noun is already guarded in
+        # renewal; here the terminate-in-time frame is pinned.
+        if re.search(
+            r"\bmembership\w*\b[^.]{0,35}\b(?:shall|will)\s+terminate\b"
+            r"[^.]{0,35}\b(?:at\s+the\s+end|upon\s+(?:its|the)\s+(?:end|expiry))",
+            lower,
+        ):
+            continue
+        # "His tenancy shall terminate immediately upon his move" / "The bus
+        # service shall terminate immediately upon the strike" / "His
+        # employment shall terminate immediately upon the incident" narrate
+        # when an arrangement ended (or would end) as a factual condition (a
+        # move, a strike, an incident), not an exercisable termination right.
+        # The bare "shall terminate immediately" frame is a conditioned event
+        # ending; the guard pins that frame.  Fixture termination clauses use
+        # "upon default" / "for cause" / "by written notice" and stay live.
+        if re.search(
+            r"\b(?:tenanc\w*|lease|employment|bus\s+service|bus\s+route|"
+            r"rail\b|transit\b|metro\b|subway\b|ferry)\b"
+            r"[^.]{0,25}\b(?:shall|will)\s+terminate\b"
+            r"[^.]{0,35}\b(?:immediately|upon\s+(?:his|her|their|its|the|a|an))",
+            lower,
+        ):
+            continue
+        # "This bus route shall terminate at the new station" is spatial
+        # transit narration (where a route ends), not a contract ending; the
+        # termination-verb + at-a-place/station frame is the physical route
+        # terminus.  Genuine clauses never combine "shall terminate" with a
+        # station/terminal/endpoint noun.
+        if re.search(
+            r"\b(?:bus\s+route|bus\s+service|rail\b|transit\b|metro\b|subway\b|"
+            r"ferry|train\b|route\b)\b[^.]{0,25}"
+            r"\b(?:shall|will)\s+terminate\b[^.]{0,30}"
+            r"\b(?:at\b[^.]{0,20}\b(?:station|terminal|terminus|end|stop|depot)|"
+            r"upon\s+reaching)\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.LOW
         flag = "termination clause"
         if "withdraw" in lower and "for convenience" in lower:
@@ -6858,6 +7054,23 @@ def rule_data_protection(doc, sentences):
             r"[^.]{0,40}\b(?:transferred?|transferring|transfer\b)\b"
             r"|\b(?:transferred?|transferring|transfer\b)\b[^.]{0,40}"
             r"\b(?:domain\s+name\w*|domains?|accounts?|user\s+accounts?)\b",
+            lower,
+        ):
+            continue
+        # "The bank accepts the transfer within 1 business day" states a
+        # financial transfer-processing window (when a funds transfer /
+        # payment instruction is completed by a bank), not a personal-data
+        # transfer.  The accept-payment guard above requires the "accept
+        # payment" frame; this pins the accept + transfer + business-day
+        # window frame (money movement, not data).  Genuine data transfers
+        # (fixture line 89 "Any data transferred outside the EEA") never pair
+        # accept with transfer and still fire.  (The "bank ... transferred
+        # funds" guard above covers the past-tense bank-funds move; this is
+        # the acceptance-window frame.)
+        if re.search(
+            r"\backnowledg\w*|accept(?:s|ed|ing)?\b[^.]{0,35}\btransfer\b"
+            r"[^.]{0,45}\b(?:within|in)\s+(?:the\s+)?\d+\s+"
+            r"(?:business|working)?\s*(?:day|week)s?\b",
             lower,
         ):
             continue

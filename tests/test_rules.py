@@ -7080,3 +7080,106 @@ def test_round69_renewal_consumer_motor_policy_renewal_not_term():
         "Either party may renew this Agreement for an additional term of one year by written notice.",
     ) if c.clause == "renewal"]
     assert len(clauses) == 2
+
+
+def test_round70_delivery_marketing_and_fresh_vocab_not_deadline():
+    # Round 70.  Marketing/newsletter campaigns and flowers/perishable
+    # fulfillment quote delivery windows as consumer or logistics facts, not a
+    # contractual deliverables deadline.  A genuine Seller delivery deadline
+    # still fires.
+    for s in (
+        "The newsletter is delivered by 10 June 2026.",
+        "The email campaign will be delivered within 2 days.",
+        "Delivery of the flowers is guaranteed within 3 days.",
+        "The milk is delivered by 6 December 2026 every morning.",
+        "Newspapers are delivered within 4 hours of printing.",
+        "The sermon was delivered within 30 minutes.",
+        "The pizza will be delivered by 10 January 2027.",
+        "Uranium fuel rods are delivered by 15 August 2026 to the plant.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "delivery"] == [], s
+    clauses = [c for c in _clauses(
+        "Seller shall deliver the Products within 45 working days.",
+    ) if c.clause == "delivery"]
+    assert len(clauses) == 1
+
+
+def test_round70_termination_routes_memberships_and_bus_facts_not_clause():
+    # Round 70.  Spatial walkways ending, memberships lapsing at year end,
+    # tenancies/employments ending on an event and bus routes ending at a
+    # station are life-cycle or geography facts, not a party's right to
+    # terminate the agreement.  Genuine termination provisions still fire.
+    for s in (
+        "This walkway terminates this section of the garden.",
+        "Her library membership shall terminate at the end of this year.",
+        "His tenancy shall terminate immediately upon his move.",
+        "The petition was terminated this afternoon by the committee.",
+        "This bus route shall terminate at the new station.",
+        "The bus service shall terminate immediately upon the strike.",
+        "His employment shall terminate immediately upon the incident.",
+        "This fence terminates at the stream.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "termination"] == [], s
+    clauses = [c for c in _clauses(
+        "Either party may terminate this Agreement by written notice.",
+    ) if c.clause == "termination"]
+    assert len(clauses) == 1
+
+
+def test_round70_ip_licenses_and_ownership_facts_not_clause():
+    # Round 70.  Licenses for personal/internal use, professional practice
+    # licenses, and ownership of copyrights/trademarks/patent rights stated
+    # as facts are not an IP assignment between the parties.  A genuine
+    # one-way IP assignment still fires.
+    for s in (
+        "The band owns the copyright in its songs.",
+        "The application is licensed to the end user for personal use.",
+        "I have a license to practice medicine in this state.",
+        "She retains the copyright in her photographs.",
+        "The restaurant owns the trademark in its name.",
+        "The software is licensed to the customer for internal use.",
+        "He owns the patent rights in his invention.",
+        "The charity owns the copyright in its brochures.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "ip"] == [], s
+    clauses = [c for c in _clauses(
+        "All inventions created under this Agreement are owned by the Customer.",
+    ) if c.clause == "ip"]
+    assert len(clauses) == 1 and clauses[0].risk.name == "HIGH"
+
+
+def test_round70_liability_venue_posts_and_factual_frames_not_cap():
+    # Round 70.  Venues posting "no liability" signs, possession facts
+    # ("mine alone"), venue notices limiting to ticket price or capping at a
+    # membership fee, and occupancy "rests with" statements are not agreed
+    # liability caps or exclusions between the parties.  A genuine aggregate
+    # cap still fires.
+    for s in (
+        "The gym posts no liability for stolen items.",
+        "The liability for the broken vase is mine alone.",
+        "The park assumes no liability for lost children.",
+        "The theater's liability is limited to the ticket price.",
+        "He admitted liability for the collision.",
+        "The firm accepts no liability for the advice given.",
+        "Liability for the damage rests with the tenant.",
+        "The club's liability is capped at the yearly fee.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "liability_cap"] == [], s
+    clauses = [c for c in _clauses(
+        "The aggregate liability of each party shall not exceed USD 1,000,000.",
+    ) if c.clause == "liability_cap"]
+    assert len(clauses) == 1
+
+
+def test_round70_data_protection_bank_transfer_confirmation_not_clause():
+    # Round 70.  "The bank accepts the transfer within 1 business day" is a
+    # payment-processing confirmation, not a data-protection or personal-data
+    # transfer provision.  A genuine cross-border transfer clause still fires.
+    for s in (
+        "The bank accepts the transfer within 1 business day.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "data_protection"] == [], s
+    clauses = [c for c in _clauses(
+        "Personal data may be transferred to processors outside the EEA subject to standard contractual clauses.",
+    ) if c.clause == "data_protection"]
+    assert len(clauses) == 1
