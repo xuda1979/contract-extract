@@ -1539,10 +1539,10 @@ def rule_acceptance(doc, sentences):
         # before "acceptance".  Zero fixture lines use that frame.
         if re.search(
             r"\b(?:social|public\b|market\b|widespread|cultural|societal|"
-            r"political|general|popular|broader?|audience)\s+acceptance\b"
+            r"political|general|popular|broader?|audience|wide\b)\s+acceptance\b"
             r"|\bacceptance\b[^.]{0,30}\b(?:social|public\b|market\b|"
             r"widespread|cultural|societal|political|general|popular|"
-            r"broader?|audience)\b",
+            r"broader?|audience|wide\b)\b",
             lower,
         ):
             continue
@@ -1869,6 +1869,21 @@ def rule_acceptance(doc, sentences):
         if re.search(
             r"\bacceptance\b[^.]{0,45}\b(?:donation\w*|gift\w*|grant\w*|"
             r"bequest\w*|endowment\w*)\b",
+            lower,
+        ):
+            continue
+        # "Acceptance of the committee's proposal was unanimous" is a
+        # deliberative-body endorsement (a committee voting an idea through),
+        # not the taking-up of contract deliverables.  Genuine acceptance of
+        # goods / works / services still fires — the guard requires a
+        # committee/proposal/unanimous frame bound to the acceptance noun.
+        # Zero fixture lines pair acceptance with a committee or proposal
+        # (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bacceptance\b[^.]{0,45}\b(?:committ\w*|proposal\w*|unanimous\w*|"
+            r"agenda\w*|resolution\w*)\b"
+            r"|\b(?:committ\w*|proposal\w*|unanimous\w*|agenda\w*|resolution\w*)\b"
+            r"[^.]{0,45}\bacceptance\b",
             lower,
         ):
             continue
