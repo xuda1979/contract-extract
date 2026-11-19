@@ -6915,3 +6915,60 @@ def test_round67_ip_creator_holds_copyright_not_assignment():
         "The patent rights are assigned to the Customer.",
     ) if c.clause == "ip"]
     assert len(clauses) == 1
+
+
+def test_round68_quantity_education_event_luggage_medical_not_goods():
+    # Round 68.  Course credits ("5 units of the online course"), cultural
+    # performances ("30 events"), baggage pieces ("15 items of luggage") and
+    # clinical chart entries ("8 items on the patient's chart") are not
+    # committed quantities of traded goods.  Genuine purchase quantities
+    # still fire (fixture lines 41, 147).
+    for s in (
+        "She completed 5 units of the online course.",
+        "The festival featured 30 events over three days.",
+        "The band played 12 events across its national tour.",
+        "He lost 15 items of luggage during the flight.",
+        "The nurse recorded 8 items on the patient's chart.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "quantity"] == [], s
+    clauses = [c for c in _clauses(
+        "Seller must supply 1,000 units to the Buyer each month.",
+        "The total purchase quantity shall not exceed 10,000 units in any calendar year.",
+    ) if c.clause == "quantity"]
+    assert len(clauses) == 2
+
+
+def test_round68_renewal_renovation_hostilities_fitness_not_term_renewal():
+    # Round 68.  Building restoration ("the renovation project renewed the
+    # old town hall"), resurgent armed conflict ("renewed fighting broke
+    # out") and workout routines ("renewed her training regimen") are not
+    # renewals of a contract's term.  Genuine automatic / further-term
+    # renewals still fire (fixture lines 46, 60, 329).
+    for s in (
+        "The renovation project renewed the old town hall.",
+        "Renewed fighting broke out along the border.",
+        "The athlete renewed her training regimen after the break.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "renewal"] == [], s
+    clauses = [c for c in _clauses(
+        "The agreement shall renew automatically for successive one-year terms unless either party gives notice.",
+        "Either party may renew this Agreement for an additional term of one year by written notice.",
+    ) if c.clause == "renewal"]
+    assert len(clauses) == 2
+
+
+def test_round68_exclusivity_invitation_fashion_line_not_market_grant():
+    # Round 68.  "By exclusive invitation only" limits attendance to invitees
+    # and "exclusive lines of evening wear" sells a fashion label's range —
+    # neither grants market exclusivity.  Genuine exclusivity rights / sole
+    # distributor appointments still fire (fixture lines 68, 146, 187).
+    for s in (
+        "The ceremony was by exclusive invitation only.",
+        "The boutique carries exclusive lines of evening wear.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "exclusivity"] == [], s
+    clauses = [c for c in _clauses(
+        "The Supplier shall have the exclusive right to sell the Products in the Territory.",
+        "Company A shall appoint Company B as the sole distributor of the Products for three years.",
+    ) if c.clause == "exclusivity"]
+    assert len(clauses) == 2

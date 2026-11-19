@@ -903,6 +903,54 @@ def rule_quantity(doc, sentences):
             lower,
         ):
             continue
+        # "She completed 5 units of the online course" counts educational
+        # credit (course units) rather than units of a traded good.  A genuine
+        # purchase commitment ("purchase a total of 10,000 units of the
+        # Products", fixture line 41) never names a course/lesson object.
+        if re.search(
+            r"\b\d+(?:[.,]\d+)?\s+units?\s+of\b[^.]{0,35}"
+            r"\b(?:course\w*|lesson\w*|module\w*|subject\w*|curriculum\w*|"
+            r"semester\w*)\b"
+            r"|\b(?:course\w*|lesson\w*|module\w*|subject\w*|curriculum\w*|"
+            r"semester\w*)\b[^.]{0,35}\b\d+(?:[.,]\d+)?\s+units?\s+of\b",
+            lower,
+        ):
+            continue
+        # "The festival featured 30 events" / "The band played 12 events
+        # across its national tour" count cultural performances (festival /
+        # concert / tour / band appearances), not contracted goods counts.
+        # Fixture line 264 ("event security services at a total of 12 events")
+        # names no cultural noun and still fires.
+        if re.search(
+            r"\b\d+(?:[.,]\d+)?\s+events?\b[^.]{0,40}"
+            r"\b(?:festival\w*|concert\w*|tour\w*|band\w*|performance\w*|"
+            r"gig\w*|season\w*)\b"
+            r"|\b(?:festival\w*|concert\w*|tour\w*|band\w*|performance\w*|"
+            r"gig\w*|season\w*)\b[^.]{0,40}\b\d+(?:[.,]\d+)?\s+events?\b",
+            lower,
+        ):
+            continue
+        # "He lost 15 items of luggage during the flight" counts baggage
+        # pieces, not contracted goods items.
+        if re.search(
+            r"\b\d+(?:[.,]\d+)?\s+items?\s+of\b[^.]{0,35}"
+            r"\b(?:luggage|baggage|suitcase\w*)\b",
+            lower,
+        ):
+            continue
+        # "The nurse recorded 8 items on the patient's chart" counts clinical
+        # chart entries / observations, not contracted goods items.  The
+        # returned/agenda guard above already covers procedural item lists;
+        # this pins the medical-administrative nouns.
+        if re.search(
+            r"\b\d+(?:[.,]\d+)?\s+items?\b[^.]{0,40}"
+            r"\b(?:patient\w*|chart\w*|clinic\w*|ward\w*|symptom\w*|"
+            r"nurse\w*|treatment\w*)\b"
+            r"|\b(?:patient\w*|chart\w*|clinic\w*|ward\w*|symptom\w*|"
+            r"nurse\w*|treatment\w*)\b[^.]{0,40}\b\d+(?:[.,]\d+)?\s+items?\b",
+            lower,
+        ):
+            continue
         m = re.search(
             rf"\b{_NUMTOKEN}\s+units?\b"
             rf"|\b{_NUMTOKEN}\s+items?\b"
@@ -5473,6 +5521,47 @@ def rule_renewal(doc, sentences):
             lower,
         ):
             continue
+        # "The renovation project renewed the old town hall" / "the city
+        # renewed the railway station as part of its redevelopment" describe
+        # physical rebuilding / restoration of a building or public space,
+        # not a renewal of the agreement's term.  A genuine renewal of an
+        # agreement / lease / licence never names a renovation noun.
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,40}"
+            r"\b(?:renovat\w*|restor\w*|refurbish\w*|remodel\w*|moderni\w*|"
+            r"rebuild\w*|redevelop\w*|upgrad\w*)\b"
+            r"|\b(?:renovat\w*|restor\w*|refurbish\w*|remodel\w*|moderni\w*|"
+            r"rebuild\w*|redevelop\w*|upgrad\w*)\b[^.]{0,40}"
+            r"\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ):
+            continue
+        # "Renewed fighting broke out along the border" reports recrudescent
+        # armed hostilities (combat resuming), not a renewal of a contract
+        # term.  "the renewal of hostilities" is the same armed-conflict
+        # reporting meaning.
+        if re.search(
+            r"\b(?:renewed|renewal)\b[^.]{0,35}"
+            r"\b(?:fighting\w*|hostilit\w*|clash\w*|violence\b|skirmish\w*|"
+            r"combat\w*|fighters?\b)\b"
+            r"|\b(?:fighting\w*|hostilit\w*|clash\w*|violence\b|skirmish\w*|"
+            r"combat\w*|fighters?\b)\b[^.]{0,35}\brenewed\b",
+            lower,
+        ):
+            continue
+        # "The athlete renewed her training regimen after the break" re-adopts
+        # a personal fitness routine, not a renewal of a contract term.
+        # Genuine term renewals never name a fitness/schedule object.
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,40}"
+            r"\b(?:regimen\w*|routine\w*|workout\w*|training\b|fitness\b|"
+            r"exercise\w*|practice\w*)\b"
+            r"|\b(?:regimen\w*|routine\w*|workout\w*|training\b|fitness\b|"
+            r"exercise\w*|practice\w*)\b[^.]{0,40}"
+            r"\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.LOW
         flag = "renewal clause"
         if re.search(r"automatic|auto-renew|auto\s+renew|renews\s+automatically|renew\s+automatically|quarterly|automatically\s+renew", lower):
@@ -6426,6 +6515,34 @@ def rule_exclusivity(doc, sentences):
             r"seller\w*|successor\w*|acquir\w*)\b",
             lower,
         ):
+            continue
+        # "The ceremony was by exclusive invitation only" describes attendance
+        # limited to invitees (an invite-only event), not a grant of market
+        # exclusivity.  The negative leg keeps genuine "exclusive right /
+        # licence / grant" phrasing live (fixture lines 68, 146, 187).
+        if re.search(
+            r"\bexclusive\s+invitation\w*\b[^.]{0,30}\b(?:only|event\w*|"
+            r"ceremony\w*|gala\b|guests?\b|attend\w*)\b"
+            r"|\b(?:invitation\w*|event\w*|ceremony\w*|gala\b|guests?\b)"
+            r"[^.]{0,30}\bexclusive\b",
+            lower,
+        ) and not re.search(r"\bexclusive\s+(?:right\w*|licen[cs]e\w*|grant\w*)\b", lower):
+            continue
+        # "The boutique carries exclusive lines of evening wear" promotes a
+        # fashion retailer's product selection (an exclusive line / label /
+        # collection as a marketing adjective), not a grant of market
+        # exclusivity.  The fashion-merchandise nouns pin the marketing sense;
+        # genuine exclusivity grants (fixture lines 68, 146, 187) never name
+        # clothing.  Zero fixture lines pair exclusive with fashion nouns
+        # (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bexclusive\s+lines?\s+of\b[^.]{0,40}"
+            r"\b(?:clothing\w*|garment\w*|apparel\w*|wear\b|fashion\w*|"
+            r"evening\s+wear\b|attire\b)\b"
+            r"|\b(?:clothing\w*|garment\w*|apparel\w*|wear\b|fashion\w*|"
+            r"evening\s+wear\b|attire\b)\b[^.]{0,40}\bexclusive\s+lines?\s+of\b",
+            lower,
+        ) and not re.search(r"\bexclusive\s+(?:right\w*|licen[cs]e\w*|grant\w*)\b", lower):
             continue
         risk = RiskLevel.MEDIUM
         flag = "exclusivity clause"
