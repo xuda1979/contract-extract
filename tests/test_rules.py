@@ -5304,6 +5304,61 @@ def test_termination_financier_withdrawal_not_termination():
     assert clauses
 
 
+def test_exclusivity_marketing_adjective_supplier_and_conveyance_not_grant():
+    # "Exclusive" as a marketing/product adjective, a supplier-of / territory-
+    # of designation, or a past-tense conveyance of rights to a specific work
+    # is not a standing exclusivity grant in the agreement.
+    for s in (
+        "The company sells exclusive fragrances to luxury retailers.",
+        "The university offers exclusive research grants to tenured faculty.",
+        "Members enjoy exclusive discounts during the holiday season.",
+        "The film's exclusive theatre release was a commercial success.",
+        "The brand became the exclusive supplier of uniforms for the national team.",
+        "The authorised distributor operates in the exclusive territory of the Netherlands.",
+        "Exclusive rights to the manuscript passed to the buyer through the sale.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "exclusivity"] == [], s
+    # A genuine distribution exclusivity grant still fires.
+    clauses = [c for c in _clauses(
+        "The Distributor shall have the exclusive right to sell the Products in France."
+    ) if c.clause == "exclusivity"]
+    assert clauses
+
+
+def test_termination_public_service_role_and_notice_period_not_termination():
+    # Terminating a public-infrastructure service, an HR role dismissal, or
+    # treating the notice period as the object is not a party's right to end
+    # this agreement.
+    for s in (
+        "Termination of the bus service for convenience was announced by the city.",
+        "The employer's termination of the executive was without cause pending arbitration.",
+        "An employee may terminate the notice period early by mutual agreement.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "termination"] == [], s
+    # A genuine termination right still fires.
+    clauses = [c for c in _clauses(
+        "Either party may terminate this Agreement for convenience upon 90 days written notice."
+    ) if c.clause == "termination"]
+    assert clauses
+
+
+def test_confidentiality_leak_code_of_conduct_and_briefing_not_duty():
+    # A leaked document episode, a professional code-of-conduct assurance, or
+    # a briefing narration is not a contractual secrecy duty.
+    for s in (
+        "The whistleblower's confidential report was leaked to the press.",
+        "Client confidentiality is guaranteed by the firm's code of conduct.",
+        "Confidential briefings were held for senior staff before the merger.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "confidentiality"] == [], s
+    # Genuine confidentiality duties still fire.
+    for s in (
+        "The consultant must return the client's confidential documents within 30 days.",
+        "The receiving party shall keep the confidential information secret.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "confidentiality"], s
+
+
 def test_data_protection_pricing_lease_and_knowledge_not_data_transfer():
     # Transfer pricing, lease / tenancy assignment, knowledge-transfer
     # sessions and non-transferable tickets are not transfers of personal

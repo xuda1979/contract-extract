@@ -3609,6 +3609,49 @@ def rule_confidentiality(doc, sentences):
             lower,
         ):
             continue
+        # "A confidential report was leaked to the press" narrates a past
+        # disclosure episode, not a standing secrecy duty.  The guard needs the
+        # leak/divulge verb AND a public-dissemination target (press/public/
+        # reporter/news/media) so it cannot catch the genuine return-or-destroy
+        # duties ("the receiving party shall return or destroy all Confidential
+        # Information", "the consultant must return ... confidential documents
+        # within 30 days"), which are obligations, not disclosures.  No fixture
+        # line pairs confidential with leak/divulge + press/media (checked
+        # against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bconfidential\w*\b[^.]{0,45}\b(?:leaked?|divulged?)\b"
+            r"[^.]{0,40}\b(?:press\b|public\b|reporter\w*|journalist\w*|"
+            r"news\w*|media\b|newspaper\w*)\b",
+            lower,
+        ):
+            continue
+        # "Client confidentiality is guaranteed by the firm's code of conduct"
+        # states a professional/ethical assurance, not a contractual secrecy
+        # undertaking alongside rights and remedies.  Genuine NDA language
+        # ("shall keep confidential") has a modal obligation and no
+        # guarantee-by-code frame.  No fixture line uses this frame (checked
+        # against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bconfidentialit\w*\b[^.]{0,45}\b(?:guaranteed?|undertaken?|"
+            r"ensured?|promised?|assured?)\s+by\b[^.]{0,40}"
+            r"\b(?:code\s+of\s+conduct\b|professional\s+standards?\b|"
+            r"professional\s+body\b|firm\w*|institute\w*|bodies?\b)\b",
+            lower,
+        ):
+            continue
+        # "Confidential briefings were held for senior staff before the merger"
+        # describes a discrete internal information event, not a secrecy
+        # obligation in this agreement.  Genuine duties keep the return/destroy
+        # or keep-secret frames without a briefing noun.  No fixture line
+        # combines briefings with confidential (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bconfidential\w*\b[^.]{0,35}\bbriefing\w*\b"
+            r"[^.]{0,40}\b(?:were\s+held\b|held\b|conduct\w*|present\w*|"
+            r"gave\w*|attend\w*)\b|\bbriefing\w*\b[^.]{0,35}\bconfidential\w*\b",
+            lower,
+        ):
+            continue
         dur = _DURATION_RE.search(sentence)
         risk = RiskLevel.LOW
         flag = "confidentiality clause"
@@ -5034,6 +5077,45 @@ def rule_termination(doc, sentences):
         if re.search(r"\bserved\b[^.]{0,45}\bterminat\w*\b"
                      r"|\bterminat\w*\b[^.]{0,45}\bserved\b", lower):
             continue
+        # "Termination of the bus service for convenience was announced by the
+        # city" is a public-transport service decision, not a party's right to
+        # end this agreement.  The noun list is deliberately limited to
+        # concrete public-infrastructure services so "termination of the
+        # Services" in a supply agreement still fires.  No fixture line
+        # terminates a named infrastructure service (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\btermination\s+of\s+(?:the\s+|a\s+)?\b(?:bus\s+service\w*|"
+            r"bus\s+route\w*|rail\w*|transit\b|ferr\w*|metro\b|subway\w*|"
+            r"tram\w*|flight\w*|airline\w*|shuttle\w*)\b",
+            lower,
+        ):
+            continue
+        # "The employer's termination of the executive was without cause
+        # pending arbitration" describes a past HR role dismissal, not a
+        # termination right in the agreement.  Extends the employment/office
+        # noun family (guarded above) to person role-nouns.  No fixture or
+        # test asserts a termination fire for these role nouns (checked
+        # against fixtures/generate_fixtures.py and tests/test_rules.py).
+        if re.search(
+            r"\btermination\s+of\s+(?:the\s+|a\s+|an\s+)?\b(?:executive\w*|"
+            r"director\w*|officer\w*|manager\w*|employee\w*|worker\w*|"
+            r"supervisor\w*|staff\b|personnel\b)\b",
+            lower,
+        ):
+            continue
+        # "An employee may terminate the notice period early by mutual
+        # agreement" treats the notice period itself as the object of
+        # termination (a working-time administrative act), not the
+        # agreement.  Fixture convenience/notice lines terminate the
+        # "Agreement"/"Contract" noun, never "notice period", so they stay
+        # live (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bterminat\w*\b[^.]{0,35}\bnotice\s+period\b"
+            r"|\bnotice\s+period\b[^.]{0,35}\bterminat\w*\b",
+            lower,
+        ):
+            continue
         risk = RiskLevel.LOW
         flag = "termination clause"
         if "withdraw" in lower and "for convenience" in lower:
@@ -5498,6 +5580,57 @@ def rule_exclusivity(doc, sentences):
             r"(?:five[- ]star)?\s*hotel\w*|neighbourhood\w*|enclave\w*)\b"
             r"|\b(?:location\w*|beachfront\b|waterfront\b|seafront\b|villa\w*|"
             r"suite\w*|view\w*)\b[^.]{0,30}\bexclusive\b",
+            lower,
+        ):
+            continue
+        # "exclusive fragrances / research grants / discounts / theatre
+        # release / collection" uses exclusive as a marketing or product
+        # adjective, not a grant of contractual exclusivity.  The negative leg
+        # keeps "exclusive rights/license/grant" phrasing live (e.g. the
+        # fixture "exclusive license grant", the positive "exclusive right to
+        # sell" control).  No fixture line pairs exclusive with these
+        # product/audience nouns (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bexclusive\s+(?:fragrance\w*|perfume\w*|research\s+grant\w*|"
+            r"scholarship\w*|bursar\w*|fellowship\w*|discount\w*|coupon\w*|"
+            r"offer\w*|promotion\w*|(?:theatre\s+)?release\w*|screening\w*|"
+            r"showing\w*|collection\w*|edition\w*)\b",
+            lower,
+        ) and not re.search(r"\bexclusive\s+(?:right\w*|licen[cs]e\w*|grant\w*)\b", lower):
+            continue
+        # "the exclusive supplier of uniforms" / "the exclusive territory of
+        # the Netherlands" designates a supply relationship or a geographic
+        # region as an adjective, without granting any exclusivity right here.
+        # The negative leg protects the genuine "exclusive right/license to
+        # sell in the Territory" controls (fixture 146, the France distribution
+        # positive control).  No fixture line names a country as an exclusive
+        # territory (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bexclusive\s+(?:supplier|provider|vendor|manufacturer)\s+of\b"
+            r"[^.]{0,40}\b(?:uniform\w*|goods?\b|product\w*|component\w*|"
+            r"parts?\b|supplies?\b|services?\b|merchandise\w*)\b"
+            r"|\bexclusive\s+(?:territor\w+|market\w*|region\w*|area\w*)\s+of\b"
+            r"[^.]{0,35}\b(?:the\s+)?(?:netherlands\b|france\b|germany\b|"
+            r"spain\b|italy\b|belgium\b|\buk\b|britain\b|usa\b|canada\b|"
+            r"japan\b|china\b|europe\b|asia\b|european\s+union)\b",
+            lower,
+        ) and not re.search(r"\bexclusive\s+(?:right\w*|licen[cs]e\w*)\b", lower):
+            continue
+        # "Exclusive rights to the manuscript passed to the buyer through the
+        # sale" is a past-tense conveyance of a specific work under a separate
+        # sale, not a standing exclusivity grant in this agreement.  The guard
+        # anchors on the past-tense transfer verb and a concrete work/fee noun
+        # or a counterparty, so forward-looking exclusivity ("shall have the
+        # exclusive right", "exclusive right to sell") still fires.  No fixture
+        # line conveys exclusive rights in the past tense (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bexclusive\s+right\w*\s+to\s+(?:the\s+)?(?:manuscript\w*|"
+            r"paper\w*|work\w*|record\w*|document\w*|material\w*)\b"
+            r"[^.]{0,35}\b(?:passed?\b|transfer\w*|convey\w*|sold\b|assign\w*)\b"
+            r"|\bexclusive\s+right\w*\b[^.]{0,45}\b(?:passed?\b|transfer\w*|"
+            r"convey\w*)\b[^.]{0,30}\bto\s+(?:the\s+)?(?:buyer\w*|purchaser\w*|"
+            r"seller\w*|successor\w*|acquir\w*)\b",
             lower,
         ):
             continue
