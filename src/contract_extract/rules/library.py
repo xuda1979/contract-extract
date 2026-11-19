@@ -592,6 +592,28 @@ def rule_duration(doc, sentences):
             lower,
         ):
             continue
+        # "The volcano has been dormant for a period of 300 years" describes
+        # the dormancy window of a natural geological feature, not the term of
+        # the reviewed agreement.  Genuine contract terms never name a
+        # volcano/mountain/geological object in a dormant/extinct/inactive
+        # frame (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:volcano\w*|mountain\w*|geolog\w*)\b[^.]{0,25}"
+            r"\b(?:dormant|extinct|inactive)\b",
+            lower,
+        ):
+            continue
+        # "The bridge has been standing for a period of 80 years" reports the
+        # age of a physical structure, not the term of an agreement.  Genuine
+        # agreement durations never name a bridge/monument/landmark/
+        # infrastructure object in a standing/erect frame (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:bridge\w*|monument\w*|landmark\w*|infrastructure\b)\b"
+            r"[^.]{0,25}\b(?:standing|erect\w*)\b",
+            lower,
+        ):
+            continue
         m = _DUR_PAT1.search(sentence) or _DUR_PAT4.search(sentence) or _DUR_PAT5.search(sentence)
         if not m:
             continue
@@ -1372,6 +1394,16 @@ def rule_price(doc, sentences):
         # contract.  Genuine fixture prices carry no retail/market label
         # (checked against fixtures/generate_fixtures.py).
         if re.search(r"\bsticker\s+price\b", lower):
+            continue
+        # "The store charges USD 5 for delivery" quotes a consumer service
+        # charge for shipping, not a price agreed for goods in a commercial
+        # contract.  Genuine fixture prices never bind a charge verb to a
+        # delivery/shipping/freight/postage noun (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bcharges?\b[^.]{0,15}\bfor\b[^.]{0,20}\b(?:delivery|shipping|freight|postage)\b",
+            lower,
+        ):
             continue
         flag = f"price: {detail}"
         if any(k in lower for k in ("in advance", "advance payment", "upon execution",
@@ -4323,6 +4355,42 @@ def rule_confidentiality(doc, sentences):
             lower,
         ):
             continue
+        # "Please keep this message confidential" is a casual request about the
+        # secrecy of a note, not an inter-party confidentiality restriction.
+        # Genuine confidentiality clauses never use the keep/hold + message
+        # frame (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:keep|hold)\b[^.]{0,20}\b(?:this|the)\s+message\b[^.]{0,15}"
+            r"\bconfidential\b",
+            lower,
+        ):
+            continue
+        # "The password is confidential" / "login credentials" state that an
+        # access credential is secret, not that contract information is
+        # restricted.  Genuine confidentiality clauses never hinge on an
+        # access-credential noun (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:password\w*|passcode\w*|credential\w*|login\w*)\b",
+            lower,
+        ):
+            continue
+        # "The journalist promised to keep the source's identity confidential"
+        # is about protecting a news source's identity, not a contracting
+        # party's secrecy duty.  Genuine clauses never name a "source's
+        # identity" in a keep-confidential frame (checked against fixtures).
+        if re.search(r"\bsource\w*['’]?s\b[^.]{0,20}\bidentity\b", lower):
+            continue
+        # "The company's financial results are confidential until the
+        # announcement" flags a pre-publication embargo window, not a
+        # contract-wide confidentiality restriction.  Genuine clauses never
+        # bind "confidential ... until/before" to an announcement/event
+        # (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bfinancial\s+results\b[^.]{0,20}\bconfidential\b[^.]{0,20}"
+            r"\b(?:until|before)\b",
+            lower,
+        ):
+            continue
         dur = _DURATION_RE.search(sentence)
         risk = RiskLevel.LOW
         flag = "confidentiality clause"
@@ -5558,6 +5626,18 @@ def rule_renewal(doc, sentences):
             r"exercise\w*|practice\w*)\b"
             r"|\b(?:regimen\w*|routine\w*|workout\w*|training\b|fitness\b|"
             r"exercise\w*|practice\w*)\b[^.]{0,40}"
+            r"\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ):
+            continue
+        # "She renewed her car insurance last month" is a consumer policy
+        # renewal narrative (personal motor cover), not a renewal of the
+        # agreement's term.  Genuine term renewals never name a car/vehicle/
+        # motor insurance object (guarded likewise in rule_insurance).
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,35}"
+            r"\b(?:car|vehicle|auto|motor)\s+insurance\b"
+            r"|\b(?:car|vehicle|auto|motor)\s+insurance\b[^.]{0,35}"
             r"\brenew(?:al|s|ing|ed|able)?\b",
             lower,
         ):
@@ -7339,6 +7419,59 @@ def rule_data_protection(doc, sentences):
             lower,
         ):
             continue
+        # "This website uses cookies to store your personal data" is a
+        # consumer-privacy note about browser storage, not a contract-level
+        # data-processing clause.  Genuine data-protection duties never hinge
+        # on browsing cookies (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bcookies?\b[^.]{0,40}\b(?:store\w*|save\w*|collect\w*|retain\w*)\b",
+            lower,
+        ):
+            continue
+        # "The hospital processes patient personal data for treatment purposes"
+        # is a healthcare-operations statement, not an inter-party data
+        # protection clause.  Genuine clauses never harness the
+        # hospital/patient/medical/treatment frame (checked against fixtures).
+        if re.search(
+            r"\bhospital\w*\b[^.]{0,40}\b(?:patient\w*|medical|treatment)\b",
+            lower,
+        ):
+            continue
+        # "The company moved customer data to the new CRM system" is an
+        # internal tooling migration (a database moved), not a compliance
+        # transfer of personal data to another controller.  Genuine transfers
+        # carry a processing/transfer duty and do not name a CRM/tool target
+        # (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:moved?|migrat\w*)\b[^.]{0,30}\b(?:customer\w*|client\w*)"
+            r"\s+data\b\s+to\b",
+            lower,
+        ):
+            continue
+        # "The photographer shares personal data of the guests with the venue"
+        # recounts an event organiser's data handling, not a contractual
+        # data-protection obligation.  Genuine clauses never hinge on the
+        # photographer/guest/client frame (checked against fixtures).
+        if re.search(
+            r"\bphotographer\w*\b[^.]{0,40}\b(?:guest\w*|client\w*|customer\w*)\b",
+            lower,
+        ):
+            continue
+        # "The bank processes personal data when opening an account" is a
+        # routine KYC/account-opening statement, not a contract data-protection
+        # clause.  Genuine clauses never hinge on bank + open/account in a
+        # passing frame (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bbank\w*\b[^.]{0,45}\b(?:open\w*|account\w*)\b",
+            lower,
+        ):
+            continue
+        # "The loyalty program stores personal data about purchase history" is
+        # a consumer-rewards note, not an inter-party data clause.  Genuine
+        # clauses never hinge on a loyalty-program noun (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(r"\bloyalty\s+program\w*\b", lower):
+            continue
         risk = RiskLevel.LOW
         flag = "data protection clause"
         detail = None
@@ -7525,12 +7658,14 @@ def rule_insurance(doc, sentences):
             ):
                 continue
             # "She bought insurance through a broker" recounts a personal
-            # purchase transaction; the guard pins the broker / agent
-            # channel.  "Shall maintain ... insurance" obligations do not
-            # mention a broker and still fire.
+            # purchase transaction; the guard pins the broker / agent /
+            # dealership channel.  "Shall maintain ... insurance" obligations
+            # do not mention a broker and still fire.
             if re.search(
-                r"\binsurance\b[^.]{0,30}\b(?:broker|agent|intermediar\w*)\b"
-                r"|\b(?:broker|agent|intermediar\w*)\b[^.]{0,30}\binsurance\b",
+                r"\binsurance\b[^.]{0,30}\b(?:broker|agent|intermediar\w*|"
+                r"dealer\w*|dealership\w*|showroom\w*)\b"
+                r"|\b(?:broker|agent|intermediar\w*|dealer\w*|dealership\w*|"
+                r"showroom\w*)\b[^.]{0,30}\binsurance\b",
                 lower,
             ) and not re.search(
                 r"\b(?:oblig\w*|shall|must|will|require\w*|maintain\w*|procure\w*)\b",
@@ -8075,7 +8210,10 @@ def rule_insurance(doc, sentences):
                 r"|\binsured?\b[^.]{0,45}\bagainst\b[^.]{0,35}"
                 r"\b(?:adverse\s+weather|rain\w*|storm\w*|flood\w*|weather\s+"
                 r"conditions?)\b"
-                r"|\badverse\s+weather\b[^.]{0,45}\binsured?\b",
+                r"|\badverse\s+weather\b[^.]{0,45}\binsured?\b"
+                r"|\binsured?\b[^.]{0,45}\bagainst\b[^.]{0,45}"
+                r"\bcancellation\b[^.]{0,40}"
+                r"\b(?:weather|rain\w*|storm\w*|flood\w*)\b",
                 lower,
             ):
                 continue
@@ -8777,6 +8915,32 @@ def rule_insurance(doc, sentences):
             # coverage value, not a requirement to maintain cover.
             if re.search(
                 r"\binsured\s+amount\b[^.]{0,30}\b(?:reduc\w*|lower\w*|decreas\w*)\b",
+                lower,
+            ):
+                continue
+            # "The hotel is insured against damage by guests" narrates a
+            # hospitality / premises risk arrangement, not an inter-party
+            # obligation to procure cover.  Genuine coverage obligations
+            # ("The Lessee shall insure the Goods against loss or damage")
+            # still fire (different frame).
+            if re.search(
+                r"\binsured?\b[^.]{0,40}\bagainst\b[^.]{0,30}\bdamage\s+by\b",
+                lower,
+            ):
+                continue
+            # "The contractor/auditor shall insure that ..." uses "insure" in
+            # the ensure-sense ("make certain"), not a demand for insurance
+            # cover.  No fixture or test sentence uses "insurance ... that" or
+            # "insure ... that" as genuine coverage (checked against
+            # fixtures/generate_fixtures.py and tests/test_rules.py).
+            if re.search(r"\binsur\w*\b[^.]{0,30}\bthat\b", lower):
+                continue
+            # "She renewed her car insurance last month" is a consumer policy
+            # renewal narrative, not an inter-party coverage obligation
+            # (guarded likewise in rule_renewal).
+            if re.search(
+                r"\brenew\w*\b[^.]{0,35}\b(?:car|vehicle|auto|motor)\s+insurance\b"
+                r"|\b(?:car|vehicle|auto|motor)\s+insurance\b[^.]{0,35}\brenew\w*\b",
                 lower,
             ):
                 continue

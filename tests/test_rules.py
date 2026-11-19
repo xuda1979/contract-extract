@@ -6972,3 +6972,111 @@ def test_round68_exclusivity_invitation_fashion_line_not_market_grant():
         "Company A shall appoint Company B as the sole distributor of the Products for three years.",
     ) if c.clause == "exclusivity"]
     assert len(clauses) == 2
+
+
+def test_round69_price_charge_for_delivery_not_price():
+    # Round 69.  "The store charges USD 5 for delivery" quotes a small
+    # shipping surcharge, not a contract purchase price.  Genuine price
+    # stipulations still fire (fixture line 249).
+    for s in (
+        "The store charges USD 5 for delivery.",
+        "The courier charges USD 8 for shipping the parcel.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "price"] == [], s
+    clauses = [c for c in _clauses(
+        "The purchase price for the Shares shall be USD 1,000,000.",
+    ) if c.clause == "price"]
+    assert len(clauses) == 1
+
+
+def test_round69_duration_volcano_bridge_longevity_not_term():
+    # Round 69.  "The volcano has been dormant for 300 years" and "the bridge
+    # has been standing for 80 years" report natural/historical longevity, not
+    # a stated contract term.  Genuine term stipulations still fire (fixture
+    # line 249).
+    for s in (
+        "The volcano has been dormant for a period of 300 years.",
+        "The bridge has been standing for a period of 80 years.",
+        "The monument has been standing for three hundred years.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "duration"] == [], s
+    clauses = [c for c in _clauses(
+        "The term of this Agreement shall be for a period of 2 years.",
+    ) if c.clause == "duration"]
+    assert len(clauses) == 1
+
+
+def test_round69_confidentiality_personal_narratives_not_clause():
+    # Round 69.  Keeping a message, protecting a password, hiding a source's
+    # identity and embargoing financial results until an announcement are
+    # personal/informational narratives, not confidentiality covenants.
+    # Genuine non-disclosure covenants still fire (fixture line 249).
+    for s in (
+        "Please keep this message confidential.",
+        "The password is confidential and must not be shared.",
+        "The journalist promised to keep the source's identity confidential.",
+        "The company's financial results are confidential until the announcement.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "confidentiality"] == [], s
+    clauses = [c for c in _clauses(
+        "Confidential information shall not be disclosed to any third party without the prior written consent of the Disclosing Party.",
+    ) if c.clause == "confidentiality"]
+    assert len(clauses) == 1
+
+
+def test_round69_data_protection_operational_mentions_not_clause():
+    # Round 69.  Cookies storing data, hospitals processing patient records,
+    # CRM migrations, photographers sharing guest data, banks opening accounts
+    # and loyalty programs tracking purchases describe operational data flows,
+    # not contractual data-protection obligations.  A genuine GDPR compliance
+    # duty still fires (fixture line 69).
+    for s in (
+        "This website uses cookies to store your personal data.",
+        "The hospital processes patient personal data for treatment purposes.",
+        "The company moved customer data to the new CRM system.",
+        "The photographer shares personal data of the guests with the venue.",
+        "The bank processes personal data when opening an account.",
+        "The loyalty program stores personal data about purchase history.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "data_protection"] == [], s
+    clauses = [c for c in _clauses(
+        "The parties agree that all personal data shall be processed in accordance with GDPR.",
+    ) if c.clause == "data_protection"]
+    assert len(clauses) == 1
+
+
+def test_round69_insurance_consumer_narratives_not_requirement():
+    # Round 69.  Buying car cover through a dealership, insuring a hotel
+    # against guest-caused damage, event cancellation cover against weather and
+    # renewing personal motor cover are consumer narratives, not inter-party
+    # coverage obligations.  Genuine maintain/procure obligations still fire
+    # (fixture lines 40, 219, 249).
+    for s in (
+        "The car has insurance through the dealership.",
+        "The hotel is insured against damage by guests.",
+        "The contractor shall insure that all work complies with fire regulations.",
+        "The auditor shall insure that the accounts are accurate.",
+        "She renewed her car insurance last month.",
+        "The event was insured against cancellation due to weather.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "insurance"] == [], s
+    clauses = [c for c in _clauses(
+        "The Supplier shall maintain professional indemnity insurance of at least USD 1,000,000.",
+    ) if c.clause == "insurance"]
+    assert len(clauses) == 1 and clauses[0].flag == "insurance requirement professional liability"
+
+
+def test_round69_renewal_consumer_motor_policy_renewal_not_term():
+    # Round 69.  "She renewed her car insurance last month" narrates a personal
+    # motor-policy renewal, not a renewal of the agreement's term.  Genuine
+    # term renewals still fire (fixture lines 46, 60, 329).
+    for s in (
+        "She renewed her car insurance last month.",
+        "He renewed the vehicle insurance through his bank.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "renewal"] == [], s
+    clauses = [c for c in _clauses(
+        "The agreement shall renew automatically for successive one-year terms unless either party gives notice.",
+        "Either party may renew this Agreement for an additional term of one year by written notice.",
+    ) if c.clause == "renewal"]
+    assert len(clauses) == 2
