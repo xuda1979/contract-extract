@@ -6830,3 +6830,88 @@ def test_round66_data_protection_administrative_mention_not_pd():
         "The parties shall transfer personal data only under standard contractual clauses.",
     ) if c.clause == "data_protection"]
     assert len(clauses) == 2
+
+
+def test_round67_acceptance_scholarship_award_not_deliverables_acceptance():
+    # Round 67.  "Acceptance of the scholarship was confirmed by email" is an
+    # academic-funding / award decision, not a deliverables acceptance.
+    # Genuine acceptance windows still fire (fixture lines 100, 101, 268).
+    for s in (
+        "Acceptance of the scholarship was confirmed by email.",
+        "Acceptance of the fellowship was announced in May.",
+        "Her acceptance of the award was reported by the university.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "acceptance"] == [], s
+    clauses = [c for c in _clauses(
+        "Buyer has 10 days to inspect and accept each deliverable.",
+        "Final acceptance shall be completed within 60 days following delivery.",
+    ) if c.clause == "acceptance"]
+    assert len(clauses) == 2
+
+
+def test_round67_payment_government_document_fee_not_payment_term():
+    # Round 67.  "He made a payment to renew his passport" is a government /
+    # official-document fee, not a payment term between the parties.
+    # Genuine advance / milestone payment terms still fire.
+    for s in (
+        "He made a payment of USD 50 to renew his passport.",
+        "The visa payment is due before the appointment.",
+        "A payment for the residence permit was processed online.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "payment"] == [], s
+    clauses = [c for c in _clauses(
+        "Buyer shall make an advance payment of 30% upon signing.",
+    ) if c.clause == "payment"]
+    assert len(clauses) == 1
+
+
+def test_round67_penalty_sports_contestants_early_withdrawal():
+    # Round 67.  An on-field tripping sanction, a contest / competition
+    # scoring rule and a banking early-withdrawal product charge are not
+    # default penalties for a contractual breach.  Genuine quantified breach
+    # penalties still fire (fixture lines 7, 11, 19, 98, 135).
+    for s in (
+        "The player received a 5-minute penalty for tripping.",
+        "Contestants face a penalty for breaking the rules.",
+        "The penalty for early withdrawal is three months' interest.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "penalty"] == [], s
+    clauses = [c for c in _clauses(
+        "A late payment penalty of 2% per month shall accrue.",
+        "The Buyer shall pay a penalty of USD 50 per day of delay.",
+    ) if c.clause == "penalty"]
+    assert len(clauses) == 2
+
+
+def test_round67_liability_statutory_allocation_not_agreed_cap():
+    # Round 67.  "Liability for VAT is borne by the customer" and "Product
+    # liability claims are governed by the Act" restate statutory allocation,
+    # not an agreed cap, disclaimer or exclusion.  Genuine caps and
+    # indemnities still fire.
+    for s in (
+        "Liability for VAT is borne by the customer.",
+        "Product liability claims are governed by the Act.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "liability_cap"] == [], s
+    clauses = [c for c in _clauses(
+        "Aggregate liability shall not exceed USD 1,000,000.",
+        "Seller shall indemnify and hold harmless the Buyer.",
+    ) if c.clause == "liability_cap"]
+    assert len(clauses) == 2
+
+
+def test_round67_ip_creator_holds_copyright_not_assignment():
+    # Round 67.  "She holds the copyright in her photographs" states a
+    # creator's factual ownership of a completed work, not a contractual
+    # allocation, assignment or grant between the parties.  Genuine IP
+    # transfer clauses still fire.
+    for s in (
+        "She holds the copyright in her photographs.",
+        "The artist retains copyright in the illustrations.",
+        "He keeps the copyright in his manuscripts.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "ip"] == [], s
+    clauses = [c for c in _clauses(
+        "The patent rights are assigned to the Customer.",
+    ) if c.clause == "ip"]
+    assert len(clauses) == 1

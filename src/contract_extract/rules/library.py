@@ -1608,6 +1608,19 @@ def rule_acceptance(doc, sentences):
             lower,
         ):
             continue
+        # "Acceptance of the scholarship was confirmed by email" is an an
+        # academic-funding / award decision, not a deliverables acceptance.
+        # No fixture mixes acceptance with scholarships, fellowships or
+        # awards (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\bacceptance\s+of\s+(?:the\s+|a\s+|this\s+|an\s+)?"
+            r"(?:scholarship\w*|fellowship\w*|award\w*|bursar\w*|studentship\w*|"
+            r"grants?\b|funding)\b"
+            r"|\b(?:scholarship\w*|fellowship\w*|award\w*|bursar\w*|"
+            r"studentship\w*|grant\w*|funding)\b[^.]{0,35}\baccept(?:ance|ed|ing)?\b",
+            lower,
+        ):
+            continue
         # "She received an acceptance letter from the university" is an
         # admissions / academic decision (a study offer), not a deliverables
         # acceptance.  The trade-finance letter guard above requires a bank /
@@ -2265,6 +2278,17 @@ def rule_payment(doc, sentences):
             lower,
         ):
             continue
+        # "He made a payment to renew his passport" / "visa renewal payment" is
+        # a government / official-document fee (passport, visa, licence
+        # renewal), not a payment term between the parties.  Strong renewal /
+        # passport / visa / permit nouns mark the context; a genuine advance /
+        # milestone payment term still fires.
+        if re.search(
+            r"\bpayment\b[^.]{0,45}\b(?:renew\w*|passport\w*|visa\w*|permit\w*)\b"
+            r"|\b(?:renew\w*|passport\w*|visa\w*|permit\w*)\b[^.]{0,45}\bpayment\b",
+            lower,
+        ):
+            continue
         # "dividend payment", "interest payment", "tax payment" and "benefit
         # payment" name a corporate / securities / tax / welfare event — a
         # dividend being distributed, a bond coupon, or a state levy — not a
@@ -2422,7 +2446,8 @@ def rule_penalty(doc, sentences):
         if re.search(
             r"\bpenalt\w*\b[^.]{0,45}"
             r"\b(?:yellow\s+card|kick|corners?|shot|shots|strikers?|referees?|"
-            r"players?|fouls?|tackles?|pitch|converted|spotted\s+the\s+ball)\b"
+            r"players?|fouls?|tackles?|pitch|converted|spotted\s+the\s+ball|"
+            r"tripp\w*|obstruction|handball|offside|icing|cite\w*|retaliator\w*)\b"
             r"|\b(?:yellow\s+card|red\s+card|referees?|umpires?|strikers?)\b"
             r"[^.]{0,45}\bpenalt\w*\b",
             lower,
@@ -2529,14 +2554,19 @@ def rule_penalty(doc, sentences):
         # "An early withdrawal penalty of 3% of the principal shall apply to
         # deposits withdrawn before maturity" is a banking product term (a
         # CD / deposit early-withdrawal fee), not a default penalty for a
-        # contractual breach.
+        # contractual breach.  The same product frame without an explicit
+        # bank noun — "The penalty for early withdrawal is three months'
+        # interest" — is guarded on the penalty + early-withdrawal + interest
+        # combination alone, which no genuine contractual-default penalty
+        # uses (a breach penalty quantifies a payment, not accruing interest).
         if re.search(
             r"\bpenalt\w*\b[^.]{0,45}\bearly\s+withdraw\w*\b"
             r"|\bearly\s+withdraw\w*\b[^.]{0,45}\bpenalt\w*\b",
             lower,
         ) and re.search(
             r"\b(?:deposit\w*|principal|maturity|savings|account\b|bank\w*|"
-            r"certificate\s+of\s+deposit)\b",
+            r"certificate\s+of\s+deposit)\b"
+            r"|\bpenalt\w*\b[^.]{0,45}\bearly\s+withdraw\w*\b[^.]{0,70}\binterest\b",
             lower,
         ):
             continue
@@ -2646,10 +2676,15 @@ def rule_penalty(doc, sentences):
             continue
         # "A penalty of 5 points applies for each incorrect answer in the
         # quiz" is a competition / exam scoring rule (points for wrong
-        # answers), not a contractual default penalty.
+        # answers), not a contractual default penalty.  "Contestants face a
+        # penalty for breaking the rules" is the same competition / contest
+        # frame with the contest noun before the penalty word, so both word
+        # orders are covered.
         if re.search(
             r"\bpenalt\w*\b[^.]{0,75}"
-            r"\b(?:quiz\w*|contest\w*|competition\w*|exam\w*|answ\w*\s+sheet)\b",
+            r"\b(?:quiz\w*|contest\w*|competition\w*|exam\w*|answ\w*\s+sheet)\b"
+            r"|\b(?:contestant\w*|quiz\w*|contest\w*|competition\w*|exam\w*)\b"
+            r"[^.]{0,75}\bpenalt\w*\b",
             lower,
         ):
             continue
@@ -3056,6 +3091,10 @@ def rule_liability(doc, sentences):
             r"\b(?:defect\w*|manufacturer|consumer|statutory|"
             r"shall\s+follow|rests?\s+with|remains?\s+with)\b"
             r"|\b(?:defect\w*|consumer\w*|liable\s+to\b|manufacturer)\b"
+            r"[^.]{0,45}\bproduct\s+liability\b"
+            r"|\bproduct\s+liability\b[^.]{0,60}\b(?:claims?|govern\w*)\b"
+            r"[^.]{0,45}\bact\b"
+            r"|\bact\b[^.]{0,45}\b(?:claims?|govern\w*)\b"
             r"[^.]{0,45}\bproduct\s+liability\b",
             lower,
         ):
@@ -3343,7 +3382,9 @@ def rule_liability(doc, sentences):
         # fixtures/generate_fixtures.py).
         if re.search(
             r"\b(?:criminal|statutory|fiscal|tax|vat|penal)\s+liability\b"
-            r"|\bliability\b[^.]{0,30}\b(?:offence|offense)\b",
+            r"|\bliability\b[^.]{0,30}\b(?:offence|offense)\b"
+            r"|\bliability\s+(?:for|in\s+respect\s+of)\b[^.]{0,30}\b(?:vat\b|"
+            r"tax\w*|dut\w*|fiscal|stamp\s+duty)\b",
             lower,
         ):
             continue
@@ -4369,6 +4410,27 @@ def rule_ip(doc, sentences):
         if re.search(
             r"\b(?:life|term|duration|period)\s+of\s+(?:the\s+)?copyright\b"
             r"|\bcopyright\b[^.]{0,30}\b(?:life|term|duration)\b",
+            lower,
+        ):
+            continue
+        # "She holds the copyright in her photographs" states a creator's
+        # factual ownership of a completed work (holds/keeps/retains
+        # copyright in creative output), not a contractual allocation,
+        # assignment or grant between the parties.  Genuine allocation
+        # clauses bind future work product ("All intellectual property ...
+        # shall be owned by Client upon full payment" — fixture line 87)
+        # and never phrase ownership as "holds the copyright in"
+        # (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:hold\w*|retain\w*|keep\w*)\s+(?:the\s+|all\s+|any\s+|"
+            r"title\s+in\s+)?copyright\b[^.]{0,45}\bin\b[^.]{0,35}"
+            r"\b(?:photograph\w*|image\w*|pictures?\b|drawing\w*|illustrat\w*|"
+            r"artwork\w*|design\w*|works?\b|manuscript\w*|script\w*|song\w*|"
+            r"compositions?\b)\b"
+            r"|\b(?:photographs?\b|images?\b|pictures?\b|drawing\w*|illustrat\w*|"
+            r"artwork\w*|design\w*|works?\b)\b[^.]{0,35}\bin\b[^.]{0,40}"
+            r"\b(?:hold\w*|retain\w*|keep\w*)\s+(?:the\s+|all\s+|any\s+)?"
+            r"copyright\b",
             lower,
         ):
             continue
