@@ -2136,6 +2136,23 @@ def rule_payment(doc, sentences):
             lower,
         ):
             continue
+        # "dividend payment", "interest payment", "tax payment" and "benefit
+        # payment" name a corporate / securities / tax / welfare event — a
+        # dividend being distributed, a bond coupon, or a state levy — not a
+        # payment term between the parties.  Guarded only as the compound noun
+        # "X payment" (plus "payment of dividend/tax/benefit") so genuine
+        # payment terms survive — notably fixture 151 "In the event of late
+        # payment, interest of 2% per month shall accrue", where "payment"
+        # and "interest" are separate concepts and the line must keep firing.
+        # No fixture line uses these compounds (checked against
+        # fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:dividend\w*|tax\w*|benefit\w*)\s+payment\b"
+            r"|\bpayment\s+of\b[^.]{0,20}\b(?:dividend\w*|tax\w*|benefits?)\b"
+            r"|\binterest\s+payment\b",
+            lower,
+        ):
+            continue
         # find a specific financial term
         pct = _PERCENT_RE.search(sentence)
         amount = _AMOUNT_RE.search(sentence)
@@ -2679,6 +2696,32 @@ def rule_penalty(doc, sentences):
         if re.search(
             r"\bpenalt\w*\b[^.]{0,45}\b(?:drivers?\b|motorists?\b|behind\s+the\s+wheel\b|"
             r"\bat\s+the\s+wheel\b|road\s+safety\b)\b",
+            lower,
+        ):
+            continue
+        # "death penalty", "penalty box", "environmental penalty", "cartel
+        # penalty", "cancellation penalty", "submission penalty", student
+        # withdrawal/ tuition penalties, casino card-counting penalties and
+        # "no-show" booking fees name sporting, criminal, regulatory, journal,
+        # academic or booking charges — not a contractual default remedy.
+        # Genuine fixture penalties ("a late payment penalty of 2% per month",
+        # "liquidated damages ... per day of delay") use none of these frames
+        # and stay live (checked against fixtures/generate_fixtures.py lines
+        # 83/235/313/333).
+        if re.search(
+            r"\bdeath\s+penalt\w*\b"
+            r"|\bpenalt\w*\s+box\b"
+            r"|\benviron\w*\b[^.]{0,35}\bpenalt\w*\b"
+            r"|\bcartel\w*\b[^.]{0,35}\bpenalt\w*\b"
+            r"|\bcancellation\w*\b[^.]{0,35}\bpenalt\w*\b"
+            r"|\bsubmission\w*\b[^.]{0,35}\bpenalt\w*\b"
+            r"|\b(?:student\w*|tuition\w*|enrol\w*)\b[^.]{0,35}\bpenalt\w*\b"
+            r"|\bcasino\w*\b[^.]{0,35}\bpenalt\w*\b"
+            r"|\bcard\s+counting\b[^.]{0,35}\bpenalt\w*\b"
+            r"|\bpenalt\w*\b[^.]{0,35}\b(?:environ\w*|cartel\w*|cancellation\w*|"
+            r"submission\w*|student\w*|tuition\w*|enrol\w*|casino\w*)\b"
+            r"|\bno-show\w*\b[^.]{0,35}\b(?:fee\w*|charge\w*|penalt\w*)\b"
+            r"|\b(?:fee\w*|charge\w*|penalt\w*)\b[^.]{0,35}\bno-show\w*\b",
             lower,
         ):
             continue
@@ -3417,6 +3460,24 @@ def rule_liability(doc, sentences):
         if re.search(
             r"\bdischarg\w*\b[^.]{0,35}\bbankrupt\w*\b"
             r"|\bbankrupt\w*\b[^.]{0,35}\bdischarg\w*\b",
+            lower,
+        ):
+            continue
+        # "liability waiver", "liability release" and "strict liability
+        # offences" name tort / statutory frameworks (a pre-session waiver, a
+        # contractual release, criminal doctrine), not a liability allocation
+        # in the agreement.  Genuine fixture caps and indemnities ("aggregate
+        # liability ... capped at USD 1,000,000", "Provider indemnifies
+        # Client...") use no waiver / release / offence vocabulary and stay
+        # live (checked against fixtures/generate_fixtures.py lines
+        # 84/154/166/184/270).  "offence+" / "offense+" plural forms are
+        # covered explicitly — the earlier regulatory guard (singular
+        # offence/offense) does not match "offences".
+        if re.search(
+            r"\bliab\w*\b[^.]{0,40}\b(?:waivers?\b|releases?\b)\b"
+            r"|\b(?:waivers?\b|releases?\b)\b[^.]{0,40}\bliab\w*\b"
+            r"|\b(?:strict|absolute)\s+liability\b[^.]{0,40}\b(?:offence\w*|offense\w*)\b"
+            r"|\b(?:offence\w*|offense\w*)\b[^.]{0,40}\b(?:strict|absolute)\s+liability\b",
             lower,
         ):
             continue
@@ -5559,6 +5620,21 @@ def rule_termination(doc, sentences):
         if re.search(
             r"\bterminat\w*\b[^.]{0,35}\bnotice\s+period\b"
             r"|\bnotice\s+period\b[^.]{0,35}\bterminat\w*\b",
+            lower,
+        ):
+            continue
+        # "The meeting / program / session / free trial / loop shall
+        # terminate ..." is a process, software or consumer lifecycle ending,
+        # not a termination right under the agreement.  Fixture termination
+        # lines all act on the Agreement/Contract itself ("This Agreement
+        # shall terminate on the expiry...", "Either party may terminate this
+        # Agreement...") and stay live (checked against
+        # fixtures/generate_fixtures.py lines 45/85/135/200/221/254/360).
+        if re.search(
+            r"\bterminat\w*\b[^.]{0,55}\b(?:meeting\w*|program\w*|session\w*|"
+            r"free\s+trial\b|loop\b)\b"
+            r"|\b(?:meeting\w*|program\w*|session\w*|free\s+trial\b|loop\b)\b"
+            r"[^.]{0,55}\bterminat\w*\b",
             lower,
         ):
             continue

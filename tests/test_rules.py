@@ -6517,3 +6517,119 @@ def test_round63_ban_lock_in_and_data_retention_period_not_duration():
         "The term of this Agreement shall be 3 years from the date hereof.",
     ) if c.clause == "duration"]
     assert len(clauses) == 2
+
+
+def test_round64_death_box_environmental_cartel_cancellation_penalties_not_penalty():
+    # Round 64.  Death penalty, penalty box, environmental penalty, cartel
+    # penalty and cancellation penalty name criminal, sporting or regulatory
+    # charges — not a contractual default remedy.  Genuine penalty clauses
+    # still fire (fixture lines 235 and 313).
+    for s in (
+        "The death penalty was abolished in the country.",
+        "The hockey player sat in the penalty box for two minutes.",
+        "The company faces an environmental penalty of EUR 50,000.",
+        "The company paid a cartel penalty of EUR 20 million.",
+        "The hotel charges a cancellation penalty for early check-out.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "penalty"] == [], s
+    clauses = [c for c in _clauses(
+        "A late payment penalty of 2% per month shall apply to overdue invoices.",
+        "The Supplier shall pay liquidated damages of USD 1,000 per day of delay.",
+    ) if c.clause == "penalty"]
+    assert len(clauses) == 2
+
+
+def test_round64_submission_student_casino_no_show_penalties_not_penalty():
+    # Round 64.  Journal submission charges, student withdrawal / tuition
+    # penalties, casino card-counting penalties and no-show booking fees are
+    # not contractual default remedies.  A quantified genuine penalty still
+    # fires (fixture line 333).
+    for s in (
+        "The journal charges a submission penalty of USD 100.",
+        "Students who withdraw late pay a penalty of USD 50.",
+        "The casino raises the penalty for card counting.",
+        "A late fee of USD 25 is charged for no-show reservations.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "penalty"] == [], s
+    clauses = [c for c in _clauses(
+        "Penalties for late delivery apply at the rate of 0.5% per day of the contract value.",
+    ) if c.clause == "penalty"]
+    assert len(clauses) == 1
+
+
+def test_round64_dividend_interest_tax_benefit_payment_not_payment():
+    # Round 64.  Dividend distributions, bond coupons, tax liabilities and
+    # welfare payments describe corporate / securities / state money flows,
+    # not payment terms between the parties.  Genuine payment terms still
+    # fire (fixture lines 220 and 237).
+    for s in (
+        "The company announced a dividend payment of USD 2 per share.",
+        "The bond pays an interest payment of USD 40 every six months.",
+        "The tax payment of USD 5,000 is due by 15 April.",
+        "The benefit payment of USD 1,200 was deposited into the account.",
+        "The transfer payment from the government arrived today.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "payment"] == [], s
+    clauses = [c for c in _clauses(
+        "All fees are payable in advance by credit card.",
+        "Tier 1 fees are payable net 60 days from the invoice date.",
+    ) if c.clause == "payment"]
+    assert len(clauses) == 2
+
+
+def test_round64_meeting_program_session_trial_loop_terminate_not_termination():
+    # Round 64.  A meeting adjourning, a program / session / free trial
+    # ending is a process or consumer lifecycle event, not a termination
+    # right under the agreement.  Genuine termination clauses still fire
+    # (fixture lines 45, 135 and 221).
+    for s in (
+        "The meeting shall terminate after two hours of discussion.",
+        "The program shall terminate when the user closes the window.",
+        "The session shall terminate after 30 minutes of inactivity.",
+        "The free trial shall terminate after 14 days.",
+        "The loop shall terminate when the counter reaches zero.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "termination"] == [], s
+    clauses = [c for c in _clauses(
+        "Either party may terminate this Agreement for convenience upon 30 days notice.",
+        "This Agreement shall terminate on the expiry of the sponsorship period.",
+        "The Company may terminate this Agreement for material breach.",
+    ) if c.clause == "termination"]
+    assert len(clauses) == 3
+
+
+def test_round64_liability_waiver_release_and_strict_liability_offences_not_liability():
+    # Round 64.  A gym waiver, a contractor release and strict liability
+    # criminal doctrine are not contractual liability allocations.  Genuine
+    # caps and indemnities still fire (fixture lines 84, 154 and 270).
+    for s in (
+        "Alpha Ltd is a limited liability company registered in Delaware.",
+        "The gym requires a liability waiver before the first session.",
+        "Strict liability offences do not require proof of intent.",
+        "The contractor must sign a liability release before starting the work.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "liability_cap"] == [], s
+    clauses = [c for c in _clauses(
+        "Each party's aggregate liability under this Agreement is capped at USD 1,000,000.",
+        "Provider indemnifies Client against all claims arising from the Services.",
+    ) if c.clause == "liability_cap"]
+    assert len(clauses) == 2
+
+
+def test_round64_committee_proposal_wide_acceptance_not_acceptance():
+    # Round 64.  A committee endorsement, a job offer, scholarly traction and
+    # an invitation RSVP are not the taking-up of contract deliverables.
+    # Genuine acceptance procedures still fire (fixture lines 132 and 346).
+    for s in (
+        "Acceptance of the committee's proposal was unanimous.",
+        "Her acceptance of the job offer was confirmed by email.",
+        "The theory gained wide acceptance among scientists.",
+        "Acceptance of the invitation does not require a reply.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "acceptance"] == [], s
+    clauses = [c for c in _clauses(
+        "Buyer has 10 days to inspect and accept each deliverable.",
+        "Final acceptance shall be completed within 60 days following delivery.",
+        "The product must pass the acceptance criteria.",
+    ) if c.clause == "acceptance"]
+    assert len(clauses) == 3
