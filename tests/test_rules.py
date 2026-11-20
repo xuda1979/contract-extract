@@ -7183,3 +7183,110 @@ def test_round70_data_protection_bank_transfer_confirmation_not_clause():
         "Personal data may be transferred to processors outside the EEA subject to standard contractual clauses.",
     ) if c.clause == "data_protection"]
     assert len(clauses) == 1
+
+
+def test_round71_payment_car_loan_parking_ticket_and_balance_not_amount():
+    # Round 71.  A buyer's instalment on a consumer car loan, a parking-ticket
+    # payment deadline and a settling "outstanding balance" narrate personal
+    # finance, not a contract price or amount due between commercial parties.
+    for s in (
+        "Her monthly payment on the car loan is 400 dollars.",
+        "Payment for the parking ticket must be made within 14 days.",
+        "The outstanding balance must be settled within 30 days of the invoice date.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "payment"] == [], s
+        assert [c for c in _clauses(s) if c.clause == "price"] == [], s
+    clauses = [c for c in _clauses(
+        "The Customer shall pay the Total Purchase Price within 30 days of the invoice date.",
+    ) if c.clause == "payment"]
+    assert len(clauses) == 1
+
+
+def test_round71_quantity_regulatory_fine_units_not_goods_notice():
+    # Round 71.  "A fine of 100 units per violation" counts regulatory penalty
+    # units, not contracted goods quantities.  A genuine minimum-purchase
+    # quantity clause still fires.
+    for s in (
+        "Violators will be subject to a fine of 100 units per violation.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "quantity"] == [], s
+    clauses = [c for c in _clauses(
+        "Distributor shall purchase a minimum of 1,000 units per year.",
+    ) if c.clause == "quantity"]
+    assert len(clauses) == 1
+
+
+def test_round71_penalty_library_hockey_race_airline_carbon_and_academic():
+    # Round 71.  Library late fees, hockey penalties, race time penalties,
+    # airline cancellation charges, carbon penalties and academic discipline
+    # are all non-contract penalty senses.  A genuine per-day delay penalty
+    # still fires with its amount.
+    for s in (
+        "Customers pay a penalty for returning books late to the library.",
+        "The late fee on the library card is 25 cents per day.",
+        "Players who violate the rules face a 5-minute penalty in the box.",
+        "A 5-minute penalty was given for too many men on the ice.",
+        "A time penalty was added to his final race result.",
+        "The airline charges a penalty for cancelling a non-refundable ticket.",
+        "The bill imposes a carbon penalty on heavy emitters.",
+        "The penalty for plagiarism is expulsion from the university.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "penalty"] == [], s
+    clauses = [c for c in _clauses(
+        "The contract includes a penalty of 500 dollars for each day of delay.",
+    ) if c.clause == "penalty"]
+    assert len(clauses) == 1 and "500" in clauses[0].flag
+
+
+def test_round71_renewal_trees_and_tenant_narration_not_term():
+    # Round 71.  Plants regrowing foliage and a past-tense residential tenancy
+    # narration ("the tenant renewed the lease") are not renewals of the
+    # agreement's term.  Genuine term renewals still fire.
+    for s in (
+        "The trees renew their leaves each spring.",
+        "The tenant renewed the lease for another year.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "renewal"] == [], s
+    clauses = [c for c in _clauses(
+        "The contract is renewable for successive one-year terms.",
+    ) if c.clause == "renewal"]
+    assert len(clauses) == 1
+
+
+def test_round71_exclusivity_product_lifestyle_and_service_not_market():
+    # Round 71.  Product marketing, parenting/recruitment practice, subscriber
+    # tiers, passive distributor licences, venue clientele, retail channels,
+    # personal-therapy relationships, litigation carriage and data-sharing
+    # pacts are all non-contract exclusivity senses.  A genuine exclusive right
+    # to market still fires.
+    for s in (
+        "The boutique sells exclusive designs not found elsewhere.",
+        "She exclusively breastfeeds her baby.",
+        "The company hires exclusively from within.",
+        "This content is exclusive to premium subscribers.",
+        "The drug is licensed exclusively to one distributor.",
+        "The restaurant is known for its exclusive clientele.",
+        "The product is available exclusively on our website.",
+        "She has an exclusive relationship with her therapist.",
+        "He holds exclusive carriage of the litigation for the plaintiff.",
+        "The two studios signed an exclusive agreement to share data.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "exclusivity"] == [], s
+    clauses = [c for c in _clauses(
+        "The seller has an exclusive right to market the invention in Asia.",
+    ) if c.clause == "exclusivity"]
+    assert len(clauses) == 1
+
+
+def test_round71_ip_passive_distributor_licence_not_allocation():
+    # Round 71.  "The drug is licensed exclusively to one distributor" narrates
+    # a passive product-distribution arrangement, not an IP allocation between
+    # the parties of the agreement.  A genuine licence grant still fires.
+    for s in (
+        "The drug is licensed exclusively to one distributor.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "ip"] == [], s
+    clauses = [c for c in _clauses(
+        "The Supplier grants the Customer an exclusive license to use the Software.",
+    ) if c.clause == "ip"]
+    assert len(clauses) == 1

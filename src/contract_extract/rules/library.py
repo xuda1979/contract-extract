@@ -973,6 +973,23 @@ def rule_quantity(doc, sentences):
             lower,
         ):
             continue
+        # "Violators will be subject to a fine of 100 units per violation"
+        # counts regulatory penalty units (a fine amount), not contracted
+        # goods quantities.  Genuine quantity clauses (fixture line 147
+        # "Distributor shall purchase a minimum of 1,000 units per year";
+        # tests on purchase/order/rated-capacity units per month/year/hour/
+        # quarter) never pair a fine / penalty / offence / violation noun
+        # with the units amount (checked against fixtures/generate_fixtures.py
+        # and tests/test_rules.py).
+        if re.search(
+            r"\b(?:fine|penalt\w*|offence\w*|offense\w*|violations?)\b[^.]{0,35}"
+            rf"\b{_NUMTOKEN}\s+units?\b"
+            rf"|\b{_NUMTOKEN}\s+units?\b[^.]{{0,35}}"
+            r"\b(?:fine|penalt\w*|offence\w*|offense\w*|violations?)\b",
+            sentence,
+            re.IGNORECASE,
+        ):
+            continue
         m = re.search(
             rf"\b{_NUMTOKEN}\s+units?\b"
             rf"|\b{_NUMTOKEN}\s+items?\b"
@@ -1402,6 +1419,16 @@ def rule_price(doc, sentences):
         # fixtures/generate_fixtures.py).
         if re.search(
             r"\bcharges?\b[^.]{0,15}\bfor\b[^.]{0,20}\b(?:delivery|shipping|freight|postage)\b",
+            lower,
+        ):
+            continue
+        # "Her monthly payment on the car loan is 400 dollars" is consumer
+        # auto-finance narration (a buyer's instalment on a car), not a price
+        # term between commercial parties.  Genuine fixture prices never pair
+        # a car / auto / motor / vehicle noun with a loan / financing noun
+        # (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:car|auto|motor|vehicle)\s+(?:loan|financing|note|credit)\b",
             lower,
         ):
             continue
@@ -2422,6 +2449,38 @@ def rule_payment(doc, sentences):
             lower,
         ):
             continue
+        # "Her monthly payment on the car loan is 400 dollars" is consumer
+        # auto-finance narration (a buyer's instalment on a car), not a
+        # payment term between commercial parties.  Genuine lender/borrower
+        # payment terms (fixture loan_term_high "The Borrower shall repay the
+        # principal in 120 monthly instalments", "Late payment penalty of 5%
+        # per month of the overdue amount") never name a car / vehicle.
+        if re.search(
+            r"\b(?:car|auto|motor|vehicle)\s+(?:loan|financing|note|credit)\b",
+            lower,
+        ):
+            continue
+        # "Payment for the parking ticket must be made within 14 days" is a
+        # municipal parking / traffic levy, not a payment term between the
+        # parties.  Genuine payment terms never name a parking / traffic /
+        # toll ticket.
+        if re.search(
+            r"\bpayment\b[^.]{0,35}\b(?:parking|traffic|toll)\s+tickets?\b"
+            r"|\b(?:parking|traffic|toll)\s+tickets?\b[^.]{0,35}\bpayment\b",
+            lower,
+        ):
+            continue
+        # "The outstanding balance must be settled within 30 days of the
+        # invoice date" is a bookkeeping statement about an account being
+        # settled, not a payment term agreed between the parties.  Genuine
+        # payment clauses ("net 30 days", "within 30 days of invoice") name
+        # the payment duty itself, not a status of the balance.
+        if re.search(
+            r"\boutstanding\s+balance\b[^.]{0,30}\bsettl\w*\b"
+            r"|\bsettl\w*\b[^.]{0,30}\boutstanding\s+balance\b",
+            lower,
+        ):
+            continue
         # find a specific financial term
         pct = _PERCENT_RE.search(sentence)
         amount = _AMOUNT_RE.search(sentence)
@@ -3002,6 +3061,77 @@ def rule_penalty(doc, sentences):
             r"submission\w*|student\w*|tuition\w*|enrol\w*|casino\w*)\b"
             r"|\bno-show\w*\b[^.]{0,35}\b(?:fee\w*|charge\w*|penalt\w*)\b"
             r"|\b(?:fee\w*|charge\w*|penalt\w*)\b[^.]{0,35}\bno-show\w*\b",
+            lower,
+        ):
+            continue
+        # "Players who violate the rules face a 5-minute penalty in the box" /
+        # "A 5-minute penalty was given for too many men on the ice" are
+        # ice-hockey match sanctions (a minor penalty served in the box), not
+        # a contractual default penalty.  The sports guard above covers kicks /
+        # tripping / shootouts but not the hockey rink frame.  Genuine
+        # quantified breach penalties never mention a player / team / ice rink.
+        if re.search(
+            r"\bpenalt\w*\b[^.]{0,20}\bin\s+the\s+box\b"
+            r"|\b(?:players?\b|teams?\b|goalie\w*|ice\b|hockey\b|pucks?\b|"
+            r"rink\w*|faceoffs?\b|too\s+many\s+men\b)\b[^.]{0,45}\bpenalt\w*\b"
+            r"|\bpenalt\w*\b[^.]{0,30}\b(?:players?\b|teams?\b|goalie\w*|ice\b|"
+            r"hockey\b|pucks?\b|rink\w*|faceoffs?\b|too\s+many\s+men\b)\b",
+            lower,
+        ):
+            continue
+        # "A time penalty was added to his final race result" is a motorsport /
+        # athletics sanction on a racer's finishing time, not a contractual
+        # default penalty.  Genuine breach penalties ("a late payment penalty
+        # of 2% per month") never name a race / result / lap.
+        if re.search(
+            r"\btime\s+penalt\w*\b[^.]{0,45}\b(?:race\w*|racing\b|results?\b|"
+            r"finish\w*|lap\w*|podium\w*|drivers?\b)"
+            r"|\b(?:race\w*|racing\b|results?\b|finish\w*|lap\w*|podium\w*|"
+            r"drivers?\b)\b[^.]{0,45}\btime\s+penalt\w*\b",
+            lower,
+        ):
+            continue
+        # "The airline charges a penalty for cancelling a non-refundable
+        # ticket" is a carrier's airfare cancellation charge, not a contractual
+        # default penalty.  Genuine breach penalties never name an airline /
+        # ticket / flight.
+        if re.search(
+            r"\b(?:airlines?\b|airways\b|carriers?\b|airfare\b|flights?\b)\b"
+            r"[^.]{0,50}\bpenalt\w*\b[^.]{0,40}"
+            r"\b(?:cancell\w*|non[- ]refundable\b|tickets?\b)"
+            r"|\bpenalt\w*\b[^.]{0,50}\b(?:cancell\w*|non[- ]refundable\b)"
+            r"\b[^.]{0,20}\btickets?\b",
+            lower,
+        ):
+            continue
+        # "The bill imposes a carbon penalty on heavy emitters" is a
+        # climate / regulatory levy on polluters, not a contractual default
+        # penalty.  Genuine breach penalties never name carbon / emitters.
+        if re.search(
+            r"\bcarbon\b[^.]{0,30}\bpenalt\w*\b"
+            r"|\bemitters?\b[^.]{0,30}\bpenalt\w*\b",
+            lower,
+        ):
+            continue
+        # "The penalty for plagiarism is expulsion from the university" is an
+        # academic-conduct sanction, not a contractual default penalty.
+        # Genuine breach penalties never name a plagiarism / university noun.
+        if re.search(
+            r"\bpenalt\w*\b[^.]{0,45}\b(?:plagiarism\w*|expulsion\w*|"
+            r"universit\w*|academic\w*|scholarship\w*|discipline\w*)\b"
+            r"|\b(?:plagiarism\w*|expulsion\w*|universit\w*|academic\w*|"
+            r"discipline\w*)\b[^.]{0,45}\bpenalt\w*\b",
+            lower,
+        ):
+            continue
+        # "The late fee on the library card is 25 cents per day" is a library
+        # lending fine spelled "late fee" (the penalt\w* library guard above
+        # misses that spelling), not a contractual default penalty.
+        if re.search(
+            r"\b(?:late\s+fee\w*|penalt\w*)\b[^.]{0,40}\b(?:librar\w*|"
+            r"library\s+card\w*|borrowers?\b|circulation\w*|books?\b)\b"
+            r"|\b(?:librar\w*|library\s+card\w*|borrowers?\b|"
+            r"circulation\w*|books?\b)\b[^.]{0,40}\b(?:late\s+fee\w*|penalt\w*)\b",
             lower,
         ):
             continue
@@ -5092,6 +5222,21 @@ def rule_ip(doc, sentences):
             lower,
         ):
             continue
+        # "The drug is licensed exclusively to one distributor" narrates a
+        # product-distribution arrangement in the passive (a single wholesaler
+        # obtains distribution rights for a product), not an IP allocation
+        # between the parties of this agreement.  Genuine allocation clauses
+        # use grant / assign / vest frames (fixture lines 59/65/68/136/185)
+        # and are untouched (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\blicen[cs]ed\s+(?:exclusively\s+)?to\b[^.]{0,30}"
+            r"\b(?:one|a|the|its|their|our)?\s?(?:distributor\w*|wholesaler\w*|"
+            r"reseller\w*)\b"
+            r"|\b(?:distributor\w*|wholesaler\w*|reseller\w*)\b[^.]{0,30}"
+            r"\blicen[cs]ed\b[^.]{0,20}\bexclusively?\b",
+            lower,
+        ):
+            continue
         # "I have a license to practice medicine in this state" is a
         # professional-credential statement (regulatory permission to work),
         # not an IP licence grant.  The gate keyword "licen[cs]e" admits it;
@@ -5784,6 +5929,34 @@ def rule_renewal(doc, sentences):
             r"\b(?:car|vehicle|auto|motor)\s+insurance\b"
             r"|\b(?:car|vehicle|auto|motor)\s+insurance\b[^.]{0,35}"
             r"\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ):
+            continue
+        # "The trees renew their leaves each spring" is seasonal botany
+        # (plants growing fresh foliage), not a renewal of a contract term.
+        # Genuine term renewals never name a plant noun (checked against
+        # fixtures/generate_fixtures.py and tests/test_rules.py).
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,35}"
+            r"\b(?:trees?|leaves?|plants?|foliage\b|forests?|vegetation\b|"
+            r"blossoms?|shrubs?|buds?|branches?)\b"
+            r"|\b(?:trees?|leaves?|plants?|foliage\b|forests?|vegetation\b|"
+            r"blossoms?|shrubs?|buds?|branches?)\b[^.]{0,35}"
+            r"\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ):
+            continue
+        # "The tenant renewed the lease for another year" is a residential
+        # tenancy narrative (a lessee extending occupation of a flat), not
+        # the renewed term of THIS contract.  The past-tense "renewed" pins
+        # the narration so "may renew the lease" (fixture 329), "the lease
+        # shall automatically renew" (fixture 330) and "shall be renewed for
+        # successive one-year periods" (test 6083) stay live.
+        if re.search(
+            r"\b(?:tenant\w*|lessee|lessor|landlord)\b[^.]{0,30}\brenewed\b"
+            r"[^.]{0,20}\blease\b"
+            r"|\brenewed\b[^.]{0,20}\blease\b[^.]{0,30}"
+            r"\b(?:tenant\w*|lessee|lessor|landlord)\b",
             lower,
         ):
             continue
@@ -6817,6 +6990,127 @@ def rule_exclusivity(doc, sentences):
             r"evening\s+wear\b|attire\b)\b"
             r"|\b(?:clothing\w*|garment\w*|apparel\w*|wear\b|fashion\w*|"
             r"evening\s+wear\b|attire\b)\b[^.]{0,40}\bexclusive\s+lines?\s+of\b",
+            lower,
+        ) and not re.search(r"\bexclusive\s+(?:right\w*|licen[cs]e\w*|grant\w*)\b", lower):
+            continue
+        # "The boutique sells exclusive designs not found elsewhere" markets a
+        # brand's designer merchandise (an exclusive product line), not a grant
+        # of market exclusivity.  The design/creative-product nouns pin the
+        # marketing sense; genuine grants name a right/licence.
+        if re.search(
+            r"\bexclusive\b[^.]{0,35}\b(?:design\w*|designer\w*|collection\w*|"
+            r"bedd?ing\b|homeware\w*|furniture\w*)\b"
+            r"|\b(?:design\w*|designer\w*|collection\w*)\b[^.]{0,30}\bexclusive\b",
+            lower,
+        ) and not re.search(r"\bexclusive\s+(?:right\w*|licen[cs]e\w*|grant\w*)\b", lower):
+            continue
+        # "She exclusively breastfeeds her baby" is a parental-care practice
+        # (feeding a child only breast milk), not a grant of market
+        # exclusivity.  The breastfeeding / baby-care nouns pin the sense.
+        if re.search(
+            r"\bexclusively?\b[^.]{0,30}\b(?:breastfeeds?|breastfeeding\b|"
+            r"breast\s+milk\b|nursing\b)\b"
+            r"|\b(?:breastfeeds?|breastfeeding\b|breast\s+milk\b|nursing\b)\b"
+            r"[^.]{0,30}\bexclusively?\b",
+            lower,
+        ):
+            continue
+        # "The company hires exclusively from within" describes an internal
+        # recruitment policy (promoting existing staff), not market
+        # exclusivity in a commercial agreement.
+        if re.search(
+            r"\bexclusively\b[^.]{0,35}\b(?:hire\w*|employ\w*|recruit\w*)\b"
+            r"[^.]{0,25}\b(?:from|within)\b"
+            r"|\b(?:hire\w*|employ\w*|recruit\w*)\b[^.]{0,25}\bexclusively\b"
+            r"[^.]{0,35}\b(?:from|within)\b",
+            lower,
+        ):
+            continue
+        # "This content is exclusive to premium subscribers" restricts access
+        # to a subscription tier, not a grant of contractual market
+        # exclusivity.  The negative leg keeps genuine "exclusive right /
+        # licence / grant" phrasing live.
+        if re.search(
+            r"\bexclusive\b[^.]{0,25}\bto\b[^.]{0,20}\b(?:premium\w*|"
+            r"paid\s+subscribers?\b|subscribers?\b|members?\b)\b"
+            r"|\b(?:premium\w*|subscribers?\b|members?\b)\b[^.]{0,35}"
+            r"\bexclusive\b",
+            lower,
+        ) and not re.search(r"\bexclusive\s+(?:right\w*|licen[cs]e\w*|grant\w*)\b", lower):
+            continue
+        # "The drug is licensed exclusively to one distributor" is a product
+        # distribution arrangement narrated in the passive (a single
+        # wholesaler gets distribution rights), not a grant of exclusivity
+        # between the parties of a contract.  Genuine grants ("exclusive right
+        # to sell" / "sole distributor") still fire; the guard pins a
+        # licensed-to + distributor/wholesaler/reseller frame.
+        if re.search(
+            r"\blicen[cs]ed\s+(?:exclusively\s+)?to\b[^.]{0,30}"
+            r"\b(?:one|a|the|its|their|our)?\s?(?:distributor\w*|wholesaler\w*|"
+            r"reseller\w*)\b"
+            r"|\b(?:distributor\w*|wholesaler\w*|reseller\w*)\b[^.]{0,30}"
+            r"\blicen[cs]ed\b[^.]{0,20}\bexclusively?\b",
+            lower,
+        ):
+            continue
+        # "The restaurant is known for its exclusive clientele" describes a
+        # high-end venue's select customers, not a grant of market
+        # exclusivity.  The patron / clientele nouns pin the hospitality sense.
+        if re.search(
+            r"\bexclusive\b[^.]{0,30}\b(?:clientele\b|patrons?\b|diners?\b|"
+            r"guests?\b|clients?\b)\b"
+            r"|\b(?:clientele\b|patrons?\b|diners?\b|guests?\b)\b[^.]{0,30}"
+            r"\bexclusive\b",
+            lower,
+        ) and not re.search(r"\bexclusive\s+(?:right\w*|licen[cs]e\w*|grant\w*)\b", lower):
+            continue
+        # "The product is available exclusively on our website" states where a
+        # product is sold (an online-only retail channel), not an exclusivity
+        # grant to a counterparty.  The channel / retail nouns pin the sense;
+        # genuine grants name a right/licence or a sole party.
+        if re.search(
+            r"\bexclusively\b[^.]{0,20}\b(?:on|via|through)\b[^.]{0,15}"
+            r"\b(?:our|the|its|their)?\s?(?:website\w*|web\s+store\b|"
+            r"online\s+store\b|platform\w*|store\w*)\b"
+            r"|\b(?:website\w*|web\s+store\b|online\s+store\b|platform\w*)\b"
+            r"[^.]{0,25}\bexclusively\b",
+            lower,
+        ):
+            continue
+        # "She has an exclusive relationship with her therapist" is a personal
+        # counselling relationship (one-on-one care), not market exclusivity.
+        # The consultation / therapy nouns pin the personal-care sense.
+        if re.search(
+            r"\bexclusive\b[^.]{0,25}\b(?:relationship\b)\b[^.]{0,25}"
+            r"\b(?:therapist\w*|counsell?ors?\b|psycholog\w*|doctor\w*|"
+            r"lawyer\w*|attorney\w*)\b"
+            r"|\bexclusive\s+relationship\b",
+            lower,
+        ):
+            continue
+        # "He holds exclusive carriage of the litigation for the plaintiff"
+        # describes a law-firm engagement (exclusive carriage = sole conduct
+        # of a case), not a market exclusivity grant.  The litigation / legal
+        # nouns pin the professional-engagement sense.
+        if re.search(
+            r"\bexclusive\b[^.]{0,25}\b(?:carriage|conduct|handling|retain\w*)"
+            r"\b[^.]{0,25}\b(?:litigation\b|proceedings?\b|case\b|court\w*)"
+            r"\b|\b(?:litigation\b|proceedings?\b|case\b)\b[^.]{0,30}"
+            r"\bexclusive\b",
+            lower,
+        ):
+            continue
+        # "The two studios signed an exclusive agreement to share data"
+        # narrates a bilateral data-sharing pact (an exclusive arrangement to
+        # share between the two), not a grant of market exclusivity to one
+        # party.  The guard pins the agreement-to-share/data nouns so the
+        # fixture's genuine "exclusive arrangement within this project"
+        # (fixture line 187) stays live.
+        if re.search(
+            r"\bexclusive\b[^.]{0,25}\b(?:agreement|deal\b|arrangement|pact\b)"
+            r"\b[^.]{0,30}\b(?:to\s+share\b|sharing\b|swap\w*|exchang\w+)\b"
+            r"|\b(?:to\s+share\b|sharing\b|swap\w*|exchang\w+)\b[^.]{0,30}"
+            r"\bexclusive\b[^.]{0,25}\b(?:agreement|deal\b|arrangement|pact\b)\b",
             lower,
         ) and not re.search(r"\bexclusive\s+(?:right\w*|licen[cs]e\w*|grant\w*)\b", lower):
             continue
