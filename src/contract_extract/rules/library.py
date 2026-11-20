@@ -614,6 +614,49 @@ def rule_duration(doc, sentences):
             lower,
         ):
             continue
+        # Weather/climate/season "period of N unit" (e.g. rainy period,
+        # monsoon period) reports a natural season, not an agreement term.
+        # Genuine agreement durations never name a weather/climate noun in a
+        # period-of frame (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:rain\w*\b|wet\b|dry\b|monsoon\w*|hail\w*\b|snow\w*\b|"
+            r"harvest\w*|drought\w*|flood\w*|season\w*|hurricane\w*|cyclone\w*)\b"
+            r"[^.]{0,35}\bperiod(?:s)?\b"
+            r"|\bperiod(?:s)?\s+of\b[^.]{0,35}"
+            r"\b(?:monsoon\w*|hurricane\w*|cyclone\w*)\b",
+            lower,
+        ):
+            continue
+        # "She took a career break period of 2 years" / sabbatical / gap-year
+        # describe personal leave, not an agreement term.
+        if re.search(
+            r"\b(?:career\s+break\w*|sabbatical\w*|gap\s+year\w*)\b"
+            r"[^.]{0,25}\bperiod(?:s)?\s+of\b",
+            lower,
+        ):
+            continue
+        # "The bank offered him a loan of 5 years" reports a consumer loan's
+        # repayment span, not an agreement term.  Kept narrow: genuine lender
+        # agreement terms (e.g. "The loan term is 10 years") stay live.
+        if re.search(
+            r"\b(?:bank\w*|lender\w*|credit\s+union\w*)\b[^.]{0,30}\boffer\w*\b"
+            r"[^.]{0,25}\bloan\s+of\b",
+            lower,
+        ):
+            continue
+        # "The president's term of office is 4 years" reports a political
+        # office duration, not an agreement term.
+        if re.search(r"\bterm\s+of\s+office\b", lower):
+            continue
+        # "The Olympic games were held over a period of 16 days" reports a
+        # sporting event's span, not an agreement term.
+        if re.search(
+            r"\b(?:olympic\w*|games?\b|tournament\w*|world\s+cup\w*|"
+            r"sport\w*\b|marathon\w*\b|athlet\w*\b|championship\w*)\b"
+            r"[^.]{0,35}\bover\s+a\s+period\s+of\b",
+            lower,
+        ):
+            continue
         m = _DUR_PAT1.search(sentence) or _DUR_PAT4.search(sentence) or _DUR_PAT5.search(sentence)
         if not m:
             continue
@@ -863,6 +906,15 @@ def rule_quantity(doc, sentences):
         if re.search(
             r"\b\d+(?:[.,]\d+)?\s+units?\s+of\b[^.]{0,35}"
             r"\b(?:cargo|freight|container\w*)\b",
+            lower,
+        ):
+            continue
+        # "The convoy was divided into 4 units for the march" reports a
+        # logistical split (number of units into which something is divided),
+        # not a contracted goods quantity commitment.  Genuine quantity
+        # commitments never use a "divided into N units" frame.
+        if re.search(
+            r"\bdivided\s+into\b[^.]{0,45}\b\d+(?:[.,]\d+)?\s+units?\b",
             lower,
         ):
             continue
@@ -2478,6 +2530,18 @@ def rule_payment(doc, sentences):
         if re.search(
             r"\boutstanding\s+balance\b[^.]{0,30}\bsettl\w*\b"
             r"|\bsettl\w*\b[^.]{0,30}\boutstanding\s+balance\b",
+            lower,
+        ):
+            continue
+        # "The film series consists of 7 installments" / anthology describes
+        # the structure of content (episodes/volumes delivered serially), not
+        # a payment instalment schedule.  Genuine instalment schedules tie
+        # payments/principal/balance to a count, never a content noun.
+        if re.search(
+            r"\b(?:film\w*|series\b|anthology\w*|broadcast\w*|cable\b|"
+            r"episode\w*|season\w*)\b[^.]{0,20}\bconsists?\s+of\b"
+            r"[^.]{0,25}\b\d{1,4}\s+(?:monthly|weekly|quarterly|annual)?\s*"
+            r"instal+ments?\b",
             lower,
         ):
             continue
@@ -4466,6 +4530,67 @@ def rule_confidentiality(doc, sentences):
             lower,
         ):
             continue
+        # "She told me confidentially that she plans to resign" / "The two
+        # ministers met confidentially" narrate a past private conversation
+        # (the adverb describes HOW the words/message were delivered), not a
+        # standing secrecy duty between contracting parties.  Genuine NDA
+        # wording ("shall keep confidential") uses the adjective + obligation
+        # modal, never the -ly adverb as a delivery style.  The adverb
+        # narration frames are spelled out (told/spoke/met/discussed/
+        # talking/sharing) so a genuine "The parties agree to discuss pricing
+        # confidentially" style clause — if it ever fired — would still
+        # require the modal to be absent here.  Zero fixture lines use the
+        # adverb (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:told\b|spoke\b|met\b|discussed\b|talking\b|sharing\b)"
+            r"[^.]{0,35}\bconfidentially\b"
+            r"|\bconfidentially\b[^.]{0,35}\b(?:told\b|spoke\b|met\b|discussed\b)"
+            r"(?:[^;.!?]{0,30}$)",
+            lower,
+        ):
+            if not re.search(r"\bshall\b|\bmust\b|\bwill\b|\bagree\w*\b", lower):
+                continue
+        # "The paint mixture is a confidential shade of blue" uses "confidential
+        # shade" as a proprietary paint color, not a secrecy duty.  Kept narrow
+        # to a shade + color/material-noun frame.
+        if re.search(
+            r"\bconfidential\s+shade\b[^.]{0,20}\b(?:blue\b|colour\w*|color\w*|"
+            r"green\b|red\b|paint\w*|mixture\w*|shade\w*)\b"
+            r"|\b(?:blue\b|colour\w*|color\w*|green\b|red\b|paint\w*|mixture\w*)\b"
+            r"[^.]{0,20}\bconfidential\s+shade\b",
+            lower,
+        ):
+            continue
+        # "She kept her job search confidential from her colleagues" narrates a
+        # personal privacy choice, not a duty owed to a counterparty.  The
+        # personal-subject nouns (job search / personal / private / career /
+        # relationship / health / plans) pin it away from genuine NDA language
+        # ("shall keep all business information confidential", fixture 119).
+        if re.search(
+            r"\b(?:kept|keeps?|keep)\b[^.]{0,30}\b(?:job\s+search\w*|personal\b|"
+            r"private\b|career\w*|relationship\w*|health\w*|plans?\b)\b"
+            r"[^.]{0,20}\bconfidential\b",
+            lower,
+        ):
+            continue
+        # "The bank guarantees that your account details remain confidential"
+        # is a banking-service consumer assurance, not an inter-party secrecy
+        # duty.  Genuine NDA language does not name an account-details frame.
+        if re.search(
+            r"\baccount\s+details?\b[^.]{0,35}\bconfidential\b"
+            r"|\bconfidential\b[^.]{0,35}\baccount\s+details?\b",
+            lower,
+        ):
+            continue
+        # "The postcard carried a confidential message from her cousin" is a
+        # personal carrier-note frame (postcard/letter/note/correspondence),
+        # not a secrecy duty.
+        if re.search(
+            r"\b(?:postcard\w*|letter\w*|note\b|correspondence\w*)\b"
+            r"[^.]{0,35}\bconfidential\s+message\b",
+            lower,
+        ):
+            continue
         # "A confidential report was leaked to the press" narrates a past
         # disclosure episode, not a standing secrecy duty.  The guard needs the
         # leak/divulge verb AND a public-dissemination target (press/public/
@@ -5492,6 +5617,22 @@ def rule_renewal(doc, sentences):
             r"declaration\w*|commitment\s+statement|principles?)\b[^.]{0,30}"
             r"\b(?:commitment\w*|pledge\w*)\b[^.]{0,45}"
             r"\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ):
+            continue
+        # "The app asked her to renew her login session" is a software session
+        # refresh, not a term renewal.  Kept narrow to login/session nouns and
+        # requires no agreement-class noun in the sentence so genuine term
+        # renewals ("the Lessee shall have the right to renew the Lease") stay
+        # live.
+        if re.search(
+            r"\brenew(?:al|s|ing|ed|able)?\b[^.]{0,40}\b(?:login\b|log\s*ins?\b|"
+            r"session\w*)\b|\b(?:login\b|log\s*ins?\b|session\w*)\b[^.]{0,40}"
+            r"\brenew(?:al|s|ing|ed|able)?\b",
+            lower,
+        ) and not re.search(
+            r"\b(?:agreement\b|contract\b|lease\b|licen[cs]e\b|term\b|"
+            r"subscription\b)\b",
             lower,
         ):
             continue
@@ -6619,6 +6760,44 @@ def rule_exclusivity(doc, sentences):
             r"pre[- ]?emption|change\s+of\s+control|first\s+refusal)\b",
             lower,
         ):
+            continue
+        # "The club's exclusivity is its biggest draw" describes a venue's /
+        # club's appeal (what attracts membership), not a market exclusivity
+        # grant between parties.
+        if re.search(
+            r"\bexclusivity\b[^.]{0,25}\b(?:biggest|main|key|primary|greatest)\s+"
+            r"(?:draw\b|selling\s+point\b|benefit\b|appeal\b)\b",
+            lower,
+        ):
+            continue
+        # "The resort occupies an exclusive stretch of coastline" is a
+        # real-estate location adjective, not a market right.
+        if re.search(
+            r"\bexclusive\s+stretch\b[^.]{0,25}\b(?:coastline\w*|beach\w*|"
+            r"shore\w*|peninsula\w*|waterfront\w*)\b"
+            r"|\b(?:coastline\w*|beach\w*|shore\w*|peninsula\w*|waterfront\w*)\b"
+            r"[^.]{0,25}\bexclusive\s+stretch\b",
+            lower,
+        ):
+            continue
+        # "She writes exclusively for fashion magazines" restricts where
+        # writing/publishing appears (a journalist's working arrangement), not
+        # a market exclusivity grant to sell, license or distribute.  Genuine
+        # market rights ("exclusive right to sell") still fire — they do not
+        # pair an exclusively-publication frame.
+        if re.search(
+            r"\b(?:writes?\b|writing\b|published\b|report(?:ing|s|ed|er)?\b)"
+            r"\s+(?:exclusively|exclusive|solely)\b[^.]{0,30}"
+            r"\b(?:magazine\w*|journal\w*|newspaper\w*|publication\w*|"
+            r"column\w*|fashion\w*)\b",
+            lower,
+        ):
+            continue
+        # "The store had an exclusive on the limited edition sneakers" is a
+        # retail stocking exclusive (carrying an item nobody else sells), not
+        # a rights grant to sell, license or distribute.  Genuine "exclusive
+        # right to sell" wording lacks "had an exclusive on".
+        if re.search(r"\b(?:has|had)\s+an\s+exclusive\s+on\b", lower):
             continue
         # "The trust estate shall be held for the exclusive benefit of the
         # beneficiaries" is a fiduciary/trust obligation (assets for the
@@ -9448,6 +9627,132 @@ def rule_insurance(doc, sentences):
             if re.search(
                 r"\brenew\w*\b[^.]{0,35}\b(?:car|vehicle|auto|motor)\s+insurance\b"
                 r"|\b(?:car|vehicle|auto|motor)\s+insurance\b[^.]{0,35}\brenew\w*\b",
+                lower,
+            ):
+                continue
+            # "Her grandmother's life insurance policy paid for the funeral"
+            # recounts how a personal policy's payout was used between an
+            # insured and their beneficiary — not an inter-party obligation to
+            # procure cover.  Genuine coverage obligations ("shall maintain
+            # professional indemnity insurance") still fire — the negative leg
+            # keeps maintain/procure/obtain/take-out/carry untouched.
+            if re.search(
+                r"\blife\s+insurance\b[^.]{0,45}"
+                r"\b(?:paid\s+for|funeral|beneficiar\w*|estate)\b"
+                r"|\b(?:paid\s+for|funeral|beneficiar\w*|estate)\b[^.]{0,45}"
+                r"\blife\s+insurance\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|obtain\w*|tak(?:e|ing|en)\s+out|"
+                r"carr(?:y|ies|ied))\b[^.]{0,40}\binsurance\b",
+                lower,
+            ):
+                continue
+            # "Car insurance is mandatory for all drivers in this state" is a
+            # statutory / regulatory requirement on motorists, not an
+            # inter-party coverage obligation.  A genuine "shall maintain
+            # vehicle insurance" duty has no mandatory/compulsory frame.
+            if re.search(
+                r"\b(?:car|auto|motor|vehicle)\s+insurance\b[^.]{0,40}"
+                r"\b(?:mandatory|compulsory|required?\s+(?:by\s+law|for|under)|"
+                r"legal\s+requirement)\b"
+                r"|\b(?:mandatory|compulsory)\b[^.]{0,40}"
+                r"\b(?:car|auto|motor|vehicle)\s+insurance\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|obtain\w*|tak(?:e|ing|en)\s+out|"
+                r"carr(?:y|ies|ied))\b[^.]{0,40}\binsurance\b",
+                lower,
+            ):
+                continue
+            # "Insurance protection gave the village a sense of security" uses
+            # the abstract noun "insurance protection" as a benefit concept,
+            # not a procurement duty.  Genuine obligations ("shall maintain
+            # ... insurance") have no "insurance protection" compound.
+            if re.search(r"\binsurance\s+protection\b", lower) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|obtain\w*|tak(?:e|ing|en)\s+out|"
+                r"carr(?:y|ies|ied))\b[^.]{0,40}\binsurance\b",
+                lower,
+            ):
+                continue
+            # "The rise in insurance costs is hurting small businesses" is a
+            # market / cost-trend observation (the existing cost guard at the
+            # health/car/life-insurance-cost level misses the bare "insurance
+            # costs" frame), not a coverage obligation.  The guard pins the
+            # trend vocabulary so a cost-allocation clause ("share the
+            # insurance costs") survives.
+            if re.search(
+                r"\binsurance\s+costs?\b[^.]{0,35}"
+                r"\b(?:rise|rising|rose|risen|increas\w*|climb\w*|surge\w*|"
+                r"fell|falling|fallen|dropped?|declin\w*|hurting|raising)\b"
+                r"|\b(?:rise|increas\w*)s?\s+in\b[^.]{0,15}\binsurance\s+costs?\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|obtain\w*|tak(?:e|ing|en)\s+out|"
+                r"carr(?:y|ies|ied))\b[^.]{0,40}\binsurance\b",
+                lower,
+            ):
+                continue
+            # "The insurance exam requires 40 hours of study" names the
+            # professional licensing / qualification regime (a credentialing
+            # step), not an inter-party coverage obligation.
+            if re.search(
+                r"\binsurance\b[^.]{0,25}\b(?:exam\w*|course\w*|study|"
+                r"qualification\w*|licens\w*|certification\w*|training|degre\w*)\b"
+                r"|\b(?:exam\w*|course\w*|study|qualification\w*|licens\w*|"
+                r"certification\w*|training|degre\w*)\b[^.]{0,25}\binsurance\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|obtain\w*|tak(?:e|ing|en)\s+out|"
+                r"carr(?:y|ies|ied))\b[^.]{0,40}\binsurance\b",
+                lower,
+            ):
+                continue
+            # "Insurance coverage of the exhibition was arranged by the
+            # museum" is event / venue insurance narration (who arranged cover
+            # for an exhibition), not an inter-party coverage obligation
+            # between the reviewed parties.  A genuine obligation
+            # ("shall maintain its own insurance coverage for its employees
+            # and property") carries maintain/provide verbs and stays live.
+            if re.search(
+                r"\binsurance\s+coverage\b[^.]{0,40}"
+                r"\b(?:exhibition\w*|event\w*|festival\w*|concert\w*|museum\w*|"
+                r"wedding\w*|conference\w*|arrang\w*|hosted?\b|sponsor\w*)\b"
+                r"|\b(?:exhibition\w*|event\w*|festival\w*|concert\w*|museum\w*|"
+                r"wedding\w*|conference\w*|arrang\w*|hosted?\b|sponsor\w*)\b"
+                r"[^.]{0,40}\binsurance\s+coverage\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|obtain\w*|tak(?:e|ing|en)\s+out|"
+                r"carr(?:y|ies|ied)|provid\w*|furnish\w*|oblig\w*)\b"
+                r"[^.]{0,40}\binsurance\b",
+                lower,
+            ):
+                continue
+            # "The policy's insurance rider added flood protection to the
+            # house" describes a policy endorsement / rider on a personal
+            # policy, not an inter-party coverage obligation.
+            if re.search(
+                r"\binsurance\s+rider\b[^.]{0,35}"
+                r"\b(?:add\w*|flood|protect\w*|cover\w*|endorsement\w*)\b"
+                r"|\b(?:rider|endorsement\w*)\b[^.]{0,35}\binsurance\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:maintain\w*|procure\w*|obtain\w*|tak(?:e|ing|en)\s+out|"
+                r"carr(?:y|ies|ied))\b[^.]{0,40}\binsurance\b",
+                lower,
+            ):
+                continue
+            # "The charity auction organizer took out insurance on the donated
+            # paintings" is a one-off procurement of cover over a specific
+            # object / event (past tense, "on" object), not an ongoing
+            # inter-party duty.  A genuine "shall take out insurance for the
+            # Goods" obligation carries shall/must and stays live.
+            if re.search(
+                r"\btook\s+out\s+insurance\b[^.]{0,40}\bon\b",
+                lower,
+            ) and not re.search(
+                r"\b(?:shall|must|will|oblig\w*|require\w*)\b",
                 lower,
             ):
                 continue

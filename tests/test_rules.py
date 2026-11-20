@@ -7290,3 +7290,130 @@ def test_round71_ip_passive_distributor_licence_not_allocation():
         "The Supplier grants the Customer an exclusive license to use the Software.",
     ) if c.clause == "ip"]
     assert len(clauses) == 1
+
+
+def test_round72_duration_weather_career_loan_office_sport_periods_not_term():
+    # Round 72.  Weather/climate seasons, personal career breaks, consumer
+    # loans, political office terms and sporting-event spans all report their
+    # own "period of N unit" — none is an agreement term.  A genuine
+    # agreement-duration clause still fires.
+    for s in (
+        "The rainy period of the region is 4 months.",
+        "The monsoon period in the city runs for 3 months.",
+        "She took a career break period of 2 years to travel.",
+        "He took a sabbatical for a period of 1 year.",
+        "The bank offered him a loan of 5 years.",
+        "The credit union offered her a loan of 3 years.",
+        "The president's term of office is 4 years.",
+        "The prime minister's term of office shall be 5 years.",
+        "The Olympic games were held over a period of 16 days.",
+        "The marathon race was contested over a period of 2 days.",
+        "The football tournament ran over a period of 4 weeks.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "duration"] == [], s
+    clauses = [c for c in _clauses(
+        "The term of this Agreement shall be for a period of 2 years.",
+    ) if c.clause == "duration"]
+    assert len(clauses) == 1
+    clauses = [c for c in _clauses(
+        "The loan term is 10 years.",
+    ) if c.clause == "duration"]
+    assert len(clauses) == 1
+
+
+def test_round72_quantity_divided_into_units_not_commitment():
+    # Round 72.  "The convoy was divided into 4 units" counts a logistical
+    # split, not a contracted goods quantity.  A genuine minimum-purchase
+    # quantity clause still fires.
+    for s in (
+        "The convoy was divided into 4 units for the march.",
+        "The class was divided into 6 units for the drill.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "quantity"] == [], s
+    clauses = [c for c in _clauses(
+        "The Buyer shall purchase a total of 500 units each year.",
+    ) if c.clause == "quantity"]
+    assert len(clauses) == 1
+
+
+def test_round72_payment_media_series_installments_not_schedule():
+    # Round 72.  "The film series consists of 7 installments" describes the
+    # structure of serial content, not a payment instalment schedule.  A
+    # genuine instalment schedule still fires.
+    for s in (
+        "The film series consists of 7 installments.",
+        "The anthology consists of 12 installments spanning a decade.",
+        "The television series consists of 8 installments in its first season.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "payment"] == [], s
+    clauses = [c for c in _clauses(
+        "The Buyer shall pay the price in 6 monthly instalments.",
+    ) if c.clause == "payment"]
+    assert len(clauses) == 1
+
+
+def test_round72_renewal_login_session_not_term():
+    # Round 72.  "The app asked her to renew her login session" is a software
+    # session refresh, not a term renewal.  Genuine term renewals (with an
+    # agreement/lease/term noun) still fire.
+    for s in (
+        "The app asked her to renew her login session.",
+        "He needs to renew his user session after the timeout.",
+        "The website prompted me to log in again to renew the session.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "renewal"] == [], s
+    clauses = [c for c in _clauses(
+        "The Lessee shall have the right to renew the Lease for a further term of 2 years.",
+    ) if c.clause == "renewal"]
+    assert len(clauses) == 1
+
+
+def test_round72_confidentiality_adverb_shade_kept_account_postcard_not_duty():
+    # Round 72.  Narrated private conversations, a paint "confidential shade",
+    # a personal "kept ... confidential" choice, a banking account-details
+    # assurance and a postcard message are not secrecy duties owed to a
+    # counterparty.  Genuine NDA wording still fires.
+    for s in (
+        "She told me confidentially that she plans to resign.",
+        "The two ministers met confidentially to discuss the budget.",
+        "The witness spoke confidentially to the police about the robbery.",
+        "The paint mixture is a confidential shade of blue.",
+        "The wall was painted a confidential shade of green.",
+        "She kept her job search confidential from her colleagues.",
+        "He kept his career plans confidential from his family.",
+        "The bank guarantees that your account details remain confidential.",
+        "Your account details shall remain confidential within our banking group.",
+        "The postcard carried a confidential message from her cousin.",
+        "Her letter contained a confidential message about the reunion.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "confidentiality"] == [], s
+    clauses = [c for c in _clauses(
+        "The Recipient shall keep all confidential information secret during the term of this Agreement.",
+    ) if c.clause == "confidentiality"]
+    assert len(clauses) == 1
+    clauses = [c for c in _clauses(
+        "The parties shall keep all business information confidential for 2 years.",
+    ) if c.clause == "confidentiality"]
+    assert len(clauses) == 1
+
+
+def test_round72_exclusivity_draw_stretch_writes_retail_not_market_right():
+    # Round 72.  A club's "exclusivity ... draw", a real-estate "exclusive
+    # stretch of coastline", a journalist "writes exclusively for ... magazine"
+    # and a retail "exclusive on" stock item are not market grants to sell,
+    # license or distribute.  Genuine market exclusivity still fires.
+    for s in (
+        "The club's exclusivity is its biggest draw.",
+        "The venue's exclusivity remains its main selling point.",
+        "The resort occupies an exclusive stretch of coastline.",
+        "The villa sits on an exclusive stretch of waterfront.",
+        "She writes exclusively for fashion magazines.",
+        "He reports exclusively for the national newspaper.",
+        "The store had an exclusive on the limited edition sneakers.",
+        "The boutique has an exclusive on that designer's handbags.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "exclusivity"] == [], s
+    clauses = [c for c in _clauses(
+        "The Company grants Distributor the exclusive right to sell the Products in Asia.",
+    ) if c.clause == "exclusivity"]
+    assert len(clauses) == 1
