@@ -1660,6 +1660,31 @@ def rule_delivery(doc, sentences):
             lower,
         ):
             continue
+        # "The key must be delivered within 3 days of check-out", "Food
+        # delivery was promised in the advertisement", "The bakery offers cake
+        # delivery", "The furniture store offered free delivery of sofas", "The
+        # pharmacy offers medicine delivery", "The band announced the delivery
+        # of their new album" and "Her thesis will be delivered per the
+        # graduate school rules" are consumer / household / coursework
+        # promises, not inter-party goods delivery obligations.  Genuine
+        # deliveries ("The Supplier shall deliver all hardware within 30 days
+        # of the Order") still fire — the guard binds the deliver verb to a
+        # consumer/household target noun.  Zero fixture lines use this frame
+        # (checked against fixtures/generate_fixtures.py).
+        if re.search(
+            r"\b(?:deliver(?:s|ed|y|ing)?\b|delivery\s+of\b|delivery\b)[^.]{0,45}"
+            r"\b(?:keys?\b|check[\s-]*outs?\b|food\b|meals?\b|drinks?\b|"
+            r"cakes?\b|bakery\w*|bakeries\b|furniture\b|sofas?\b|"
+            r"pharmacy\w*|pharmacies\b|medicines?\b|medications?\b|albums?\b|"
+            r"theses?\b|dissertation\w*|thesis\w*)\b"
+            r"|\b(?:food\b|meals?\b|cakes?\b|bakery\w*|bakeries\b|furniture\b|"
+            r"sofas?\b|pharmacy\w*|pharmacies\b|medicines?\b|"
+            r"medications?\b|albums?\b|theses?\b|dissertation\w*|thesis\w*|"
+            r"keys?\b|check[\s-]*outs?\b)\b[^.]{0,45}"
+            r"\b(?:deliver(?:s|ed|y|ing|ies)?)\b",
+            lower,
+        ):
+            continue
         m = re.search(
             rf"\bwithin\s+({_NUMTOKEN})\s*(?:business|working|calendar)?\s*(day|week|month)s?\b"
             rf"|\bat\s+least\s+({_NUMTOKEN})\s+days?\s+before\b"
@@ -1880,6 +1905,36 @@ def rule_acceptance(doc, sentences):
             r"|\bacceptance\b[^.]{0,30}\b(?:social|public\b|market\b|"
             r"widespread|cultural|societal|political|general|popular|"
             r"broader?|audience|wide\b)\b",
+            lower,
+        ):
+            continue
+        # "The crowd gave the band a warm acceptance", "The theory gained
+        # acceptance among physicists", "His acceptance at the university was
+        # confirmed by mail", "The coach praised the team's acceptance of the
+        # new tactics", "The audience roared acceptance of the final song" and
+        # "The union rejected the acceptance of the pay offer" are social,
+        # emotional, academic or labour-relations reactions to a person, idea
+        # or artwork — not the taking-up of contract deliverables.  Genuine
+        # acceptance windows ("final acceptance test within 10 days of
+        # installation", "10 days to inspect and accept each deliverable")
+        # still fire: the guard pins "acceptance" to an emotional modifier, a
+        # gaining/roaring/rejecting verb, an academic placement, an abstract
+        # tactics/idea object, or a union/pay frame.  Zero fixture lines use
+        # any of these frames (checked against generate_fixtures.py).
+        if re.search(
+            r"\b(?:warm|enthusiastic\w*|unanimous|wholehearted|hearty|"
+            r"reluctan\w*|grudging|overwhelming)\s+acceptance\b"
+            r"|\b(?:gained?|won|finds?|enjoys?)\s+acceptance\b[^.]{0,20}"
+            r"\b(?:among|from|by)\b"
+            r"|\bacceptance\s+(?:at|by\s+mail|letter\s+from)\b"
+            r"[^.]{0,20}\b(?:university\w*|colleges?\b|school\w*|programmes?|"
+            r"programs?)\b"
+            r"|\b(?:roared?|shouted?|cheered?)\s+acceptance\b"
+            r"|\bacceptance\s+of\b[^.]{0,30}"
+            r"\b(?:tactics?\b|approaches?\b|practices?\b|ideas?\b|policies?\b|"
+            r"songs?\b|performances?\b|speeches?\b|music\b)\b"
+            r"|\b(?:union|labou?r)\b[^.]{0,35}\bacceptance\b[^.]{0,25}"
+            r"\b(?:pay|wage|salary|offer|deal)\b",
             lower,
         ):
             continue
@@ -3473,6 +3528,22 @@ def rule_liability(doc, sentences):
             r"\b(?:regime\w*|covered\s+by|subject\s+to)\b"
             r"|\b(?:regime\w*|covered\s+by|subject\s+to)\b[^.]{0,45}"
             r"\b(?:strict|absolute)\s+liability\b",
+            lower,
+        ):
+            continue
+        # "Liability for the oil spill fell on the tanker's owner" allocates
+        # responsibility for a past incident to a factual outcome (who bore
+        # the loss), not an agreed cap, disclaimer or exclusion in the
+        # contract.  Genuine caps ("aggregate liability shall not exceed the
+        # total fees paid") still fire — the guard requires the past-tense
+        # allocation verb (fell on / rested with / lay with) bound to
+        # "liability".  Zero fixture lines use this frame (checked against
+        # generate_fixtures.py).
+        if re.search(
+            r"\bliability\b[^.]{0,45}"
+            r"\b(?:fell\s+on|rested\s+with|lay\s+with)\b"
+            r"|\b(?:fell\s+on|rested\s+with|lay\s+with)\b[^.]{0,45}"
+            r"\bliability\b",
             lower,
         ):
             continue

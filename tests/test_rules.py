@@ -7417,3 +7417,59 @@ def test_round72_exclusivity_draw_stretch_writes_retail_not_market_right():
         "The Company grants Distributor the exclusive right to sell the Products in Asia.",
     ) if c.clause == "exclusivity"]
     assert len(clauses) == 1
+
+
+def test_round73_household_delivery_promises_not_obligations():
+    # Round 73.  Consumer / household / coursework promises (key check-out,
+    # food/cake/furniture/pharmacy deliveries, album or thesis delivery) do
+    # not create an inter-party goods delivery obligation.  Genuine supplier
+    # deliveries still fire.
+    for s in (
+        "The key must be delivered within 3 days of check-out.",
+        "Food delivery was promised in the advertisement.",
+        "The bakery offers cake delivery within 2 days.",
+        "The furniture store offered free delivery of sofas.",
+        "The pharmacy offers medicine delivery.",
+        "The band announced the delivery of their new album.",
+        "Her thesis will be delivered per the graduate school rules.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "delivery"] == [], s
+    clauses = [c for c in _clauses(
+        "Seller shall deliver the goods within 30 days of the purchase order.",
+    ) if c.clause == "delivery"]
+    assert clauses and clauses[0].risk.value == "LOW"
+
+
+def test_round73_emotional_academic_acceptance_not_deliverables():
+    # Round 73.  Social / emotional / academic / labour-relations reactions
+    # to a person, idea or artwork are not the taking-up of contract
+    # deliverables.  Genuine acceptance windows still fire.
+    for s in (
+        "The crowd gave the band a warm acceptance within 10 days.",
+        "The theory gained acceptance among physicists.",
+        "His acceptance at the university was confirmed by mail.",
+        "The coach praised the team's acceptance of the new tactics.",
+        "The audience roared acceptance of the final song.",
+        "The union rejected the acceptance of the pay offer.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "acceptance"] == [], s
+    clauses = [c for c in _clauses(
+        "The final acceptance test shall be completed within 10 days of installation.",
+    ) if c.clause == "acceptance"]
+    assert len(clauses) == 1
+
+
+def test_round73_incident_liability_allocation_not_a_cap():
+    # Round 73.  A past-tense allocation of responsibility for an incident
+    # (who bore the loss) is not an agreed cap, disclaimer or exclusion.
+    # Genuine aggregate caps still fire.
+    for s in (
+        "Liability for the oil spill fell on the tanker's owner.",
+        "Ultimately, liability rested with the contractor.",
+        "Responsibility for the defect lay with the supplier.",
+    ):
+        assert [c for c in _clauses(s) if c.clause == "liability_cap"] == [], s
+    clauses = [c for c in _clauses(
+        "The aggregate liability shall not exceed the total fees paid under this Agreement.",
+    ) if c.clause == "liability_cap"]
+    assert len(clauses) == 1
